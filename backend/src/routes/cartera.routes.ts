@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 import { cxc, cxp } from "../controllers/cartera.controller.js";
 
 const router = Router();
@@ -7,17 +7,17 @@ const router = Router();
 router.use(requireAuth);
 
 router.get("/cxc", cxc.listar);
-router.post("/cxc", cxc.crear);
+router.post("/cxc", requireRole("ADMIN", "CONTADOR"), cxc.crear);
 router.get("/cxc/:id", cxc.detalle);
-router.patch("/cxc/:id", cxc.actualizar);
-router.delete("/cxc/:id", cxc.eliminar);
-router.post("/cxc/:id/recibos", cxc.abonar);
+router.patch("/cxc/:id", requireRole("ADMIN", "CONTADOR"), cxc.actualizar);
+router.delete("/cxc/:id", requireRole("ADMIN", "CONTADOR"), cxc.eliminar);
+router.post("/cxc/:id/recibos", requireRole("ADMIN", "CONTADOR"), cxc.abonar);
 
 router.get("/cxp", cxp.listar);
-router.post("/cxp", cxp.crear);
+router.post("/cxp", requireRole("ADMIN", "CONTADOR"), cxp.crear);
 router.get("/cxp/:id", cxp.detalle);
-router.patch("/cxp/:id", cxp.actualizar);
-router.delete("/cxp/:id", cxp.eliminar);
-router.post("/cxp/:id/pagos", cxp.abonar);
+router.patch("/cxp/:id", requireRole("ADMIN", "CONTADOR"), cxp.actualizar);
+router.delete("/cxp/:id", requireRole("ADMIN", "CONTADOR"), cxp.eliminar);
+router.post("/cxp/:id/pagos", requireRole("ADMIN", "CONTADOR"), cxp.abonar);
 
 export default router;
