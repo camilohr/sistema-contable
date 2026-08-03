@@ -553,3 +553,17 @@ select {
   border-color: var(--primary);
   box-shadow: 0 2px 8px rgba(26, 82, 118, 0.15);
 }
+
+.tabs-reportes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.table tfoot td {
+  font-weight: 700;
+  background: #f8fafb;
+  border-top: 2px solid var(--border);
+  color: var(--text);
+}

@@ -33,6 +33,7 @@ beforeAll(async () => {
   await prisma.periodo.deleteMany({});
   await prisma.tercero.deleteMany({ where: { documento: { in: ["FASE4CC"] } } });
   await prisma.usuario.deleteMany({ where: { email: { in: emails } } });
+  await prisma.consecutivo.deleteMany({});
 
   await prisma.usuario.create({ data: { nombre: "Admin 4", email: "admin4@test.local", passwordHash: await bcrypt.hash("clave123", 10), rol: "ADMIN" } });
   await prisma.usuario.create({ data: { nombre: "Aux 4", email: "aux4@test.local", passwordHash: await bcrypt.hash("clave123", 10), rol: "AUXILIAR" } });

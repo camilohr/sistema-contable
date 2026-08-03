@@ -1,0 +1,297 @@
+import { useCallback, useEffect, useState } from "react";
+import { api } from "../api/client";
+import { cop } from "../lib/formato";
+
+type Tab = "diario" | "mayor" | "balance";
+
+interface Linea {
+  comprobanteId: number;
+  ref: string;
+  fecha: string;
+  concepto: string;
+  codigoCuenta: string;
+  nombreCuenta: string;
+  tercero: string | null;
+  debito: number;
+  credito: number;
+}
+
+interface CuentaMayor {
+  codigo: string;
+  nombre: string;
+  naturaleza: string;
+  debitos: number;
+  creditos: number;
+  saldo: number;
+}
+
+interface CuentaBalance {
+  codigo: string;
+  nombre: string;
+  clase: number;
+  naturaleza: string;
+  debitos: number;
+  creditos: number;
+  saldoDeudor: number;
+  saldoAcreedor: number;
+}
+
+interface Periodo {
+  id: number;
+  nombre: string;
+}
+
+interface Cuenta {
+  id: number;
+  codigo: string;
+  nombre: string;
+}
+
+const tabs: { id: Tab; label: string }[] = [
+  { id: "diario", label: "Libro diario" },
+  { id: "mayor", label: "Libro mayor" },
+  { id: "balance", label: "Balance de comprobación" },
+];
+
+const naturaLabel: Record<string, string> = { DEUDORA: "Deudora", ACREEDORA: "Acreedora" };
+
+export default function Reportes() {
+  const [tab, setTab] = useState<Tab>("diario");
+  const [periodos, setPeriodos] = useState<Periodo[]>([]);
+  const [cuentas, setCuentas] = useState<Cuenta[]>([]);
+
+  const [periodoId, setPeriodoId] = useState("");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
+  const [cuentaId, setCuentaId] = useState("");
+
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
+
+  const [diario, setDiario] = useState<{ lineas: Linea[]; totalDebitos: number; totalCreditos: number } | null>(null);
+  const [mayor, setMayor] = useState<{ cuentas: CuentaMayor[]; totalDebitos: number; totalCreditos: number } | null>(null);
+  const [balance, setBalance] = useState<{ cuentas: CuentaBalance[]; totalDebitos: number; totalCreditos: number; saldosDeudores: number; saldosAcreedores: number } | null>(null);
+
+  useEffect(() => {
+    api.get<Periodo[]>("/periodos").then((r) => setPeriodos(r.data)).catch(() => {});
+    api.get<Cuenta[]>("/cuentas?soloMovimiento=true").then((r) => setCuentas(r.data)).catch(() => {});
+  }, []);
+
+  const cargar = useCallback(async () => {
+    setCargando(true);
+    setError("");
+    const params = new URLSearchParams();
+    if (periodoId) params.set("periodoId", periodoId);
+    if (fechaDesde) params.set("fechaDesde", fechaDesde);
+    if (fechaHasta) params.set("fechaHasta", fechaHasta);
+    if (tab === "mayor" && cuentaId) params.set("cuentaId", cuentaId);
+    const q = params.toString() ? `?${params}` : "";
+    try {
+      if (tab === "diario") {
+        const res = await api.get(`/reportes/libro-diario${q}`);
+        setDiario(res.data);
+      } else if (tab === "mayor") {
+        const res = await api.get(`/reportes/libro-mayor${q}`);
+        setMayor(res.data);
+      } else {
+        const res = await api.get(`/reportes/balance-comprobacion${q}`);
+        setBalance(res.data);
+      }
+    } catch {
+      setError("No se pudo cargar el reporte.");
+    } finally {
+      setCargando(false);
+    }
+  }, [tab, periodoId, fechaDesde, fechaHasta, cuentaId]);
+
+  useEffect(() => {
+    const t = setTimeout(() => cargar(), 250);
+    return () => clearTimeout(t);
+  }, [cargar]);
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <h2>Libros y reportes</h2>
+      </div>
+
+      <div className="tabs-reportes">
+        {tabs.map((t) => (
+          <button key={t.id} className={`btn ${tab === t.id ? "btn-primary" : "btn-secondary"}`} onClick={() => setTab(t.id)}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="filters">
+        <select className="filter-input" value={periodoId} onChange={(e) => setPeriodoId(e.target.value)}>
+          <option value="">Todos los periodos</option>
+          {periodos.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.nombre}
+            </option>
+          ))}
+        </select>
+        <input type="date" className="filter-input" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} title="Desde" />
+        <input type="date" className="filter-input" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} title="Hasta" />
+        {tab === "mayor" && (
+          <select className="filter-input" value={cuentaId} onChange={(e) => setCuentaId(e.target.value)}>
+            <option value="">Todas las cuentas</option>
+            {cuentas.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.codigo} - {c.nombre}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {error && <p className="error-msg">{error}</p>}
+      {cargando && <p className="count-hint">Cargando...</p>}
+
+      {tab === "diario" && diario && (
+        <>
+          <p className="count-hint">
+            {diario.lineas.length === 0
+              ? "Sin movimientos para los filtros seleccionados."
+              : `${diario.lineas.length} movimientos. Total débitos ${cop(diario.totalDebitos)} · total créditos ${cop(diario.totalCreditos)}.`}
+          </p>
+          {diario.lineas.length > 0 && (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>No</th>
+                    <th>Concepto</th>
+                    <th>Cuenta</th>
+                    <th>Nombre de la cuenta</th>
+                    <th>Tercero</th>
+                    <th className="mono">Débito</th>
+                    <th className="mono">Crédito</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {diario.lineas.map((l, i) => (
+                    <tr key={i}>
+                      <td className="mono">{l.fecha}</td>
+                      <td className="codigo-cell">{l.ref}</td>
+                      <td>{l.concepto}</td>
+                      <td className="codigo-cell">{l.codigoCuenta}</td>
+                      <td>{l.nombreCuenta}</td>
+                      <td>{l.tercero ?? "-"}</td>
+                      <td className="mono">{l.debito ? cop(l.debito) : ""}</td>
+                      <td className="mono">{l.credito ? cop(l.credito) : ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={6}>Totales</td>
+                    <td className="mono">{cop(diario.totalDebitos)}</td>
+                    <td className="mono">{cop(diario.totalCreditos)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === "mayor" && mayor && (
+        <>
+          <p className="count-hint">
+            {mayor.cuentas.length === 0
+              ? "Sin movimientos para los filtros seleccionados."
+              : `${mayor.cuentas.length} cuentas. Total débitos ${cop(mayor.totalDebitos)} · total créditos ${cop(mayor.totalCreditos)}.`}
+          </p>
+          {mayor.cuentas.length > 0 && (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Cuenta</th>
+                    <th>Nombre</th>
+                    <th>Naturaleza</th>
+                    <th className="mono">Débitos</th>
+                    <th className="mono">Créditos</th>
+                    <th className="mono">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mayor.cuentas.map((c) => (
+                    <tr key={c.codigo}>
+                      <td className="codigo-cell">{c.codigo}</td>
+                      <td>{c.nombre}</td>
+                      <td>{naturaLabel[c.naturaleza] ?? c.naturaleza}</td>
+                      <td className="mono">{cop(c.debitos)}</td>
+                      <td className="mono">{cop(c.creditos)}</td>
+                      <td className="mono">{cop(c.saldo)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={3}>Totales</td>
+                    <td className="mono">{cop(mayor.totalDebitos)}</td>
+                    <td className="mono">{cop(mayor.totalCreditos)}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === "balance" && balance && (
+        <>
+          <p className="count-hint">
+            {balance.cuentas.length === 0
+              ? "Sin movimientos para los filtros seleccionados."
+              : `Sumas cuadran: débitos ${cop(balance.totalDebitos)} = créditos ${cop(balance.totalCreditos)}. Saldos deudores ${cop(balance.saldosDeudores)} = acreedores ${cop(balance.saldosAcreedores)}.`}
+          </p>
+          {balance.cuentas.length > 0 && (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Cuenta</th>
+                    <th>Nombre</th>
+                    <th>Clase</th>
+                    <th className="mono">Débitos</th>
+                    <th className="mono">Créditos</th>
+                    <th className="mono">Saldo deudor</th>
+                    <th className="mono">Saldo acreedor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {balance.cuentas.map((c) => (
+                    <tr key={c.codigo}>
+                      <td className="codigo-cell">{c.codigo}</td>
+                      <td>{c.nombre}</td>
+                      <td>{c.clase}</td>
+                      <td className="mono">{cop(c.debitos)}</td>
+                      <td className="mono">{cop(c.creditos)}</td>
+                      <td className="mono">{c.saldoDeudor ? cop(c.saldoDeudor) : ""}</td>
+                      <td className="mono">{c.saldoAcreedor ? cop(c.saldoAcreedor) : ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={3}>Totales</td>
+                    <td className="mono">{cop(balance.totalDebitos)}</td>
+                    <td className="mono">{cop(balance.totalCreditos)}</td>
+                    <td className="mono">{cop(balance.saldosDeudores)}</td>
+                    <td className="mono">{cop(balance.saldosAcreedores)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

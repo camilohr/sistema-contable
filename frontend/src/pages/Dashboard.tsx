@@ -7,7 +7,7 @@ const modulos = [
   { nombre: "Terceros", ruta: "/terceros", disponible: true },
   { nombre: "Periodos contables", ruta: "/periodos", disponible: true },
   { nombre: "Usuarios y roles", ruta: null, disponible: false },
-  { nombre: "Libros y reportes", ruta: null, disponible: false },
+  { nombre: "Libros y reportes", ruta: "/reportes", disponible: true },
   { nombre: "Estados financieros", ruta: null, disponible: false },
   { nombre: "CxC / CxP e inventario", ruta: null, disponible: false },
 ];

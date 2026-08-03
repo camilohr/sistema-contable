@@ -7,6 +7,7 @@ import cuentasRoutes from "./routes/cuentas.routes.js";
 import tercerosRoutes from "./routes/terceros.routes.js";
 import periodosRoutes from "./routes/periodos.routes.js";
 import comprobantesRoutes from "./routes/comprobantes.routes.js";
+import reportesRoutes from "./routes/reportes.routes.js";
 import { notFound, errorHandler } from "./middleware/error.js";
 
 export function createApp(): express.Express {
@@ -26,6 +27,7 @@ export function createApp(): express.Express {
   app.use("/api/terceros", tercerosRoutes);
   app.use("/api/periodos", periodosRoutes);
   app.use("/api/comprobantes", comprobantesRoutes);
+  app.use("/api/reportes", reportesRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

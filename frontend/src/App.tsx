@@ -6,6 +6,7 @@ import Cuentas from "./pages/Cuentas";
 import Terceros from "./pages/Terceros";
 import Periodos from "./pages/Periodos";
 import Comprobantes from "./pages/Comprobantes";
+import Reportes from "./pages/Reportes";
 import CambiarPassword from "./pages/CambiarPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="/terceros" element={<Terceros />} />
             <Route path="/periodos" element={<Periodos />} />
             <Route path="/comprobantes" element={<Comprobantes />} />
+            <Route path="/reportes" element={<Reportes />} />
             <Route path="/cambiar-password" element={<CambiarPassword />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
