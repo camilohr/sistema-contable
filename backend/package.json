@@ -10,7 +10,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "backup": "node scripts/backup.mjs",
+    "backup:list": "node scripts/backup.mjs --list",
+    "restore": "node scripts/restore.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",
