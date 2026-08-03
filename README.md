@@ -17,6 +17,8 @@ Sistema contable local con normatividad colombiana, base de datos PostgreSQL y a
 - [Normatividad contable](docs/normatividad.md)
 - [Respaldo y restauración de BD](docs/respaldo.md)
 - [Despliegue en red local](docs/despliegue.md)
+- [Manual de usuario](docs/manual-usuario.md)
+- [Manual de operación](docs/manual-operacion.md)
 
 ## Fases de desarrollo
 
@@ -30,4 +32,4 @@ Sistema contable local con normatividad colombiana, base de datos PostgreSQL y a
 | 5. Libros y reportes | Completada |
 | 6. Estados financieros | Completada |
 | 7. CxC / CxP e inventario | Completada |
-| 8. Respaldo, red local y manuales | En curso (respaldo y red local completados) |
+| 8. Respaldo, red local y manuales | Completada |
