@@ -20,8 +20,8 @@ Sistema contable local con normatividad colombiana, base de datos PostgreSQL y a
 
 | Fase | Estado |
 |---|---|
-| 0. Diseño y planificación | En curso |
-| 1. Base del proyecto (backend + frontend + BD) | Pendiente |
+| 0. Diseño y planificación | Completada |
+| 1. Base del proyecto (backend + frontend + BD) | Completada |
 | 2. Catálogo de cuentas PUC | Pendiente |
 | 3. Terceros | Pendiente |
 | 4. Comprobantes y asientos | Pendiente |
