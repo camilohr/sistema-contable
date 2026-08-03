@@ -73,6 +73,53 @@ describe("GET /api/auth/me", () => {
   });
 });
 
+describe("Cambio de contraseña obligatorio", () => {
+  const email = "obligatoria@test.local";
+  const password = "clave123";
+
+  async function crearUsuarioConFlag() {
+    await prisma.usuario.deleteMany({ where: { email } });
+    await prisma.usuario.create({
+      data: { nombre: "Obligatoria", email, passwordHash: await bcrypt.hash(password, 10), rol: "CONTADOR", debeCambiarPassword: true },
+    });
+  }
+
+  afterAll(async () => {
+    await prisma.usuario.deleteMany({ where: { email } });
+  });
+
+  it("login devuelve debeCambiarPassword", async () => {
+    await crearUsuarioConFlag();
+    const res = await request(app).post("/api/auth/login").send({ email, password });
+    expect(res.status).toBe(200);
+    expect(res.body.usuario.debeCambiarPassword).toBe(true);
+  });
+
+  it("bloquea el resto de la API con 403 hasta cambiar la contraseña", async () => {
+    const login = await request(app).post("/api/auth/login").send({ email, password });
+    const res = await request(app).get("/api/periodos").set("Authorization", `Bearer ${login.body.token}`);
+    expect(res.status).toBe(403);
+    expect(res.body.codigo).toBe("DEBE_CAMBIAR_PASSWORD");
+  });
+
+  it("permite /api/auth/me mientras la contraseña está pendiente", async () => {
+    const login = await request(app).post("/api/auth/login").send({ email, password });
+    const res = await request(app).get("/api/auth/me").set("Authorization", `Bearer ${login.body.token}`);
+    expect(res.status).toBe(200);
+  });
+
+  it("tras cambiar la contraseña se libera el acceso", async () => {
+    const login = await request(app).post("/api/auth/login").send({ email, password });
+    const cambia = await request(app)
+      .post("/api/auth/cambiar-password")
+      .set("Authorization", `Bearer ${login.body.token}`)
+      .send({ passwordActual: password, passwordNueva: "clave456" });
+    expect(cambia.status).toBe(200);
+    const res = await request(app).get("/api/periodos").set("Authorization", `Bearer ${login.body.token}`);
+    expect(res.status).toBe(200);
+  });
+});
+
 describe("Roles en /api/usuarios", () => {
   it("ADMIN puede listar usuarios (200)", async () => {
     const login = await request(app).post("/api/auth/login").send({ email: "admin@test.local", password: "clave123" });

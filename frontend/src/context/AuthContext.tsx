@@ -9,13 +9,16 @@ export interface Usuario {
   nombre: string;
   email: string;
   rol: Rol;
+  activo?: boolean;
+  debeCambiarPassword?: boolean;
 }
 
 interface AuthContextType {
   usuario: Usuario | null;
   cargando: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<Usuario>;
   logout: () => void;
+  marcarPasswordActualizada: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await api.post<{ token: string; usuario: Usuario }>("/auth/login", { email, password });
     localStorage.setItem("token", res.data.token);
     setUsuario(res.data.usuario);
+    return res.data.usuario;
   };
 
   const logout = () => {
@@ -48,8 +52,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(null);
   };
 
+  const marcarPasswordActualizada = () => {
+    setUsuario((u) => (u ? { ...u, debeCambiarPassword: false } : u));
+  };
+
   return (
-    <AuthContext.Provider value={{ usuario, cargando, login, logout }}>
+    <AuthContext.Provider value={{ usuario, cargando, login, logout, marcarPasswordActualizada }}>
       {children}
     </AuthContext.Provider>
   );

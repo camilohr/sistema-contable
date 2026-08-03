@@ -49,6 +49,11 @@ async function login() {
   if (!res.ok) throw new Error(`Login fallido (${res.status}). Verifica credenciales y que el servidor esté arriba en ${API}`);
   const data = await res.json();
   token = data.token;
+  if (data.usuario?.debeCambiarPassword) {
+    console.log(`  ! El usuario ${data.usuario.email} debe cambiar su contraseña inicial antes de continuar.`);
+    console.log(`  Inicia sesión en ${API}, cámbiala desde "Cambiar contraseña" y vuelve a ejecutar este script.`);
+    process.exit(0);
+  }
   ok(`login como ${data.usuario.nombre} (${data.usuario.rol})`);
 }
 
@@ -100,7 +105,7 @@ const TERCEROS = [
     email: "maria.lopez@correo.com", ciudad: "Medellín",
   },
   {
-    tipo: "PROVEEDOR", tipoDocumento: "NIT", documento: "900123456-1",
+    tipo: "PROVEEDOR", tipoDocumento: "NIT", documento: "900654321-9",
     nombreRazonSocial: "Distribuidora Andina S.A.S.", direccion: "Av El Dorado 100-20", telefono: "6015558899",
     email: "ventas@distribuidoraandina.co", ciudad: "Bogotá",
   },
@@ -166,11 +171,11 @@ async function comprobantes(mapa, periodoId, idsTerceros) {
       ],
     },
     {
-      tipo: "EGRESO", fecha: "2026-01-10", concepto: "Compra de mercancías a Distribuidora Andina", terceroId: "900123456-1",
+      tipo: "EGRESO", fecha: "2026-01-10", concepto: "Compra de mercancías a Distribuidora Andina", terceroId: "900654321-9",
       asientos: [
-        { codigo: "620505", tipo: "debito", importe: 2000000, terceroId: "900123456-1", detalle: "Compra de mercancías" },
+        { codigo: "620505", tipo: "debito", importe: 2000000, terceroId: "900654321-9", detalle: "Compra de mercancías" },
         { codigo: "134505", tipo: "debito", importe: 380000, detalle: "IVA descontable 19%" },
-        { codigo: "220505", tipo: "credito", importe: 2310000, terceroId: "900123456-1", detalle: "Proveedor Distribuidora Andina" },
+        { codigo: "220505", tipo: "credito", importe: 2310000, terceroId: "900654321-9", detalle: "Proveedor Distribuidora Andina" },
         { codigo: "236530", tipo: "credito", importe: 70000, detalle: "Retefuente 3.5% sobre compras" },
       ],
     },
@@ -292,10 +297,10 @@ async function cartera(idsTerceros, comprobantes) {
     ok(`CxC FC-004 ya estaba ${fc4.estado}`);
   }
 
-  const np1 = await docCxP("NP-001", "900123456-1", "2026-07-12", "2026-09-12", 2310000, compra.id);
+  const np1 = await docCxP("NP-001", "900654321-9", "2026-07-12", "2026-09-12", 2310000, compra.id);
   ok(`CxP NP-001 para Distribuidora Andina (${np1.estado}, saldo ${np1.saldo})`);
 
-  const np2 = await docCxP("NP-002", "900123456-1", "2026-07-01", "2026-08-20", 900000, null);
+  const np2 = await docCxP("NP-002", "900654321-9", "2026-07-01", "2026-08-20", 900000, null);
   if (np2.estado === "PENDIENTE") {
     await api("POST", `/api/cxp/${np2.id}/pagos`, { valor: 900000, formaPago: "CHEQUE", fecha: "2026-07-22" });
     ok(`CxP NP-002 pagada por el total (900.000) -> CANCELADA`);

@@ -16,8 +16,8 @@ export default function Login() {
     setError("");
     setEnviando(true);
     try {
-      await login(email, password);
-      navigate("/", { replace: true });
+      const u = await login(email, password);
+      navigate(u.debeCambiarPassword ? "/cambiar-password" : "/", { replace: true });
     } catch (err) {
       const e = err as { response?: { data?: { error?: string } } };
       setError(e.response?.data?.error ?? "Error al iniciar sesión. Verifica la conexión con el servidor.");

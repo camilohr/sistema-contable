@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 
 export default function CambiarPassword() {
-  const { usuario } = useAuth();
+  const { usuario, marcarPasswordActualizada } = useAuth();
   const [passwordActual, setPasswordActual] = useState("");
   const [passwordNueva, setPasswordNueva] = useState("");
   const [confirmacion, setConfirmacion] = useState("");
@@ -27,7 +27,8 @@ export default function CambiarPassword() {
     setEnviando(true);
     try {
       await api.post("/auth/cambiar-password", { passwordActual, passwordNueva });
-      setOk("Contraseña actualizada correctamente.");
+      marcarPasswordActualizada();
+      setOk("Contraseña actualizada correctamente. Ya puedes continuar.");
       setPasswordActual("");
       setPasswordNueva("");
       setConfirmacion("");
@@ -43,6 +44,9 @@ export default function CambiarPassword() {
     <div className="page">
       <h2>Cambiar contraseña</h2>
       <p>Usuario: {usuario?.email}</p>
+      {usuario?.debeCambiarPassword && (
+        <p className="ok-msg">Debes cambiar tu contraseña inicial antes de continuar usando el sistema.</p>
+      )}
       <form onSubmit={onSubmit} className="form-card">
         <label>
           Contraseña actual

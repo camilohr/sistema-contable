@@ -29,14 +29,20 @@ export async function login(req: Request, res: Response): Promise<void> {
   const token = signToken({ sub: usuario.id, rol: usuario.rol, nombre: usuario.nombre });
   res.json({
     token,
-    usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol },
+    usuario: {
+      id: usuario.id,
+      nombre: usuario.nombre,
+      email: usuario.email,
+      rol: usuario.rol,
+      debeCambiarPassword: usuario.debeCambiarPassword,
+    },
   });
 }
 
 export async function me(req: Request, res: Response): Promise<void> {
   const usuario = await prisma.usuario.findUnique({
     where: { id: req.user!.sub },
-    select: { id: true, nombre: true, email: true, rol: true, activo: true },
+    select: { id: true, nombre: true, email: true, rol: true, activo: true, debeCambiarPassword: true },
   });
   if (!usuario) {
     res.status(404).json({ error: "Usuario no encontrado" });
@@ -69,7 +75,7 @@ export async function cambiarPassword(req: Request, res: Response): Promise<void
   const passwordHash = await bcrypt.hash(parsed.data.passwordNueva, 10);
   await prisma.usuario.update({
     where: { id: usuario.id },
-    data: { passwordHash },
+    data: { passwordHash, debeCambiarPassword: false },
   });
   res.json({ ok: true });
 }

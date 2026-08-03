@@ -73,6 +73,7 @@ model Usuario {
   passwordHash         String
   rol                  Rol           @default(AUXILIAR)
   activo               Boolean       @default(true)
+  debeCambiarPassword  Boolean       @default(false)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 

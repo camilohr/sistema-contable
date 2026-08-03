@@ -401,6 +401,11 @@ input:focus {
   color: #c0392b;
 }
 
+.badge-warn {
+  background: #fef9e7;
+  color: #b9770e;
+}
+
 .acciones {
   text-align: right;
   white-space: nowrap;

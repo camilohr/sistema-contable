@@ -20,6 +20,8 @@ const links = [
   { to: "/cambiar-password", label: "Cambiar contraseña" },
 ];
 
+const soloAdmin = [{ to: "/usuarios", label: "Usuarios", end: true }];
+
 export default function Layout() {
   const { usuario, logout } = useAuth();
   const navigate = useNavigate();
@@ -34,6 +36,12 @@ export default function Layout() {
               {l.label}
             </NavLink>
           ))}
+          {usuario?.rol === "ADMIN" &&
+            soloAdmin.map((l) => (
+              <NavLink key={l.to} to={l.to} end={l.end} className={({ isActive }) => (isActive ? "active" : "")}>
+                {l.label}
+              </NavLink>
+            ))}
         </nav>
       </aside>
       <div className="main-area">

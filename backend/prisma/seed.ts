@@ -32,9 +32,9 @@ async function seedUsuarioAdmin(): Promise<void> {
   if (!admin) {
     const passwordHash = await bcrypt.hash("Admin123!", 10);
     await prisma.usuario.create({
-      data: { nombre: "Administrador", email: adminEmail, passwordHash, rol: "ADMIN" },
+      data: { nombre: "Administrador", email: adminEmail, passwordHash, rol: "ADMIN", debeCambiarPassword: true },
     });
-    console.log("Usuario administrador creado: admin@sistema.local / Admin123!  (¡cámbialo en el primer ingreso!)");
+    console.log("Usuario administrador creado: admin@sistema.local / Admin123!  (deberá cambiar la contraseña en el primer ingreso)");
   } else {
     console.log("El usuario administrador ya existe.");
   }

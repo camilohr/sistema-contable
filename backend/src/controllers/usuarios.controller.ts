@@ -12,7 +12,7 @@ const createSchema = z.object({
 
 export async function listar(_req: Request, res: Response): Promise<void> {
   const usuarios = await prisma.usuario.findMany({
-    select: { id: true, nombre: true, email: true, rol: true, activo: true, createdAt: true },
+    select: { id: true, nombre: true, email: true, rol: true, activo: true, debeCambiarPassword: true, createdAt: true },
     orderBy: { createdAt: "asc" },
   });
   res.json(usuarios);
@@ -32,8 +32,8 @@ export async function crear(req: Request, res: Response): Promise<void> {
   }
   const passwordHash = await bcrypt.hash(password, 10);
   const usuario = await prisma.usuario.create({
-    data: { nombre, email: email.toLowerCase(), passwordHash, rol },
-    select: { id: true, nombre: true, email: true, rol: true, activo: true },
+    data: { nombre, email: email.toLowerCase(), passwordHash, rol, debeCambiarPassword: true },
+    select: { id: true, nombre: true, email: true, rol: true, activo: true, debeCambiarPassword: true },
   });
   res.status(201).json(usuario);
 }
