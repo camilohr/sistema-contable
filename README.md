@@ -24,7 +24,7 @@ Sistema contable local con normatividad colombiana, base de datos PostgreSQL y a
 | 1. Base del proyecto (backend + frontend + BD) | Completada |
 | 2. Catálogo de cuentas PUC | Completada |
 | 3. Terceros | Completada |
-| 4. Comprobantes y asientos | Pendiente |
+| 4. Comprobantes y asientos | Completada |
 | 5. Libros y reportes | Pendiente |
 | 6. Estados financieros | Pendiente |
 | 7. CxC / CxP e inventario | Pendiente |

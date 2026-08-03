@@ -31,15 +31,35 @@ enum TipoDocumento {
   PASAPORTE
 }
 
+enum TipoComprobante {
+  DIARIO
+  INGRESO
+  EGRESO
+}
+
+enum EstadoComprobante {
+  BORRADOR
+  CONTABILIZADO
+  ANULADO
+}
+
+enum EstadoPeriodo {
+  ABIERTO
+  CERRADO
+}
+
 model Usuario {
-  id           String   @id @default(uuid())
-  nombre       String
-  email        String   @unique
-  passwordHash String
-  rol          Rol      @default(AUXILIAR)
-  activo       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                   String        @id @default(uuid())
+  nombre               String
+  email                String        @unique
+  passwordHash         String
+  rol                  Rol           @default(AUXILIAR)
+  activo               Boolean       @default(true)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  comprobantesCreados  Comprobante[] @relation("Creador")
+  comprobantesAnulados Comprobante[] @relation("Anulador")
 }
 
 model Cuenta {
@@ -59,6 +79,8 @@ model Cuenta {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
+  asientos Asiento[]
+
   @@index([clase, grupo])
   @@index([nivel])
 }
@@ -77,6 +99,9 @@ model Tercero {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
+  comprobantes Comprobante[]
+  asientos     Asiento[]
+
   @@unique([tipoDocumento, documento])
   @@index([tipo])
 }
@@ -92,4 +117,69 @@ model Parametro {
   mensajeRecibo    String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+model Periodo {
+  id          Int           @id @default(autoincrement())
+  nombre      String        @unique
+  fechaInicio DateTime      @db.Date
+  fechaFin    DateTime      @db.Date
+  estado      EstadoPeriodo @default(ABIERTO)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  comprobantes Comprobante[]
+
+  @@index([estado])
+}
+
+model Comprobante {
+  id             Int                @id @default(autoincrement())
+  tipo           TipoComprobante
+  consecutivo    Int
+  fecha          DateTime           @db.Date
+  periodoId      Int
+  terceroId      String?
+  concepto       String
+  totalDebito    Decimal            @default(0) @db.Decimal(15, 2)
+  totalCredito   Decimal            @default(0) @db.Decimal(15, 2)
+  estado         EstadoComprobante  @default(BORRADOR)
+  usuarioCreoId  String
+  usuarioAnuloId String?
+  fechaAnulacion DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  periodo        Periodo     @relation(fields: [periodoId], references: [id])
+  tercero        Tercero?    @relation(fields: [terceroId], references: [id])
+  usuarioCreo    Usuario     @relation("Creador", fields: [usuarioCreoId], references: [id])
+  usuarioAnulo   Usuario?    @relation("Anulador", fields: [usuarioAnuloId], references: [id])
+  asientos       Asiento[]
+
+  @@unique([tipo, consecutivo])
+  @@index([periodoId])
+  @@index([fecha])
+  @@index([estado])
+}
+
+model Asiento {
+  id            Int     @id @default(autoincrement())
+  comprobanteId Int
+  cuentaId      Int
+  terceroId     String?
+  debito        Decimal @default(0) @db.Decimal(15, 2)
+  credito       Decimal @default(0) @db.Decimal(15, 2)
+  detalle       String?
+
+  comprobante Comprobante @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)
+  cuenta      Cuenta      @relation(fields: [cuentaId], references: [id])
+  tercero     Tercero?    @relation(fields: [terceroId], references: [id])
+
+  @@index([comprobanteId])
+  @@index([cuentaId])
+}
+
+model Consecutivo {
+  tipo   TipoComprobante @id
+  ultimo Int             @default(0)
 }

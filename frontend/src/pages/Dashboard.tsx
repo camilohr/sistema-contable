@@ -2,14 +2,14 @@ import { useNavigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
 
 const modulos = [
+  { nombre: "Comprobantes y asientos", ruta: "/comprobantes", disponible: true },
   { nombre: "Catálogo de cuentas (PUC)", ruta: "/cuentas", disponible: true },
   { nombre: "Terceros", ruta: "/terceros", disponible: true },
+  { nombre: "Periodos contables", ruta: "/periodos", disponible: true },
   { nombre: "Usuarios y roles", ruta: null, disponible: false },
-  { nombre: "Comprobantes y asientos", ruta: null, disponible: false },
   { nombre: "Libros y reportes", ruta: null, disponible: false },
   { nombre: "Estados financieros", ruta: null, disponible: false },
-  { nombre: "CxC / CxP", ruta: null, disponible: false },
-  { nombre: "Inventario", ruta: null, disponible: false },
+  { nombre: "CxC / CxP e inventario", ruta: null, disponible: false },
 ];
 
 export default function Dashboard() {
