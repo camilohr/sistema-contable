@@ -18,6 +18,19 @@ enum Naturaleza {
   ACREEDORA
 }
 
+enum TipoTercero {
+  CLIENTE
+  PROVEEDOR
+  AMBOS
+}
+
+enum TipoDocumento {
+  CC
+  NIT
+  CE
+  PASAPORTE
+}
+
 model Usuario {
   id           String   @id @default(uuid())
   nombre       String
@@ -48,6 +61,24 @@ model Cuenta {
 
   @@index([clase, grupo])
   @@index([nivel])
+}
+
+model Tercero {
+  id                String        @id @default(uuid())
+  tipo              TipoTercero   @default(CLIENTE)
+  tipoDocumento     TipoDocumento
+  documento         String
+  nombreRazonSocial String
+  direccion         String?
+  telefono          String?
+  email             String?
+  ciudad            String?
+  activo            Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@unique([tipoDocumento, documento])
+  @@index([tipo])
 }
 
 model Parametro {

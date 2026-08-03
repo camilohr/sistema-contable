@@ -10,6 +10,7 @@ const rolLabels: Record<string, string> = {
 const links = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/cuentas", label: "Catálogo de cuentas" },
+  { to: "/terceros", label: "Terceros" },
   { to: "/cambiar-password", label: "Cambiar contraseña" },
 ];
 

@@ -3,6 +3,7 @@ import { AuthProvider } from "./context/AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Cuentas from "./pages/Cuentas";
+import Terceros from "./pages/Terceros";
 import CambiarPassword from "./pages/CambiarPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -22,6 +23,7 @@ export default function App() {
           >
             <Route path="/" element={<Dashboard />} />
             <Route path="/cuentas" element={<Cuentas />} />
+            <Route path="/terceros" element={<Terceros />} />
             <Route path="/cambiar-password" element={<CambiarPassword />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
