@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import authRoutes from "./routes/auth.routes.js";
 import usuariosRoutes from "./routes/usuarios.routes.js";
+import cuentasRoutes from "./routes/cuentas.routes.js";
 import { notFound, errorHandler } from "./middleware/error.js";
 
 export function createApp(): express.Express {
@@ -18,6 +19,7 @@ export function createApp(): express.Express {
 
   app.use("/api/auth", authRoutes);
   app.use("/api/usuarios", usuariosRoutes);
+  app.use("/api/cuentas", cuentasRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

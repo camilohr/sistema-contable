@@ -2,7 +2,10 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { AuthProvider } from "./context/AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import Cuentas from "./pages/Cuentas";
+import CambiarPassword from "./pages/CambiarPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Layout from "./components/Layout";
 
 export default function App() {
   return (
@@ -11,13 +14,16 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route
-            path="/"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <Layout />
               </ProtectedRoute>
             }
-          />
+          >
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/cuentas" element={<Cuentas />} />
+            <Route path="/cambiar-password" element={<CambiarPassword />} />
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

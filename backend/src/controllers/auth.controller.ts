@@ -44,3 +44,32 @@ export async function me(req: Request, res: Response): Promise<void> {
   }
   res.json(usuario);
 }
+
+const cambiarPasswordSchema = z.object({
+  passwordActual: z.string().min(1),
+  passwordNueva: z.string().min(6, "La nueva contraseña debe tener al menos 6 caracteres"),
+});
+
+export async function cambiarPassword(req: Request, res: Response): Promise<void> {
+  const parsed = cambiarPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
+    return;
+  }
+  const usuario = await prisma.usuario.findUnique({ where: { id: req.user!.sub } });
+  if (!usuario) {
+    res.status(404).json({ error: "Usuario no encontrado" });
+    return;
+  }
+  const ok = await bcrypt.compare(parsed.data.passwordActual, usuario.passwordHash);
+  if (!ok) {
+    res.status(400).json({ error: "La contraseña actual es incorrecta" });
+    return;
+  }
+  const passwordHash = await bcrypt.hash(parsed.data.passwordNueva, 10);
+  await prisma.usuario.update({
+    where: { id: usuario.id },
+    data: { passwordHash },
+  });
+  res.json({ ok: true });
+}

@@ -1,7 +1,32 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/prisma.js";
+import { PUC } from "./puc.js";
+import { derivarPuc } from "../src/lib/puc.js";
 
-async function main(): Promise<void> {
+async function importarPuc(): Promise<void> {
+  const codes = new Set(PUC.map(([c]) => c));
+  const esHoja = (codigo: string) =>
+    ![...codes].some((c) => c.length > codigo.length && c.startsWith(codigo));
+
+  let creadas = 0;
+  for (const [codigo, nombre] of PUC) {
+    const derivado = derivarPuc(codigo);
+    const cuenta = await prisma.cuenta.upsert({
+      where: { codigo },
+      update: { nombre },
+      create: {
+        codigo,
+        nombre,
+        permiteMovimiento: esHoja(codigo),
+        ...derivado,
+      },
+    });
+    if (cuenta.createdAt.getTime() === cuenta.updatedAt.getTime()) creadas += 1;
+  }
+  console.log(`PUC importado: ${PUC.length} cuentas (${creadas} nuevas).`);
+}
+
+async function seedUsuarioAdmin(): Promise<void> {
   const adminEmail = "admin@sistema.local";
   const admin = await prisma.usuario.findUnique({ where: { email: adminEmail } });
   if (!admin) {
@@ -13,7 +38,9 @@ async function main(): Promise<void> {
   } else {
     console.log("El usuario administrador ya existe.");
   }
+}
 
+async function seedParametros(): Promise<void> {
   const parametros = await prisma.parametro.count();
   if (parametros === 0) {
     await prisma.parametro.create({
@@ -21,6 +48,12 @@ async function main(): Promise<void> {
     });
     console.log("Parámetros iniciales creados.");
   }
+}
+
+async function main(): Promise<void> {
+  await seedUsuarioAdmin();
+  await seedParametros();
+  await importarPuc();
 }
 
 main()
