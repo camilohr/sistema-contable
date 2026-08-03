@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:demo": "node scripts/seed-demo.mjs",
     "backup": "node scripts/backup.mjs",
     "backup:list": "node scripts/backup.mjs --list",
     "restore": "node scripts/restore.mjs"

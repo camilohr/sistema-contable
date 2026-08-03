@@ -19,6 +19,7 @@ Sistema contable local con normatividad colombiana, base de datos PostgreSQL y a
 - [Despliegue en red local](docs/despliegue.md)
 - [Manual de usuario](docs/manual-usuario.md)
 - [Manual de operación](docs/manual-operacion.md)
+- [Datos de prueba (demo)](docs/datos-demo.md)
 
 ## Fases de desarrollo
 
