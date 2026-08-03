@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
 import { cop } from "../lib/formato";
 
-type Tab = "diario" | "mayor" | "balance";
+type Tab = "diario" | "mayor" | "balance" | "balance-general" | "resultados";
 
 interface Linea {
   comprobanteId: number;
@@ -36,6 +36,34 @@ interface CuentaBalance {
   saldoAcreedor: number;
 }
 
+interface SeccionCuentas {
+  grupo: string;
+  nombre: string;
+  cuentas: { codigo: string; nombre: string; saldo: number }[];
+  total: number;
+}
+
+interface BalanceGeneral {
+  activo: SeccionCuentas[];
+  pasivo: SeccionCuentas[];
+  patrimonio: SeccionCuentas[];
+  totalActivo: number;
+  totalPasivo: number;
+  totalPatrimonio: number;
+  resultado: number;
+  ecuacionOK: boolean;
+}
+
+interface EstadoResultados {
+  ingresos: SeccionCuentas[];
+  costos: SeccionCuentas[];
+  gastos: SeccionCuentas[];
+  totalIngresos: number;
+  totalCostos: number;
+  totalGastos: number;
+  resultado: number;
+}
+
 interface Periodo {
   id: number;
   nombre: string;
@@ -51,6 +79,8 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "diario", label: "Libro diario" },
   { id: "mayor", label: "Libro mayor" },
   { id: "balance", label: "Balance de comprobación" },
+  { id: "balance-general", label: "Balance general" },
+  { id: "resultados", label: "Estado de resultados" },
 ];
 
 const naturaLabel: Record<string, string> = { DEUDORA: "Deudora", ACREEDORA: "Acreedora" };
@@ -71,6 +101,8 @@ export default function Reportes() {
   const [diario, setDiario] = useState<{ lineas: Linea[]; totalDebitos: number; totalCreditos: number } | null>(null);
   const [mayor, setMayor] = useState<{ cuentas: CuentaMayor[]; totalDebitos: number; totalCreditos: number } | null>(null);
   const [balance, setBalance] = useState<{ cuentas: CuentaBalance[]; totalDebitos: number; totalCreditos: number; saldosDeudores: number; saldosAcreedores: number } | null>(null);
+  const [balanceGeneral, setBalanceGeneral] = useState<BalanceGeneral | null>(null);
+  const [resultados, setResultados] = useState<EstadoResultados | null>(null);
 
   useEffect(() => {
     api.get<Periodo[]>("/periodos").then((r) => setPeriodos(r.data)).catch(() => {});
@@ -93,9 +125,15 @@ export default function Reportes() {
       } else if (tab === "mayor") {
         const res = await api.get(`/reportes/libro-mayor${q}`);
         setMayor(res.data);
-      } else {
+      } else if (tab === "balance") {
         const res = await api.get(`/reportes/balance-comprobacion${q}`);
         setBalance(res.data);
+      } else if (tab === "balance-general") {
+        const res = await api.get(`/reportes/balance-general${q}`);
+        setBalanceGeneral(res.data);
+      } else {
+        const res = await api.get(`/reportes/estado-resultados${q}`);
+        setResultados(res.data);
       }
     } catch {
       setError("No se pudo cargar el reporte.");
@@ -292,6 +330,94 @@ export default function Reportes() {
           )}
         </>
       )}
+
+      {tab === "balance-general" && balanceGeneral && (
+        <>
+          <p className="count-hint">
+            {balanceGeneral.ecuacionOK
+              ? `Ecuación contable correcta: Activo ${cop(balanceGeneral.totalActivo)} = Pasivo ${cop(balanceGeneral.totalPasivo)} + Patrimonio ${cop(balanceGeneral.totalPatrimonio)}.`
+              : "La ecuación contable no cuadra: revise los asientos."}
+          </p>
+          <div className="estado-seccion">
+            <h3 className="estado-titulo">Activo</h3>
+            <SeccionTable seccion={balanceGeneral.activo} />
+            <p className="estado-total">Total activo: {cop(balanceGeneral.totalActivo)}</p>
+          </div>
+          <div className="estado-seccion">
+            <h3 className="estado-titulo">Pasivo</h3>
+            <SeccionTable seccion={balanceGeneral.pasivo} />
+            <p className="estado-total">Total pasivo: {cop(balanceGeneral.totalPasivo)}</p>
+          </div>
+          <div className="estado-seccion">
+            <h3 className="estado-titulo">Patrimonio</h3>
+            <SeccionTable seccion={balanceGeneral.patrimonio} />
+            <p className="estado-total">Total patrimonio: {cop(balanceGeneral.totalPatrimonio)}</p>
+          </div>
+        </>
+      )}
+
+      {tab === "resultados" && resultados && (
+        <>
+          <p className="count-hint">
+            {resultados.resultado >= 0
+              ? `Utilidad del ejercicio: ${cop(resultados.resultado)}.`
+              : `Pérdida del ejercicio: ${cop(-resultados.resultado)}.`}
+          </p>
+          <div className="estado-seccion">
+            <h3 className="estado-titulo">Ingresos</h3>
+            <SeccionTable seccion={resultados.ingresos} />
+            <p className="estado-total">Total ingresos: {cop(resultados.totalIngresos)}</p>
+          </div>
+          <div className="estado-seccion">
+            <h3 className="estado-titulo">Costos</h3>
+            <SeccionTable seccion={resultados.costos} />
+            <p className="estado-total">Total costos: {cop(resultados.totalCostos)}</p>
+          </div>
+          <div className="estado-seccion">
+            <h3 className="estado-titulo">Gastos</h3>
+            <SeccionTable seccion={resultados.gastos} />
+            <p className="estado-total">Total gastos: {cop(resultados.totalGastos)}</p>
+          </div>
+          <p className="estado-total resultado-line">
+            Resultado del ejercicio: {resultados.resultado >= 0 ? cop(resultados.resultado) : `(${cop(-resultados.resultado)})`}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function SeccionTable({ seccion }: { seccion: SeccionCuentas[] }) {
+  if (seccion.length === 0) return <p className="count-hint">Sin movimientos.</p>;
+  return (
+    <div className="table-wrap">
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Cuenta</th>
+            <th>Nombre</th>
+            <th className="mono">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {seccion.map((g) => (
+            <Fragment key={g.grupo}>
+              <tr className="grupo-row">
+                <td className="codigo-cell">{g.grupo}</td>
+                <td>{g.nombre}</td>
+                <td className="mono">{cop(g.total)}</td>
+              </tr>
+              {g.cuentas.map((c) => (
+                <tr key={c.codigo}>
+                  <td className="codigo-cell">{c.codigo}</td>
+                  <td>{c.nombre}</td>
+                  <td className="mono">{cop(c.saldo)}</td>
+                </tr>
+              ))}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

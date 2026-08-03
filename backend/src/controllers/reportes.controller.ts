@@ -30,6 +30,68 @@ function whereFiltros(req: Request): Prisma.ComprobanteWhereInput {
 
 const ref = (tipo: string, consecutivo: number) => `${tipo[0]}-${String(consecutivo).padStart(4, "0")}`;
 
+interface SaldoCuenta {
+  codigo: string;
+  nombre: string;
+  clase: number;
+  grupo: string;
+  naturaleza: Naturaleza;
+  debitos: number;
+  creditos: number;
+  saldo: number;
+}
+
+async function saldosPorCuenta(where: Prisma.ComprobanteWhereInput): Promise<SaldoCuenta[]> {
+  const comprobantes = await prisma.comprobante.findMany({
+    where,
+    select: {
+      asientos: {
+        include: { cuenta: { select: { codigo: true, nombre: true, clase: true, naturaleza: true } } },
+      },
+    },
+  });
+
+  const porCuenta = new Map<string, SaldoCuenta>();
+  for (const c of comprobantes) {
+    for (const a of c.asientos) {
+      const codigo = a.cuenta.codigo;
+      const act = porCuenta.get(codigo) ?? {
+        codigo,
+        nombre: a.cuenta.nombre,
+        clase: a.cuenta.clase,
+        grupo: codigo.slice(0, 2),
+        naturaleza: a.cuenta.naturaleza,
+        debitos: 0,
+        creditos: 0,
+        saldo: 0,
+      };
+      act.debitos += a.debito.toNumber();
+      act.creditos += a.credito.toNumber();
+      porCuenta.set(codigo, act);
+    }
+  }
+
+  for (const c of porCuenta.values()) {
+    c.saldo = c.naturaleza === "DEUDORA" ? c.debitos - c.creditos : c.creditos - c.debitos;
+  }
+  return [...porCuenta.values()].filter((c) => c.saldo !== 0).sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
+}
+
+function agruparPorClase(saldos: SaldoCuenta[], clases: number[]): SaldoCuenta[] {
+  return saldos.filter((c) => clases.includes(c.clase));
+}
+
+function construirSeccion(saldos: SaldoCuenta[], nombreGrupos: Map<string, string>) {
+  const grupos = new Map<string, { grupo: string; nombre: string; cuentas: { codigo: string; nombre: string; saldo: number }[]; total: number }>();
+  for (const c of saldos) {
+    const act = grupos.get(c.grupo) ?? { grupo: c.grupo, nombre: nombreGrupos.get(c.grupo) ?? `Grupo ${c.grupo}`, cuentas: [], total: 0 };
+    act.cuentas.push({ codigo: c.codigo, nombre: c.nombre, saldo: c.saldo });
+    act.total += c.saldo;
+    grupos.set(c.grupo, act);
+  }
+  return [...grupos.values()].sort((a, b) => a.grupo.localeCompare(b.grupo, undefined, { numeric: true }));
+}
+
 export async function libroDiario(req: Request, res: Response): Promise<void> {
   const comprobantes = await prisma.comprobante.findMany({
     where: whereFiltros(req),
@@ -173,4 +235,69 @@ export async function balanceComprobacion(req: Request, res: Response): Promise<
     .sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
 
   res.json({ totalDebitos, totalCreditos, saldosDeudores, saldosAcreedores, cuentas });
+}
+
+async function nombreGrupos(): Promise<Map<string, string>> {
+  const grupos = await prisma.cuenta.findMany({ where: { codigo: { not: { contains: "." } } }, select: { codigo: true, nombre: true } });
+  const mapa = new Map<string, string>();
+  for (const g of grupos) {
+    if (g.codigo.length === 2) mapa.set(g.codigo, g.nombre);
+  }
+  return mapa;
+}
+
+export async function balanceGeneral(req: Request, res: Response): Promise<void> {
+  const saldos = await saldosPorCuenta(whereFiltros(req));
+  const nombres = await nombreGrupos();
+
+  const activo = construirSeccion(agruparPorClase(saldos, [1]), nombres);
+  const pasivo = construirSeccion(agruparPorClase(saldos, [2]), nombres);
+  const patrimonio = construirSeccion(agruparPorClase(saldos, [3]), nombres);
+
+  const resultado =
+    saldos.reduce((s, c) => s + (c.clase === 4 ? c.saldo : 0), 0) -
+    saldos.reduce((s, c) => s + (c.clase === 5 || c.clase === 6 ? c.saldo : 0), 0);
+
+  if (resultado !== 0) {
+    patrimonio.push({ grupo: "99", nombre: "Resultados del ejercicio", cuentas: [], total: resultado });
+    patrimonio.sort((a, b) => a.grupo.localeCompare(b.grupo, undefined, { numeric: true }));
+  }
+
+  const totalActivo = activo.reduce((s, g) => s + g.total, 0);
+  const totalPasivo = pasivo.reduce((s, g) => s + g.total, 0);
+  const totalPatrimonio = patrimonio.reduce((s, g) => s + g.total, 0);
+
+  res.json({
+    activo,
+    pasivo,
+    patrimonio,
+    totalActivo,
+    totalPasivo,
+    totalPatrimonio,
+    resultado,
+    ecuacionOK: totalActivo === totalPasivo + totalPatrimonio,
+  });
+}
+
+export async function estadoResultados(req: Request, res: Response): Promise<void> {
+  const saldos = await saldosPorCuenta(whereFiltros(req));
+  const nombres = await nombreGrupos();
+
+  const ingresos = construirSeccion(agruparPorClase(saldos, [4]), nombres);
+  const costos = construirSeccion(agruparPorClase(saldos, [6]), nombres);
+  const gastos = construirSeccion(agruparPorClase(saldos, [5]), nombres);
+
+  const totalIngresos = ingresos.reduce((s, g) => s + g.total, 0);
+  const totalCostos = costos.reduce((s, g) => s + g.total, 0);
+  const totalGastos = gastos.reduce((s, g) => s + g.total, 0);
+
+  res.json({
+    ingresos,
+    costos,
+    gastos,
+    totalIngresos,
+    totalCostos,
+    totalGastos,
+    resultado: totalIngresos - totalCostos - totalGastos,
+  });
 }
