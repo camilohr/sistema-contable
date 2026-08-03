@@ -1,0 +1,34 @@
+# Dependencias
+node_modules/
+
+# Entornos y secretos
+.env
+.env.*
+!.env.example
+
+# Builds y compilación
+dist/
+build/
+*.tsbuildinfo
+
+# Base de datos local
+*.db
+*.sqlite
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Cobertura de pruebas
+coverage/
+
+# Editor y SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Respaldos generados por el sistema
+backups/
