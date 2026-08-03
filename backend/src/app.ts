@@ -1,6 +1,9 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import authRoutes from "./routes/auth.routes.js";
 import usuariosRoutes from "./routes/usuarios.routes.js";
 import cuentasRoutes from "./routes/cuentas.routes.js";
@@ -11,6 +14,13 @@ import reportesRoutes from "./routes/reportes.routes.js";
 import carteraRoutes from "./routes/cartera.routes.js";
 import productosRoutes from "./routes/productos.routes.js";
 import { notFound, errorHandler } from "./middleware/error.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const frontendDist = process.env.FRONTEND_DIST
+  ? path.resolve(process.env.FRONTEND_DIST)
+  : path.resolve(__dirname, "../../frontend/dist");
+const indexFile = path.join(frontendDist, "index.html");
+const sirveFrontend = fs.existsSync(indexFile);
 
 export function createApp(): express.Express {
   const app = express();
@@ -32,6 +42,13 @@ export function createApp(): express.Express {
   app.use("/api/reportes", reportesRoutes);
   app.use("/api", carteraRoutes);
   app.use("/api", productosRoutes);
+
+  if (sirveFrontend) {
+    app.use(express.static(frontendDist));
+    app.get(/^(?!\/api\/).*/, (_req, res) => {
+      res.sendFile(indexFile);
+    });
+  }
 
   app.use(notFound);
   app.use(errorHandler);
