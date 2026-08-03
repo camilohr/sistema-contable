@@ -7,6 +7,8 @@ import Terceros from "./pages/Terceros";
 import Periodos from "./pages/Periodos";
 import Comprobantes from "./pages/Comprobantes";
 import Reportes from "./pages/Reportes";
+import Cartera from "./pages/Cartera";
+import Productos from "./pages/Productos";
 import CambiarPassword from "./pages/CambiarPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -30,6 +32,9 @@ export default function App() {
             <Route path="/periodos" element={<Periodos />} />
             <Route path="/comprobantes" element={<Comprobantes />} />
             <Route path="/reportes" element={<Reportes />} />
+            <Route path="/cxc" element={<Cartera tipo="cxc" />} />
+            <Route path="/cxp" element={<Cartera tipo="cxp" />} />
+            <Route path="/productos" element={<Productos />} />
             <Route path="/cambiar-password" element={<CambiarPassword />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

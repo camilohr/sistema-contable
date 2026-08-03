@@ -9,7 +9,10 @@ const modulos = [
   { nombre: "Usuarios y roles", ruta: null, disponible: false },
   { nombre: "Libros y reportes", ruta: "/reportes", disponible: true },
   { nombre: "Estados financieros", ruta: "/reportes", disponible: true },
-  { nombre: "CxC / CxP e inventario", ruta: null, disponible: false },
+  { nombre: "Cuentas por cobrar (CxC)", ruta: "/cxc", disponible: true },
+  { nombre: "Cuentas por pagar (CxP)", ruta: "/cxp", disponible: true },
+  { nombre: "Productos e inventario", ruta: "/productos", disponible: true },
+  { nombre: "Usuarios y roles", ruta: null, disponible: false },
 ];
 
 export default function Dashboard() {

@@ -48,6 +48,24 @@ enum EstadoPeriodo {
   CERRADO
 }
 
+enum EstadoCartera {
+  PENDIENTE
+  ABONADA
+  CANCELADA
+  VENCIDA
+}
+
+enum FormaPago {
+  EFECTIVO
+  CHEQUE
+  TRANSFERENCIA
+}
+
+enum TipoMovimientoInventario {
+  ENTRADA
+  SALIDA
+}
+
 model Usuario {
   id                   String        @id @default(uuid())
   nombre               String
@@ -101,6 +119,10 @@ model Tercero {
 
   comprobantes Comprobante[]
   asientos     Asiento[]
+  cuentasPorCobrar CuentaPorCobrar[]
+  cuentasPorPagar  CuentaPorPagar[]
+  recibos          Recibo[]
+  pagos            Pago[]
 
   @@unique([tipoDocumento, documento])
   @@index([tipo])
@@ -155,6 +177,11 @@ model Comprobante {
   usuarioCreo    Usuario     @relation("Creador", fields: [usuarioCreoId], references: [id])
   usuarioAnulo   Usuario?    @relation("Anulador", fields: [usuarioAnuloId], references: [id])
   asientos       Asiento[]
+  cuentasPorCobrar CuentaPorCobrar[]
+  cuentasPorPagar  CuentaPorPagar[]
+  recibos          Recibo[]
+  pagos            Pago[]
+  inventarioMovimientos InventarioMovimiento[]
 
   @@unique([tipo, consecutivo])
   @@index([periodoId])
@@ -182,4 +209,114 @@ model Asiento {
 model Consecutivo {
   tipo   TipoComprobante @id
   ultimo Int             @default(0)
+}
+
+model CuentaPorCobrar {
+  id               Int          @id @default(autoincrement())
+  terceroId        String
+  comprobanteId    Int?
+  numeroDocumento  String
+  fechaEmision     DateTime     @db.Date
+  fechaVencimiento DateTime     @db.Date
+  valor            Decimal      @db.Decimal(15, 2)
+  saldo            Decimal      @db.Decimal(15, 2)
+  estado           EstadoCartera @default(PENDIENTE)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  tercero     Tercero     @relation(fields: [terceroId], references: [id])
+  comprobante Comprobante? @relation(fields: [comprobanteId], references: [id])
+  recibos     Recibo[]
+
+  @@index([terceroId])
+  @@index([estado])
+}
+
+model CuentaPorPagar {
+  id               Int          @id @default(autoincrement())
+  terceroId        String
+  comprobanteId    Int?
+  numeroDocumento  String
+  fechaEmision     DateTime     @db.Date
+  fechaVencimiento DateTime     @db.Date
+  valor            Decimal      @db.Decimal(15, 2)
+  saldo            Decimal      @db.Decimal(15, 2)
+  estado           EstadoCartera @default(PENDIENTE)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  tercero     Tercero     @relation(fields: [terceroId], references: [id])
+  comprobante Comprobante? @relation(fields: [comprobanteId], references: [id])
+  pagos       Pago[]
+
+  @@index([terceroId])
+  @@index([estado])
+}
+
+model Recibo {
+  id            Int        @id @default(autoincrement())
+  numero        String
+  fecha         DateTime   @db.Date
+  terceroId     String
+  cxcId         Int?
+  comprobanteId Int?
+  valor         Decimal    @db.Decimal(15, 2)
+  formaPago     FormaPago  @default(EFECTIVO)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  tercero    Tercero         @relation(fields: [terceroId], references: [id])
+  cxc        CuentaPorCobrar? @relation(fields: [cxcId], references: [id])
+  comprobante Comprobante?   @relation(fields: [comprobanteId], references: [id])
+}
+
+model Pago {
+  id            Int        @id @default(autoincrement())
+  numero        String
+  fecha         DateTime   @db.Date
+  terceroId     String
+  cxpId         Int?
+  comprobanteId Int?
+  valor         Decimal    @db.Decimal(15, 2)
+  formaPago     FormaPago  @default(EFECTIVO)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  tercero    Tercero         @relation(fields: [terceroId], references: [id])
+  cxp        CuentaPorPagar? @relation(fields: [cxpId], references: [id])
+  comprobante Comprobante?   @relation(fields: [comprobanteId], references: [id])
+}
+
+model Producto {
+  id             Int     @id @default(autoincrement())
+  codigo         String  @unique
+  nombre         String
+  categoria      String?
+  unidad         String  @default("und")
+  costoPromedio  Decimal @default(0) @db.Decimal(15, 2)
+  cantidadActual Decimal @default(0) @db.Decimal(15, 2)
+  activo         Boolean @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  movimientos InventarioMovimiento[]
+
+  @@index([activo])
+}
+
+model InventarioMovimiento {
+  id            Int                        @id @default(autoincrement())
+  productoId    Int
+  comprobanteId Int?
+  tipo          TipoMovimientoInventario
+  cantidad      Decimal                    @db.Decimal(15, 2)
+  costoUnitario Decimal                    @db.Decimal(15, 2)
+  fecha         DateTime                   @db.Date
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+
+  producto    Producto    @relation(fields: [productoId], references: [id])
+  comprobante Comprobante? @relation(fields: [comprobanteId], references: [id])
+
+  @@index([productoId])
 }

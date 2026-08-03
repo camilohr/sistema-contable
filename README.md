@@ -27,5 +27,5 @@ Sistema contable local con normatividad colombiana, base de datos PostgreSQL y a
 | 4. Comprobantes y asientos | Completada |
 | 5. Libros y reportes | Completada |
 | 6. Estados financieros | Completada |
-| 7. CxC / CxP e inventario | Pendiente |
+| 7. CxC / CxP e inventario | Completada |
 | 8. Respaldo, red local y manuales | Pendiente |

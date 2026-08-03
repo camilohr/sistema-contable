@@ -8,6 +8,8 @@ import tercerosRoutes from "./routes/terceros.routes.js";
 import periodosRoutes from "./routes/periodos.routes.js";
 import comprobantesRoutes from "./routes/comprobantes.routes.js";
 import reportesRoutes from "./routes/reportes.routes.js";
+import carteraRoutes from "./routes/cartera.routes.js";
+import productosRoutes from "./routes/productos.routes.js";
 import { notFound, errorHandler } from "./middleware/error.js";
 
 export function createApp(): express.Express {
@@ -28,6 +30,8 @@ export function createApp(): express.Express {
   app.use("/api/periodos", periodosRoutes);
   app.use("/api/comprobantes", comprobantesRoutes);
   app.use("/api/reportes", reportesRoutes);
+  app.use("/api", carteraRoutes);
+  app.use("/api", productosRoutes);
 
   app.use(notFound);
   app.use(errorHandler);
