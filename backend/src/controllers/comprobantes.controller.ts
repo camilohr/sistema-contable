@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Prisma, EstadoComprobante, TipoComprobante, EstadoPeriodo, AccionAuditoria } from "@prisma/client";
+import { Prisma, EstadoComprobante, TipoComprobante, EstadoPeriodo, EstadoNomina, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
 
@@ -366,6 +366,9 @@ export async function anular(req: Request, res: Response): Promise<void> {
       data: { estado: EstadoComprobante.ANULADO, usuarioAnuloId: req.user!.sub, fechaAnulacion: new Date() },
       include: { periodo: true },
     });
+    if (c.concepto.startsWith("Nómina periodo")) {
+      await tx.nomina.updateMany({ where: { comprobanteId: id }, data: { estado: EstadoNomina.ANULADO } });
+    }
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
       accion: AccionAuditoria.ANULAR,

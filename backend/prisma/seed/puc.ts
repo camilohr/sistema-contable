@@ -521,6 +521,7 @@ export const PUC: PucEntry[] = [
   ["510580", "Cuotas sindicales"],
   ["510585", "Pagos por terceros"],
   ["510590", "Otros gastos de personal"],
+  ["510595", "Auxilio de transporte"],
   ["5110", "Honorarios"],
   ["511005", "Revisoría fiscal"],
   ["511010", "Auditoría externa"],

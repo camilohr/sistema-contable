@@ -48,6 +48,12 @@ enum EstadoPeriodo {
   CERRADO
 }
 
+enum EstadoNomina {
+  BORRADOR
+  CONTABILIZADO
+  ANULADO
+}
+
 enum EstadoCartera {
   PENDIENTE
   ABONADA
@@ -91,6 +97,14 @@ enum AccionAuditoria {
   BAJA_ACTIVO
   CERRAR_ANIO
   CALCULAR_PROVISION
+  CREAR_EMPLEADO
+  EDITAR_EMPLEADO
+  RETIRAR_EMPLEADO
+  LIQUIDAR_NOMINA
+  CONTABILIZAR_NOMINA
+  ANULAR_NOMINA
+  PROVISIONAR_NOMINA
+  ACTUALIZAR_PARAMETROS_NOMINA
 }
 
 model Usuario {
@@ -133,6 +147,7 @@ model Cuenta {
   activosDepreciacion  ActivoFijo[] @relation("ActivoCuentaDepreciacion")
   activosGasto         ActivoFijo[] @relation("ActivoCuentaGasto")
   cierresAnuales       CierreAnual[] @relation("CierreCuentaUtilidad")
+  parametrosCuentaNomina ParametroCuentaNomina[]
 
   @@index([clase, grupo])
   @@index([nivel])
@@ -158,6 +173,7 @@ model Tercero {
   cuentasPorPagar  CuentaPorPagar[]
   recibos          Recibo[]
   pagos            Pago[]
+  empleado         Empleado?
 
   @@unique([tipoDocumento, documento])
   @@index([tipo])
@@ -189,6 +205,8 @@ model Periodo {
 
   depreciaciones Depreciacion[]
   provisionesCartera ProvisionCartera[]
+  nominas          Nomina[]
+  provisionesNomina ProvisionNomina[]
 
   @@index([estado])
 }
@@ -223,6 +241,8 @@ model Comprobante {
   depreciaciones   Depreciacion[]
   cierreAnual      CierreAnual?
   provisionesCartera ProvisionCartera[]
+  nominas          Nomina[]
+  provisionesNomina ProvisionNomina[]
 
   @@unique([tipo, consecutivo])
   @@index([periodoId])
@@ -453,4 +473,122 @@ model ProvisionCartera {
 
   @@unique([periodoId])
   @@index([periodoId])
+}
+
+model Empleado {
+  id                      String   @id @default(uuid())
+  terceroId               String   @unique
+  cargo                   String?
+  salarioBase             Decimal  @db.Decimal(15, 2)
+  fechaIngreso            DateTime @db.Date
+  fechaRetiro             DateTime? @db.Date
+  ibcAjuste               Decimal  @default(0) @db.Decimal(15, 2)
+  arlEmpleador            Decimal  @default(0.522) @db.Decimal(5, 3)
+  auxilioTransporteManual Boolean  @default(false)
+  activo                  Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  tercero       Tercero          @relation(fields: [terceroId], references: [id])
+  liquidaciones Nomina[]
+  provisiones   ProvisionNomina[]
+
+  @@index([activo])
+}
+
+model Nomina {
+  id                Int          @id @default(autoincrement())
+  empleadoId        String
+  periodoId         Int
+  diasTrabajados    Int          @default(30)
+  sueldo            Decimal      @default(0) @db.Decimal(15, 2)
+  horasExtras       Decimal      @default(0) @db.Decimal(15, 2)
+  comisiones        Decimal      @default(0) @db.Decimal(15, 2)
+  bonificaciones    Decimal      @default(0) @db.Decimal(15, 2)
+  auxilioTransporte Decimal      @default(0) @db.Decimal(15, 2)
+  otrosDevengados   Decimal      @default(0) @db.Decimal(15, 2)
+  saludEmpleado     Decimal      @default(0) @db.Decimal(15, 2)
+  pensionEmpleado   Decimal      @default(0) @db.Decimal(15, 2)
+  solidaridad       Decimal      @default(0) @db.Decimal(15, 2)
+  retefuente        Decimal      @default(0) @db.Decimal(15, 2)
+  libranzas         Decimal      @default(0) @db.Decimal(15, 2)
+  embargos          Decimal      @default(0) @db.Decimal(15, 2)
+  otrosDescuentos   Decimal      @default(0) @db.Decimal(15, 2)
+  ibc               Decimal      @default(0) @db.Decimal(15, 2)
+  aporteSalud       Decimal      @default(0) @db.Decimal(15, 2)
+  aportePension     Decimal      @default(0) @db.Decimal(15, 2)
+  aporteArl         Decimal      @default(0) @db.Decimal(15, 2)
+  aporteCaja        Decimal      @default(0) @db.Decimal(15, 2)
+  aporteIcbf        Decimal      @default(0) @db.Decimal(15, 2)
+  aporteSena        Decimal      @default(0) @db.Decimal(15, 2)
+  totalDevengado    Decimal      @db.Decimal(15, 2)
+  totalDeducciones  Decimal      @db.Decimal(15, 2)
+  netoPagar         Decimal      @db.Decimal(15, 2)
+  estado            EstadoNomina @default(BORRADOR)
+  comprobanteId     Int?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  empleado    Empleado     @relation(fields: [empleadoId], references: [id])
+  periodo     Periodo      @relation(fields: [periodoId], references: [id])
+  comprobante Comprobante? @relation(fields: [comprobanteId], references: [id])
+
+  @@unique([empleadoId, periodoId])
+  @@index([periodoId, estado])
+}
+
+model ProvisionNomina {
+  id                Int      @id @default(autoincrement())
+  empleadoId        String
+  periodoId         Int
+  baseCesantias     Decimal  @db.Decimal(15, 2)
+  cesantias         Decimal  @db.Decimal(15, 2)
+  interesesCesantias Decimal @db.Decimal(15, 2)
+  prima             Decimal  @db.Decimal(15, 2)
+  baseVacaciones    Decimal  @db.Decimal(15, 2)
+  vacaciones        Decimal  @db.Decimal(15, 2)
+  total             Decimal  @db.Decimal(15, 2)
+  comprobanteId     Int?
+  createdAt         DateTime @default(now())
+
+  empleado    Empleado     @relation(fields: [empleadoId], references: [id])
+  periodo     Periodo      @relation(fields: [periodoId], references: [id])
+  comprobante Comprobante? @relation(fields: [comprobanteId], references: [id])
+
+  @@unique([empleadoId, periodoId])
+  @@index([periodoId])
+}
+
+model ParametroNomina {
+  id                         Int      @id @default(autoincrement())
+  anio                       Int      @unique
+  smmlv                      Decimal  @db.Decimal(15, 2)
+  auxilioTransporte          Decimal  @db.Decimal(15, 2)
+  topeAuxilioTransporteSalarios Decimal @db.Decimal(5, 2)
+  topeIbcSalarios            Decimal  @db.Decimal(5, 2)
+  saludEmpleado              Decimal  @db.Decimal(5, 2)
+  pensionEmpleado            Decimal  @db.Decimal(5, 2)
+  saludEmpleador             Decimal  @db.Decimal(5, 2)
+  pensionEmpleador           Decimal  @db.Decimal(5, 2)
+  arlEmpleador               Decimal  @db.Decimal(5, 3)
+  cajaCompensacion           Decimal  @db.Decimal(5, 2)
+  icbf                       Decimal  @db.Decimal(5, 2)
+  sena                       Decimal  @db.Decimal(5, 2)
+  umbralParafiscales         Int
+  solidaridadUmbralSalarios  Decimal  @db.Decimal(5, 2)
+  interesesCesantias         Decimal  @db.Decimal(5, 2)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+}
+
+model ParametroCuentaNomina {
+  id        Int      @id @default(autoincrement())
+  concepto  String   @unique
+  cuentaId  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cuenta Cuenta @relation(fields: [cuentaId], references: [id])
+
+  @@index([cuentaId])
 }

@@ -16,6 +16,9 @@ import Indicadores from "./pages/Indicadores";
 import Auditoria from "./pages/Auditoria";
 import Usuarios from "./pages/Usuarios";
 import CambiarPassword from "./pages/CambiarPassword";
+import Empleados from "./pages/Empleados";
+import Nomina from "./pages/Nomina";
+import ParametrosNomina from "./pages/ParametrosNomina";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 
@@ -47,6 +50,9 @@ export default function App() {
             <Route path="/indicadores" element={<Indicadores />} />
             <Route path="/usuarios" element={<Usuarios />} />
             <Route path="/auditoria" element={<Auditoria />} />
+            <Route path="/empleados" element={<Empleados />} />
+            <Route path="/nomina" element={<Nomina />} />
+            <Route path="/parametros-nomina" element={<ParametrosNomina />} />
             <Route path="/cambiar-password" element={<CambiarPassword />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

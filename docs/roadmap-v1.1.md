@@ -25,7 +25,7 @@ documentados en `docs/modelo-datos.md` (tablas `activos_fijos`, `depreciaciones`
 6. Exportación de libros oficiales a PDF `[COMPLETADO 2026-08-04]`
 7. Presupuesto y control presupuestal
 8. Alertas y recordatorios internos
-9. Nómina simplificada (solo cálculo, sin PILA)
+9. Nómina simplificada (solo cálculo, sin PILA) `[COMPLETADO 2026-08-04]`
 
 ---
 
@@ -470,10 +470,19 @@ model Nomina {
 }
 ```
 
-Este módulo requiere una fase de diseño propia (definir con precisión qué conceptos
-laborales cubre la V1: ¿solo salario + aportes básicos, o también provisión mensual de
-prestaciones sociales?) antes de construirlo — no se detalla más aquí para no fijar
-supuestos incorrectos.
+Este módulo se diseñó por separado en `docs/diseno-nomina.md` (2026-08-04), que cubre
+las decisiones de alcance V1 (sueldo, auxilio de transporte automático, horas
+extras/descuentos manuales, aportes, provisión mensual de prestaciones, asientos de
+nómina y de provisión), los parámetros anuales con valores 2026 (SMMLV 1.750.905,
+auxilio 249.095), el modelo Prisma (Empleado, Nomina, ProvisionNomina,
+ParametroNomina, ParametroCuentaNomina), el mapeo al PUC existente y los endpoints.
+
+**Implementado (2026-08-04):** modelos y migraciones `nomina`/`arl_precision`,
+endpoints `/api/empleados` y `/api/nomina`, liquidación mensual con aportes,
+parafiscales (10+ empleados), retefuente y solidaridad, contabilización y provisión de
+prestaciones con partida doble, anulación con reliquidación, seed de parámetros 2026 y
+mapeo de cuentas, páginas frontend (Empleados, Nómina, Parámetros de nómina) y 37
+pruebas (291 en total). Detalles en el `CHANGELOG.md`.
 
 ---
 

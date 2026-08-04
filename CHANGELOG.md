@@ -71,6 +71,17 @@ Siguiente iteración sobre la V1.0.0; alcance definido en [Roadmap V1.1](docs/ro
 - `.github/workflows/ci.yml`: en cada push a `master` (o PR) ejecuta dos jobs — backend (`npm ci`, `prisma generate`, `npm test`, `npm run build` con un servicio PostgreSQL 16) y frontend (`npm ci`, `npm run lint`, `npm run build`).
 - El CI crea su propia base `contabilidad` como servicio y la suite deriva `contabilidad_test` automáticamente, sin depender de credenciales reales.
 
+### Módulo 9 — Nómina simplificada
+- `docs/diseno-nomina.md`: diseño previo a la implementación con las decisiones de alcance V1 (sueldo, auxilio de transporte automático, horas extras y descuentos manuales, aportes, provisión mensual de prestaciones, asientos de nómina y de provisión), parámetros anuales con valores 2026 (SMMLV 1.750.905, auxilio de transporte 249.095), fórmulas con ejemplo numérico, modelo Prisma (Empleado, Nomina, ProvisionNomina, ParametroNomina, ParametroCuentaNomina), mapeo al PUC existente, endpoints y tests sugeridos.
+- Modelos Prisma (migraciones `nomina` y `arl_precision`): `Empleado` (documento/tipo, sueldo, auxilio de transporte, ARL variable, fecha de ingreso/retiro, activo), `Nomina` (liquidación mensual por empleado con estado LIQUIDADO/CONTABILIZADO/ANULADO), `ProvisionNomina` (cesantías, intereses, primas y vacaciones), `ParametroNomina` (parámetros anuales con `anio` único) y `ParametroCuentaNomina` (mapeo de conceptos a cuentas PUC). `arlEmpleador` usa `Decimal(5,3)`.
+- Endpoints `/api/empleados` (CRUD y retiro con fecha, solo ADMIN/CONTADOR; listado para todos los roles) y `/api/nomina` (parámetros y mapeo de cuentas GET/PUT, liquidar/reliquidar, contabilizar, provisionar y consultar por periodo, con control de roles).
+- Liquidación mensual por periodo: sueldo proporcional a días, auxilio de transporte automático (bajo el tope de salarios), IBC con tope de 25 salarios, aportes salud y pensión sobre IBC, parafiscales (caja, ICBF y SENA) si hay 10 o más empleados, aporte solidario, retefuente según tabla de la DIAN y descuentos manuales.
+- Contabilización de la nómina en un comprobante DIARIO con partida doble (débitos = créditos) usando el mapeo de cuentas PUC configurable; provisión mensual de prestaciones (cesantías, intereses, prima y vacaciones) en comprobante propio.
+- Anulación de nómina: al anular el comprobante de nómina el registro pasa a `ANULADO` y permite reliquidar; la provisión se recalcula según el nuevo total.
+- `backend/prisma/seed.ts`: siembra los parámetros 2026 y el mapeo por defecto de cuentas de nómina al PUC existente.
+- Páginas de Empleados, Nómina (liquidación, contabilización, provisión y consulta) y Parámetros de nómina en el frontend, con acciones visibles según rol (AUXILIAR solo consulta).
+- 37 pruebas nuevas (291 en total).
+
 ## [1.0.0] - 2026-08-03
 
 Primera versión liberada: sistema contable completo según normatividad colombiana, desplegable en un servidor local.
