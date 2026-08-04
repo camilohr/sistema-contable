@@ -114,6 +114,12 @@ async function validarYPreparar(data: z.infer<typeof guardarSchema>) {
   const cuentas = await prisma.cuenta.findMany({ where: { id: { in: idsCuenta } } });
   const cuentaPorId = new Map(cuentas.map((c) => [c.id, c]));
 
+  const anioPeriodo = Number(periodo.fechaInicio.toISOString().slice(0, 4));
+  const cierreAnio = await prisma.cierreAnual.findUnique({ where: { anio: anioPeriodo } });
+  if (cierreAnio && cuentas.some((c) => c.clase >= 4 && c.clase <= 7)) {
+    return { error: `El año ${anioPeriodo} está cerrado; no se permiten movimientos en cuentas de resultado` };
+  }
+
   let totalDebito = new Prisma.Decimal(0);
   let totalCredito = new Prisma.Decimal(0);
 

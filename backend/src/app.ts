@@ -15,6 +15,7 @@ import carteraRoutes from "./routes/cartera.routes.js";
 import productosRoutes from "./routes/productos.routes.js";
 import activosFijosRoutes from "./routes/activos-fijos.routes.js";
 import auditoriaRoutes from "./routes/auditoria.routes.js";
+import cierreAnualRoutes from "./routes/cierre-anual.routes.js";
 import { notFound, errorHandler } from "./middleware/error.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -46,6 +47,7 @@ export function createApp(): express.Express {
   app.use("/api", productosRoutes);
   app.use("/api/activos-fijos", activosFijosRoutes);
   app.use("/api/auditoria", auditoriaRoutes);
+  app.use("/api/cierre-anual", cierreAnualRoutes);
 
   if (sirveFrontend) {
     app.use(express.static(frontendDist));

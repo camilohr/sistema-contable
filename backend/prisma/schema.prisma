@@ -89,6 +89,7 @@ enum AccionAuditoria {
   EDITAR_ACTIVO
   DEPRECIAR_ACTIVOS
   BAJA_ACTIVO
+  CERRAR_ANIO
 }
 
 model Usuario {
@@ -105,6 +106,7 @@ model Usuario {
   comprobantesCreados  Comprobante[] @relation("Creador")
   comprobantesAnulados Comprobante[] @relation("Anulador")
   auditorias           Auditoria[]
+  cierresAnuales       CierreAnual[]
 }
 
 model Cuenta {
@@ -129,6 +131,7 @@ model Cuenta {
   activosActivo        ActivoFijo[] @relation("ActivoCuenta")
   activosDepreciacion  ActivoFijo[] @relation("ActivoCuentaDepreciacion")
   activosGasto         ActivoFijo[] @relation("ActivoCuentaGasto")
+  cierresAnuales       CierreAnual[] @relation("CierreCuentaUtilidad")
 
   @@index([clase, grupo])
   @@index([nivel])
@@ -216,6 +219,7 @@ model Comprobante {
   pagos            Pago[]
   inventarioMovimientos InventarioMovimiento[]
   depreciaciones   Depreciacion[]
+  cierreAnual      CierreAnual?
 
   @@unique([tipo, consecutivo])
   @@index([periodoId])
@@ -409,4 +413,17 @@ model Auditoria {
   @@index([entidad, entidadId])
   @@index([fecha])
   @@index([usuarioId])
+}
+
+model CierreAnual {
+  id               Int      @id @default(autoincrement())
+  anio             Int      @unique
+  comprobanteId    Int      @unique
+  cuentaUtilidadId Int
+  usuarioId        String
+  fecha            DateTime @default(now())
+
+  comprobante    Comprobante @relation(fields: [comprobanteId], references: [id])
+  cuentaUtilidad Cuenta      @relation("CierreCuentaUtilidad", fields: [cuentaUtilidadId], references: [id])
+  usuario        Usuario     @relation(fields: [usuarioId], references: [id])
 }

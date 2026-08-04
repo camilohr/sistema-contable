@@ -10,6 +10,7 @@ import Reportes from "./pages/Reportes";
 import Cartera from "./pages/Cartera";
 import Productos from "./pages/Productos";
 import ActivosFijos from "./pages/ActivosFijos";
+import CierreAnual from "./pages/CierreAnual";
 import Auditoria from "./pages/Auditoria";
 import Usuarios from "./pages/Usuarios";
 import CambiarPassword from "./pages/CambiarPassword";
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="/cxp" element={<Cartera tipo="cxp" />} />
             <Route path="/productos" element={<Productos />} />
             <Route path="/activos-fijos" element={<ActivosFijos />} />
+            <Route path="/cierre-anual" element={<CierreAnual />} />
             <Route path="/usuarios" element={<Usuarios />} />
             <Route path="/auditoria" element={<Auditoria />} />
             <Route path="/cambiar-password" element={<CambiarPassword />} />

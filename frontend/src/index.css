@@ -112,6 +112,15 @@ input:focus {
   font-size: 0.85rem;
 }
 
+.success-msg {
+  color: #1e8449;
+  font-size: 0.85rem;
+}
+
+.section-title {
+  margin: 1.25rem 0 0.75rem;
+}
+
 .app-shell {
   min-height: 100vh;
   display: flex;

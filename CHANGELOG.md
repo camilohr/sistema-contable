@@ -22,6 +22,16 @@ Siguiente iteración sobre la V1.0.0; alcance definido en [Roadmap V1.1](docs/ro
 - Página de Bitácora de auditoría en el frontend (solo ADMIN) con filtros y "cargar más".
 - 13 pruebas nuevas (202 en total).
 
+### Módulo 3 — Cierre de ejercicio anual
+- Modelo `CierreAnual` (migración `cierre_anual`) con `anio` único y referencia al comprobante de cierre, la cuenta de utilidades y el usuario que lo ejecutó.
+- `POST /api/cierre-anual/:anio` (solo ADMIN): traslada los saldos de las cuentas de resultado (clases 4 a 7) a la cuenta de utilidades del patrimonio (3605 por defecto o la indicada en clase 3), generando un comprobante DIARIO contabilizado con partida doble (débitos = créditos).
+- Reglas de negocio: todos los periodos del año deben estar cerrados, un año solo se cierra una vez, sin cuentas de resultado con saldo el cierre se rechaza y la cuenta de utilidades debe ser activa y permitir movimiento.
+- Bloqueo posterior al cierre: nuevos comprobantes con cuentas de resultado (clases 4-7) en el año cerrado se rechazan aunque se reabra un periodo; los comprobantes de balance (clases 1-3) siguen permitidos.
+- `GET /api/cierre-anual` (listado) y `GET /api/cierre-anual/:anio` (detalle con asiento) para todos los roles autenticados.
+- Registro de la acción `CERRAR_ANIO` en la bitácora de auditoría (módulo 2).
+- Página de Cierre anual en el frontend: listado de años cerrados, formulario de ejecución (solo ADMIN) y detalle del asiento de cierre.
+- 15 pruebas nuevas (217 en total).
+
 ## [1.0.0] - 2026-08-03
 
 Primera versión liberada: sistema contable completo según normatividad colombiana, desplegable en un servidor local.

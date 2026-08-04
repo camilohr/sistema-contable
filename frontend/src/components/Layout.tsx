@@ -15,6 +15,7 @@ const links = [
   { to: "/cxp", label: "Cuentas por pagar" },
   { to: "/productos", label: "Productos e inventario" },
   { to: "/activos-fijos", label: "Activos fijos" },
+  { to: "/cierre-anual", label: "Cierre anual" },
   { to: "/cuentas", label: "Catálogo de cuentas" },
   { to: "/terceros", label: "Terceros" },
   { to: "/periodos", label: "Periodos" },
