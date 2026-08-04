@@ -14,7 +14,7 @@ interface Linea {
   credito: number;
 }
 
-function whereFiltros(req: Request): Prisma.ComprobanteWhereInput {
+export function whereFiltros(req: Request): Prisma.ComprobanteWhereInput {
   const where: Prisma.ComprobanteWhereInput = { estado: EstadoComprobante.CONTABILIZADO };
   const periodoId = req.query.periodoId ? Number(req.query.periodoId) : undefined;
   const fechaDesde = req.query.fechaDesde ? String(req.query.fechaDesde) : undefined;
@@ -30,7 +30,7 @@ function whereFiltros(req: Request): Prisma.ComprobanteWhereInput {
 
 const ref = (tipo: string, consecutivo: number) => `${tipo[0]}-${String(consecutivo).padStart(4, "0")}`;
 
-interface SaldoCuenta {
+export interface SaldoCuenta {
   codigo: string;
   nombre: string;
   clase: number;
@@ -41,7 +41,7 @@ interface SaldoCuenta {
   saldo: number;
 }
 
-async function saldosPorCuenta(where: Prisma.ComprobanteWhereInput): Promise<SaldoCuenta[]> {
+export async function saldosPorCuenta(where: Prisma.ComprobanteWhereInput): Promise<SaldoCuenta[]> {
   const comprobantes = await prisma.comprobante.findMany({
     where,
     select: {

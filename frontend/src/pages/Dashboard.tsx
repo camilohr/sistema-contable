@@ -15,8 +15,10 @@ export default function Dashboard() {
     { nombre: "Activos fijos", ruta: "/activos-fijos" },
     { nombre: "Cuentas por cobrar (CxC)", ruta: "/cxc" },
     { nombre: "Cuentas por pagar (CxP)", ruta: "/cxp" },
+    { nombre: "Provisión de cartera", ruta: "/provision-cartera" },
+    { nombre: "Indicadores financieros", ruta: "/indicadores" },
+    { nombre: "Cierre anual", ruta: "/cierre-anual" },
     { nombre: "Libros y reportes", ruta: "/reportes" },
-    { nombre: "Estados financieros", ruta: "/reportes" },
     ...(esAdmin ? [{ nombre: "Usuarios y roles", ruta: "/usuarios" }] : []),
   ];
 

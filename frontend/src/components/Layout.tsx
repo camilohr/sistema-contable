@@ -14,6 +14,7 @@ const links = [
   { to: "/cxc", label: "Cuentas por cobrar" },
   { to: "/cxp", label: "Cuentas por pagar" },
   { to: "/provision-cartera", label: "Provisión de cartera" },
+  { to: "/indicadores", label: "Indicadores financieros" },
   { to: "/productos", label: "Productos e inventario" },
   { to: "/activos-fijos", label: "Activos fijos" },
   { to: "/cierre-anual", label: "Cierre anual" },

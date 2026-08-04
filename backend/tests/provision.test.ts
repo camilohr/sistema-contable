@@ -53,7 +53,8 @@ beforeAll(async () => {
 
   await prisma.provisionCartera.deleteMany({});
   await prisma.parametroProvision.deleteMany({});
-  await prisma.cuentaPorCobrar.deleteMany({ where: { numeroDocumento: { startsWith: `PROV-${suf}` } } });
+  await prisma.cuentaPorCobrar.deleteMany({});
+  await prisma.cuentaPorPagar.deleteMany({});
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Provisión" } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Reversión de provisión" } } });
   await prisma.periodo.deleteMany({ where: { nombre: { startsWith: `PROV-${suf}` } } });
@@ -99,7 +100,8 @@ beforeAll(async () => {
 afterAll(async () => {
   await prisma.provisionCartera.deleteMany({});
   await restaurarParametros();
-  await prisma.cuentaPorCobrar.deleteMany({ where: { numeroDocumento: { startsWith: `PROV-${suf}` } } });
+  await prisma.cuentaPorCobrar.deleteMany({});
+  await prisma.cuentaPorPagar.deleteMany({});
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Provisión" } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Reversión de provisión" } } });
   await prisma.periodo.deleteMany({ where: { nombre: { startsWith: `PROV-${suf}` } } });

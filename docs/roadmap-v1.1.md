@@ -21,7 +21,7 @@ documentados en `docs/modelo-datos.md` (tablas `activos_fijos`, `depreciaciones`
 2. Bitácora de auditoría `[GAP EXISTENTE]` `[COMPLETADO 2026-08-04]`
 3. Cierre de ejercicio anual `[COMPLETADO 2026-08-04]`
 4. Provisión de cartera (deterioro) `[COMPLETADO 2026-08-04]`
-5. Indicadores financieros y análisis comparativo
+5. Indicadores financieros y análisis comparativo `[COMPLETADO 2026-08-04]`
 6. Exportación de libros oficiales a PDF
 7. Presupuesto y control presupuestal
 8. Alertas y recordatorios internos
@@ -308,6 +308,12 @@ resultados.
 
 Nota: clasificar cuentas como "corriente" o "no corriente" requiere un campo nuevo en
 `Cuenta` (`esCorriente Boolean?`) o una convención por rango de código PUC.
+
+Decisión de implementación: se usó la convención PUC (sin migración). Activo corriente =
+grupos 11, 12, 13 y 14; pasivo corriente = grupos 21 a 26; inventario = grupo 14 y cartera =
+grupo 13 (la provisión 1399 se descuenta por su naturaleza deudora). La "ventas a crédito"
+se aproxima con el grupo 41 (ingresos operacionales) y el "costo de ventas" con la clase 6,
+consistente con el estado de resultados existente.
 
 ### Endpoints (`/api/reportes/indicadores`)
 

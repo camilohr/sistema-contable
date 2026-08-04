@@ -44,6 +44,15 @@ Siguiente iteración sobre la V1.0.0; alcance definido en [Roadmap V1.1](docs/ro
 - Página de Provisión de cartera en el frontend: cálculo por periodo, resumen del ajuste, desglose de cartera por días de mora, consulta por periodo y edición de parámetros.
 - 18 pruebas nuevas (235 en total).
 
+### Módulo 5 — Indicadores financieros y análisis comparativo
+- `backend/src/lib/indicadores.ts` con funciones puras sobre los saldos agregados (misma fuente que los reportes): clasificación corriente/no corriente por convención PUC (activo corriente grupos 11-14, pasivo corriente 21-26), inventario (14) y cartera (13).
+- Razones financieras: razón corriente, prueba ácida, endeudamiento, margen neto, rotación de cartera y rotación de inventario; división por cero devuelve `null`.
+- `GET /api/reportes/indicadores/:periodoId` (todos los roles): razones y datos base del periodo.
+- `GET /api/reportes/indicadores/comparativo?desde=&hasta=`: razones lado a lado (las rotaciones del periodo final usan el saldo promedio de ambos periodos), análisis vertical (participación de cada cuenta sobre su sección en ambos periodos) y análisis horizontal (variación absoluta y porcentual por cuenta y sección).
+- Sin modelos nuevos ni migración: 100% cálculo sobre datos ya contabilizados.
+- Página de Indicadores financieros en el frontend: vista individual y comparativo con tablas vertical/horizontal.
+- 14 pruebas nuevas (249 en total).
+
 ## [1.0.0] - 2026-08-03
 
 Primera versión liberada: sistema contable completo según normatividad colombiana, desplegable en un servidor local.
