@@ -13,6 +13,7 @@ import comprobantesRoutes from "./routes/comprobantes.routes.js";
 import reportesRoutes from "./routes/reportes.routes.js";
 import carteraRoutes from "./routes/cartera.routes.js";
 import productosRoutes from "./routes/productos.routes.js";
+import activosFijosRoutes from "./routes/activos-fijos.routes.js";
 import { notFound, errorHandler } from "./middleware/error.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -42,6 +43,7 @@ export function createApp(): express.Express {
   app.use("/api/reportes", reportesRoutes);
   app.use("/api", carteraRoutes);
   app.use("/api", productosRoutes);
+  app.use("/api/activos-fijos", activosFijosRoutes);
 
   if (sirveFrontend) {
     app.use(express.static(frontendDist));

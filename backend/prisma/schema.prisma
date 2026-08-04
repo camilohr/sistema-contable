@@ -66,6 +66,16 @@ enum TipoMovimientoInventario {
   SALIDA
 }
 
+enum MetodoDepreciacion {
+  LINEA_RECTA
+}
+
+enum EstadoActivoFijo {
+  ACTIVO
+  DEPRECIADO_TOTAL
+  DADO_DE_BAJA
+}
+
 model Usuario {
   id                   String        @id @default(uuid())
   nombre               String
@@ -99,6 +109,10 @@ model Cuenta {
   updatedAt         DateTime   @updatedAt
 
   asientos Asiento[]
+
+  activosActivo        ActivoFijo[] @relation("ActivoCuenta")
+  activosDepreciacion  ActivoFijo[] @relation("ActivoCuentaDepreciacion")
+  activosGasto         ActivoFijo[] @relation("ActivoCuentaGasto")
 
   @@index([clase, grupo])
   @@index([nivel])
@@ -153,6 +167,8 @@ model Periodo {
 
   comprobantes Comprobante[]
 
+  depreciaciones Depreciacion[]
+
   @@index([estado])
 }
 
@@ -183,6 +199,7 @@ model Comprobante {
   recibos          Recibo[]
   pagos            Pago[]
   inventarioMovimientos InventarioMovimiento[]
+  depreciaciones   Depreciacion[]
 
   @@unique([tipo, consecutivo])
   @@index([periodoId])
@@ -320,4 +337,44 @@ model InventarioMovimiento {
   comprobante Comprobante? @relation(fields: [comprobanteId], references: [id])
 
   @@index([productoId])
+}
+
+model ActivoFijo {
+  id                    Int                @id @default(autoincrement())
+  cuentaId              Int
+  cuentaDepreciacionId  Int
+  cuentaGastoId         Int
+  nombre                String
+  fechaAdquisicion      DateTime           @db.Date
+  valor                 Decimal            @db.Decimal(15, 2)
+  vidaUtilMeses         Int
+  valorResidual         Decimal            @default(0) @db.Decimal(15, 2)
+  metodo                MetodoDepreciacion @default(LINEA_RECTA)
+  depreciacionAcumulada Decimal            @default(0) @db.Decimal(15, 2)
+  estado                EstadoActivoFijo   @default(ACTIVO)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  cuenta             Cuenta          @relation("ActivoCuenta", fields: [cuentaId], references: [id])
+  cuentaDepreciacion Cuenta          @relation("ActivoCuentaDepreciacion", fields: [cuentaDepreciacionId], references: [id])
+  cuentaGasto        Cuenta          @relation("ActivoCuentaGasto", fields: [cuentaGastoId], references: [id])
+  depreciaciones     Depreciacion[]
+
+  @@index([estado])
+}
+
+model Depreciacion {
+  id            Int      @id @default(autoincrement())
+  activoId      Int
+  periodoId     Int
+  comprobanteId Int?
+  valor         Decimal  @db.Decimal(15, 2)
+  createdAt     DateTime @default(now())
+
+  activo      ActivoFijo   @relation(fields: [activoId], references: [id])
+  periodo     Periodo      @relation(fields: [periodoId], references: [id])
+  comprobante Comprobante? @relation(fields: [comprobanteId], references: [id])
+
+  @@unique([activoId, periodoId])
+  @@index([periodoId])
 }

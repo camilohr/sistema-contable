@@ -1,5 +1,19 @@
 # Historial de cambios
 
+## [1.1.0] - en desarrollo
+
+Siguiente iteración sobre la V1.0.0; alcance definido en [Roadmap V1.1](docs/roadmap-v1.1.md).
+
+### Módulo 1 — Activos fijos y depreciación
+- Modelos `ActivoFijo` y `Depreciacion` (migración `activos_fijos_depreciacion`), con cuentas de activo (grupo 15), depreciación acumulada (1596) y gasto (5160/5260).
+- Alta de activos con método línea recta, vida útil en meses y valor residual.
+- Depreciación por periodo en un solo comprobante DIARIO contabilizado (partida doble), con bloqueo por periodo y control de doble generación (`@@unique([activoId, periodoId])`).
+- Transición automática a `DEPRECIADO_TOTAL` al completar la vida útil y exclusión del cálculo mensual.
+- Baja de activo con asiento de retiro (salida del costo y de la depreciación acumulada) en periodo abierto.
+- Endpoints `/api/activos-fijos` (listar, crear, editar, depreciar, baja, historial) con control de roles (escritura ADMIN/CONTADOR).
+- Página de Activos Fijos en el frontend (listado, alta, depreciación por periodo, baja, historial).
+- 17 pruebas nuevas (189 en total).
+
 ## [1.0.0] - 2026-08-03
 
 Primera versión liberada: sistema contable completo según normatividad colombiana, desplegable en un servidor local.

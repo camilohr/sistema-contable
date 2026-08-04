@@ -12,6 +12,7 @@ export default function Dashboard() {
     { nombre: "Terceros", ruta: "/terceros" },
     { nombre: "Periodos contables", ruta: "/periodos" },
     { nombre: "Productos e inventario", ruta: "/productos" },
+    { nombre: "Activos fijos", ruta: "/activos-fijos" },
     { nombre: "Cuentas por cobrar (CxC)", ruta: "/cxc" },
     { nombre: "Cuentas por pagar (CxP)", ruta: "/cxp" },
     { nombre: "Libros y reportes", ruta: "/reportes" },

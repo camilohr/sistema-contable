@@ -9,6 +9,7 @@ import Comprobantes from "./pages/Comprobantes";
 import Reportes from "./pages/Reportes";
 import Cartera from "./pages/Cartera";
 import Productos from "./pages/Productos";
+import ActivosFijos from "./pages/ActivosFijos";
 import Usuarios from "./pages/Usuarios";
 import CambiarPassword from "./pages/CambiarPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="/cxc" element={<Cartera tipo="cxc" />} />
             <Route path="/cxp" element={<Cartera tipo="cxp" />} />
             <Route path="/productos" element={<Productos />} />
+            <Route path="/activos-fijos" element={<ActivosFijos />} />
             <Route path="/usuarios" element={<Usuarios />} />
             <Route path="/cambiar-password" element={<CambiarPassword />} />
           </Route>

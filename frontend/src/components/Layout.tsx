@@ -14,6 +14,7 @@ const links = [
   { to: "/cxc", label: "Cuentas por cobrar" },
   { to: "/cxp", label: "Cuentas por pagar" },
   { to: "/productos", label: "Productos e inventario" },
+  { to: "/activos-fijos", label: "Activos fijos" },
   { to: "/cuentas", label: "Catálogo de cuentas" },
   { to: "/terceros", label: "Terceros" },
   { to: "/periodos", label: "Periodos" },
