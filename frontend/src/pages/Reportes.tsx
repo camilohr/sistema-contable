@@ -142,6 +142,32 @@ export default function Reportes() {
     }
   }, [tab, periodoId, fechaDesde, fechaHasta, cuentaId]);
 
+  const descargarPdf = useCallback(
+    async (archivo: "libro-diario.pdf" | "libro-mayor.pdf" | "libro-inventarios.pdf") => {
+      setError("");
+      const params = new URLSearchParams();
+      if (periodoId) params.set("periodoId", periodoId);
+      if (fechaDesde) params.set("fechaDesde", fechaDesde);
+      if (fechaHasta) params.set("fechaHasta", fechaHasta);
+      if (archivo === "libro-mayor.pdf" && cuentaId) params.set("cuentaId", cuentaId);
+      const q = params.toString() ? `?${params}` : "";
+      try {
+        const res = await api.get(`/reportes/${archivo}${q}`, { responseType: "blob" });
+        const url = URL.createObjectURL(res.data);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = archivo;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch {
+        setError("No se pudo generar el PDF.");
+      }
+    },
+    [periodoId, fechaDesde, fechaHasta, cuentaId]
+  );
+
   useEffect(() => {
     const t = setTimeout(() => cargar(), 250);
     return () => clearTimeout(t);
@@ -186,6 +212,24 @@ export default function Reportes() {
 
       {error && <p className="error-msg">{error}</p>}
       {cargando && <p className="count-hint">Cargando...</p>}
+
+      <div className="filters pdf-actions">
+        {tab === "diario" && (
+          <button className="btn btn-secondary" onClick={() => descargarPdf("libro-diario.pdf")}>
+            Descargar libro diario (PDF)
+          </button>
+        )}
+        {tab === "mayor" && (
+          <button className="btn btn-secondary" onClick={() => descargarPdf("libro-mayor.pdf")}>
+            Descargar libro mayor (PDF)
+          </button>
+        )}
+        {tab === "balance-general" && (
+          <button className="btn btn-secondary" onClick={() => descargarPdf("libro-inventarios.pdf")}>
+            Descargar libro de inventarios (PDF)
+          </button>
+        )}
+      </div>
 
       {tab === "diario" && diario && (
         <>

@@ -302,6 +302,11 @@ input:focus {
   margin-bottom: 0.75rem;
 }
 
+.pdf-actions {
+  padding-bottom: 0.25rem;
+  margin-top: -0.5rem;
+}
+
 .table-wrap {
   background: var(--card);
   border: 1px solid var(--border);

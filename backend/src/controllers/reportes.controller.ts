@@ -92,9 +92,17 @@ function construirSeccion(saldos: SaldoCuenta[], nombreGrupos: Map<string, strin
   return [...grupos.values()].sort((a, b) => a.grupo.localeCompare(b.grupo, undefined, { numeric: true }));
 }
 
-export async function libroDiario(req: Request, res: Response): Promise<void> {
+export interface DatosLibroDiario {
+  lineas: Linea[];
+  totalDebitos: number;
+  totalCreditos: number;
+  numComprobantes: number;
+  numLineas: number;
+}
+
+export async function datosLibroDiario(where: Prisma.ComprobanteWhereInput): Promise<DatosLibroDiario> {
   const comprobantes = await prisma.comprobante.findMany({
-    where: whereFiltros(req),
+    where,
     orderBy: [{ fecha: "asc" }, { consecutivo: "asc" }],
     include: {
       asientos: {
@@ -123,20 +131,38 @@ export async function libroDiario(req: Request, res: Response): Promise<void> {
   const totalDebitos = lineas.reduce((s, l) => s + l.debito, 0);
   const totalCreditos = lineas.reduce((s, l) => s + l.credito, 0);
 
+  return { lineas, totalDebitos, totalCreditos, numComprobantes: comprobantes.length, numLineas: lineas.length };
+}
+
+export async function libroDiario(req: Request, res: Response): Promise<void> {
+  const datos = await datosLibroDiario(whereFiltros(req));
   res.json({
-    totalDebitos,
-    totalCreditos,
-    numComprobantes: comprobantes.length,
-    numLineas: lineas.length,
-    lineas: lineas.map((l) => ({ ...l, fecha: l.fecha.toISOString().slice(0, 10) })),
+    totalDebitos: datos.totalDebitos,
+    totalCreditos: datos.totalCreditos,
+    numComprobantes: datos.numComprobantes,
+    numLineas: datos.numLineas,
+    lineas: datos.lineas.map((l) => ({ ...l, fecha: l.fecha.toISOString().slice(0, 10) })),
   });
 }
 
-export async function libroMayor(req: Request, res: Response): Promise<void> {
-  const cuentaId = req.query.cuentaId ? Number(req.query.cuentaId) : undefined;
+export interface CuentaMayor {
+  codigo: string;
+  nombre: string;
+  naturaleza: Naturaleza;
+  debitos: number;
+  creditos: number;
+  saldo: number;
+}
 
+export interface DatosLibroMayor {
+  cuentas: CuentaMayor[];
+  totalDebitos: number;
+  totalCreditos: number;
+}
+
+export async function datosLibroMayor(where: Prisma.ComprobanteWhereInput, cuentaId?: number): Promise<DatosLibroMayor> {
   const comprobantes = await prisma.comprobante.findMany({
-    where: whereFiltros(req),
+    where,
     select: {
       asientos: {
         where: cuentaId ? { cuentaId } : undefined,
@@ -161,7 +187,7 @@ export async function libroMayor(req: Request, res: Response): Promise<void> {
     }
   }
 
-  const cuentas = [...porCuenta.values()]
+  const cuentas: CuentaMayor[] = [...porCuenta.values()]
     .map((c) => ({
       codigo: c.codigo,
       nombre: c.nombre,
@@ -172,11 +198,17 @@ export async function libroMayor(req: Request, res: Response): Promise<void> {
     }))
     .sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
 
-  res.json({
+  return {
     totalDebitos: cuentas.reduce((s, c) => s + c.debitos, 0),
     totalCreditos: cuentas.reduce((s, c) => s + c.creditos, 0),
     cuentas,
-  });
+  };
+}
+
+export async function libroMayor(req: Request, res: Response): Promise<void> {
+  const cuentaId = req.query.cuentaId ? Number(req.query.cuentaId) : undefined;
+  const datos = await datosLibroMayor(whereFiltros(req), cuentaId);
+  res.json(datos);
 }
 
 export async function balanceComprobacion(req: Request, res: Response): Promise<void> {
@@ -246,8 +278,32 @@ async function nombreGrupos(): Promise<Map<string, string>> {
   return mapa;
 }
 
-export async function balanceGeneral(req: Request, res: Response): Promise<void> {
-  const saldos = await saldosPorCuenta(whereFiltros(req));
+export interface CuentaBalance {
+  codigo: string;
+  nombre: string;
+  saldo: number;
+}
+
+export interface GrupoBalance {
+  grupo: string;
+  nombre: string;
+  cuentas: CuentaBalance[];
+  total: number;
+}
+
+export interface DatosBalanceGeneral {
+  activo: GrupoBalance[];
+  pasivo: GrupoBalance[];
+  patrimonio: GrupoBalance[];
+  totalActivo: number;
+  totalPasivo: number;
+  totalPatrimonio: number;
+  resultado: number;
+  ecuacionOK: boolean;
+}
+
+export async function datosBalanceGeneral(where: Prisma.ComprobanteWhereInput): Promise<DatosBalanceGeneral> {
+  const saldos = await saldosPorCuenta(where);
   const nombres = await nombreGrupos();
 
   const activo = construirSeccion(agruparPorClase(saldos, [1]), nombres);
@@ -267,7 +323,7 @@ export async function balanceGeneral(req: Request, res: Response): Promise<void>
   const totalPasivo = pasivo.reduce((s, g) => s + g.total, 0);
   const totalPatrimonio = patrimonio.reduce((s, g) => s + g.total, 0);
 
-  res.json({
+  return {
     activo,
     pasivo,
     patrimonio,
@@ -276,7 +332,12 @@ export async function balanceGeneral(req: Request, res: Response): Promise<void>
     totalPatrimonio,
     resultado,
     ecuacionOK: totalActivo === totalPasivo + totalPatrimonio,
-  });
+  };
+}
+
+export async function balanceGeneral(req: Request, res: Response): Promise<void> {
+  const datos = await datosBalanceGeneral(whereFiltros(req));
+  res.json(datos);
 }
 
 export async function estadoResultados(req: Request, res: Response): Promise<void> {

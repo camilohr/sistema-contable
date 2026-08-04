@@ -22,7 +22,7 @@ documentados en `docs/modelo-datos.md` (tablas `activos_fijos`, `depreciaciones`
 3. Cierre de ejercicio anual `[COMPLETADO 2026-08-04]`
 4. Provisión de cartera (deterioro) `[COMPLETADO 2026-08-04]`
 5. Indicadores financieros y análisis comparativo `[COMPLETADO 2026-08-04]`
-6. Exportación de libros oficiales a PDF
+6. Exportación de libros oficiales a PDF `[COMPLETADO 2026-08-04]`
 7. Presupuesto y control presupuestal
 8. Alertas y recordatorios internos
 9. Nómina simplificada (solo cálculo, sin PILA)
@@ -324,7 +324,7 @@ consistente con el estado de resultados existente.
 
 ---
 
-## 6. Exportación de libros oficiales a PDF
+## 6. Exportación de libros oficiales a PDF `[COMPLETADO 2026-08-04]`
 
 **Qué hace:** genera libro diario, libro mayor y libro de inventarios en PDF con
 numeración consecutiva y formato listo para imprimir/encuadernar, tal como exige la
@@ -333,20 +333,33 @@ norma mercantil para libros de comercio.
 **Base legal:** Código de Comercio, Título IV — libros obligatorios de comercio y su
 legalización.
 
-### Implementación
+### Implementación (decidido)
 
 - No requiere modelos nuevos: reutiliza las mismas consultas de
-  `reportes.controller.ts`.
-- Generación de PDF en el backend (p. ej. `pdfkit`, sin dependencias de servicios
-  externos) o construcción de HTML + impresión desde el frontend — a decidir según lo
-  que ya tengas disponible en el stack.
-- Encabezado con datos de `Parametro` (nombre de la empresa, NIT), pie de página con
-  numeración de folio.
+  `reportes.controller.ts` (extraídas a helpers `datosLibroDiario`, `datosLibroMayor`,
+  `datosBalanceGeneral`).
+- Generación de PDF en el backend con `pdfkit` (sin dependencias de servicios
+  externos), en `backend/src/lib/pdf.ts` (clase `DocumentoPdf`).
+- Encabezado con datos de `Parametro` (nombre de la empresa, NIT, dirección, teléfono),
+  pie de página con numeración de folio y fecha de generación.
+- El libro de inventarios equivale al balance general del periodo (relación valorada de
+  activos, pasivos y patrimonio exigida por el Código de Comercio) e incluye sección de
+  firma del contador.
 
-### Endpoints (`/api/reportes/libro-diario.pdf`, `/api/reportes/libro-mayor.pdf`)
+### Endpoints (`/api/reportes`)
+
+| Método | Ruta | Rol | Descripción |
+|---|---|---|---|
+| GET | `/libro-diario.pdf` | todos | libro diario en PDF |
+| GET | `/libro-mayor.pdf` | todos | libro mayor en PDF |
+| GET | `/libro-inventarios.pdf` | todos | libro de inventarios y balances en PDF |
 
 Mismos filtros que ya existen para los reportes actuales (periodo, rango de fechas,
-cuenta), agregando `Content-Type: application/pdf`.
+cuenta), agregando `Content-Type: application/pdf` y `Content-Disposition: inline`.
+
+En el frontend, la página "Libros y reportes" (`Reportes.tsx`) muestra botones de
+descarga según la pestaña activa. Tests en `backend/tests/pdf.test.ts` (5 pruebas:
+validez `%PDF`, content-type, filtros y 401 sin autenticación).
 
 ---
 

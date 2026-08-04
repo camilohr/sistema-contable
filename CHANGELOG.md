@@ -53,6 +53,14 @@ Siguiente iteración sobre la V1.0.0; alcance definido en [Roadmap V1.1](docs/ro
 - Página de Indicadores financieros en el frontend: vista individual y comparativo con tablas vertical/horizontal.
 - 14 pruebas nuevas (249 en total).
 
+### Módulo 6 — Exportación de libros oficiales a PDF
+- `backend/src/lib/pdf.ts`: clase `DocumentoPdf` sobre `pdfkit` con encabezado de empresa/NIT/dirección/teléfono (desde `Parametro`), pie con numeración de folio, tablas con paginación y repetición de encabezado, y fila de firma del contador.
+- Endpoints `GET /api/reportes/libro-diario.pdf`, `libro-mayor.pdf` y `libro-inventarios.pdf` (todos los roles), con `Content-Type: application/pdf` y `Content-Disposition: inline`; usan los mismos filtros de los reportes JSON (periodo, fechas, cuenta).
+- Refactor: consultas de libro diario, libro mayor y balance general extraídas a helpers reutilizables (`datosLibroDiario`, `datosLibroMayor`, `datosBalanceGeneral`) sin cambiar las respuestas JSON existentes.
+- El libro de inventarios equivale al balance general del periodo (activos, pasivos y patrimonio valorados) con totales, sección de firma y advertencia si la ecuación contable no cuadra.
+- Página de Libros y reportes: botones de descarga PDF según la pestaña activa, respetando los filtros seleccionados.
+- 5 pruebas nuevas (254 en total).
+
 ## [1.0.0] - 2026-08-03
 
 Primera versión liberada: sistema contable completo según normatividad colombiana, desplegable en un servidor local.
