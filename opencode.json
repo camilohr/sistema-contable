@@ -1,0 +1,19 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["AGENTS.md"],
+  "lsp": true,
+  "mcp": {
+    "postgres": {
+      "type": "local",
+      "command": ["node", ".opencode/mcp/postgres.cjs"],
+      "enabled": true,
+      "timeout": 10000
+    },
+    "playwright": {
+      "type": "local",
+      "command": ["npx", "-y", "@playwright/mcp"],
+      "enabled": true,
+      "timeout": 15000
+    }
+  }
+}
