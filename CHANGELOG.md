@@ -61,6 +61,12 @@ Siguiente iteración sobre la V1.0.0; alcance definido en [Roadmap V1.1](docs/ro
 - Página de Libros y reportes: botones de descarga PDF según la pestaña activa, respetando los filtros seleccionados.
 - 5 pruebas nuevas (254 en total).
 
+### Infraestructura de pruebas — base de datos separada
+- `npm test` ya no toca la base de producción: la suite usa una base de datos dedicada (`contabilidad_test`), derivada automáticamente de `DATABASE_URL` con el sufijo `_test` o sobreescrita con `DATABASE_URL_TEST`.
+- Global setup de Vitest (`tests/global-setup.ts`): crea la base si no existe, aplica las migraciones con `prisma migrate deploy` y siembra PUC/parámetros de forma idempotente en cada ejecución.
+- La URL de la base de tests se inyecta a los workers vía `test.env` (`vitest.config.ts`); las pruebas que antes borraban tablas de producción ahora lo hacen solo en `contabilidad_test`.
+- Documentación de la variable `DATABASE_URL_TEST` en `backend/.env.example` y en `AGENTS.md`.
+
 ## [1.0.0] - 2026-08-03
 
 Primera versión liberada: sistema contable completo según normatividad colombiana, desplegable en un servidor local.
