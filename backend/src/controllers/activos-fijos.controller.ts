@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Prisma, EstadoComprobante, EstadoPeriodo, EstadoActivoFijo } from "@prisma/client";
+import { Prisma, EstadoComprobante, EstadoPeriodo, EstadoActivoFijo, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
+import { registrarAuditoria } from "../lib/auditoria.js";
 
 const crearSchema = z.object({
   cuentaId: z.number().int().positive(),
@@ -165,23 +166,33 @@ export async function crear(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const activo = await prisma.activoFijo.create({
-    data: {
-      cuentaId: data.cuentaId,
-      cuentaDepreciacionId: data.cuentaDepreciacionId,
-      cuentaGastoId: data.cuentaGastoId,
-      nombre: data.nombre,
-      fechaAdquisicion: fecha,
-      valor: new Prisma.Decimal(data.valor),
-      vidaUtilMeses: data.vidaUtilMeses,
-      valorResidual: new Prisma.Decimal(data.valorResidual),
-    },
-    include: {
-      cuenta: { select: { codigo: true, nombre: true } },
-      cuentaDepreciacion: { select: { codigo: true, nombre: true } },
-      cuentaGasto: { select: { codigo: true, nombre: true } },
-      _count: { select: { depreciaciones: true } },
-    },
+  const activo = await prisma.$transaction(async (tx) => {
+    const a = await tx.activoFijo.create({
+      data: {
+        cuentaId: data.cuentaId,
+        cuentaDepreciacionId: data.cuentaDepreciacionId,
+        cuentaGastoId: data.cuentaGastoId,
+        nombre: data.nombre,
+        fechaAdquisicion: fecha,
+        valor: new Prisma.Decimal(data.valor),
+        vidaUtilMeses: data.vidaUtilMeses,
+        valorResidual: new Prisma.Decimal(data.valorResidual),
+      },
+      include: {
+        cuenta: { select: { codigo: true, nombre: true } },
+        cuentaDepreciacion: { select: { codigo: true, nombre: true } },
+        cuentaGasto: { select: { codigo: true, nombre: true } },
+        _count: { select: { depreciaciones: true } },
+      },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: req.user!.sub,
+      accion: AccionAuditoria.CREAR_ACTIVO,
+      entidad: "ActivoFijo",
+      entidadId: a.id,
+      detalle: { nombre: a.nombre, valor: data.valor, vidaUtilMeses: a.vidaUtilMeses },
+    });
+    return a;
   });
   res.status(201).json(serializarActivo(activo));
 }
@@ -198,15 +209,25 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
     return;
   }
-  const activo = await prisma.activoFijo.update({
-    where: { id },
-    data: { nombre: parsed.data.nombre },
-    include: {
-      cuenta: { select: { codigo: true, nombre: true } },
-      cuentaDepreciacion: { select: { codigo: true, nombre: true } },
-      cuentaGasto: { select: { codigo: true, nombre: true } },
-      _count: { select: { depreciaciones: true } },
-    },
+  const activo = await prisma.$transaction(async (tx) => {
+    const a = await tx.activoFijo.update({
+      where: { id },
+      data: { nombre: parsed.data.nombre },
+      include: {
+        cuenta: { select: { codigo: true, nombre: true } },
+        cuentaDepreciacion: { select: { codigo: true, nombre: true } },
+        cuentaGasto: { select: { codigo: true, nombre: true } },
+        _count: { select: { depreciaciones: true } },
+      },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: req.user!.sub,
+      accion: AccionAuditoria.EDITAR_ACTIVO,
+      entidad: "ActivoFijo",
+      entidadId: id,
+      detalle: { nombre: a.nombre },
+    });
+    return a;
   });
   res.json(serializarActivo(activo));
 }
@@ -285,6 +306,13 @@ export async function depreciar(req: Request, res: Response): Promise<void> {
         },
       });
     }
+    await registrarAuditoria(tx, {
+      usuarioId,
+      accion: AccionAuditoria.DEPRECIAR_ACTIVOS,
+      entidad: "Periodo",
+      entidadId: periodoId,
+      detalle: { periodo: periodo.nombre, procesados: porDepreciar.length, comprobanteId: comprobante.id },
+    });
     return comprobante;
   });
 
@@ -363,6 +391,13 @@ export async function baja(req: Request, res: Response): Promise<void> {
     await tx.activoFijo.update({
       where: { id },
       data: { estado: EstadoActivoFijo.DADO_DE_BAJA },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: req.user!.sub,
+      accion: AccionAuditoria.BAJA_ACTIVO,
+      entidad: "ActivoFijo",
+      entidadId: id,
+      detalle: { nombre: activo.nombre, valor, depreciacionAcumulada: acumulada, valorLibros },
     });
     return creado;
   });

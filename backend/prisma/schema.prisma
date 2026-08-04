@@ -76,6 +76,21 @@ enum EstadoActivoFijo {
   DADO_DE_BAJA
 }
 
+enum AccionAuditoria {
+  CONTABILIZAR
+  ANULAR
+  ELIMINAR_COMPROBANTE
+  CERRAR_PERIODO
+  REABRIR_PERIODO
+  CREAR_USUARIO
+  CREAR_CUENTA
+  EDITAR_CUENTA
+  CREAR_ACTIVO
+  EDITAR_ACTIVO
+  DEPRECIAR_ACTIVOS
+  BAJA_ACTIVO
+}
+
 model Usuario {
   id                   String        @id @default(uuid())
   nombre               String
@@ -89,6 +104,7 @@ model Usuario {
 
   comprobantesCreados  Comprobante[] @relation("Creador")
   comprobantesAnulados Comprobante[] @relation("Anulador")
+  auditorias           Auditoria[]
 }
 
 model Cuenta {
@@ -377,4 +393,20 @@ model Depreciacion {
 
   @@unique([activoId, periodoId])
   @@index([periodoId])
+}
+
+model Auditoria {
+  id        Int             @id @default(autoincrement())
+  usuarioId String
+  accion    AccionAuditoria
+  entidad   String
+  entidadId String
+  detalle   Json?
+  fecha     DateTime        @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([entidad, entidadId])
+  @@index([fecha])
+  @@index([usuarioId])
 }

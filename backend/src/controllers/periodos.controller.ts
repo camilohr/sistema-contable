@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { EstadoPeriodo } from "@prisma/client";
+import { registrarAuditoria } from "../lib/auditoria.js";
+import { EstadoPeriodo, AccionAuditoria } from "@prisma/client";
 
 const crearSchema = z.object({
   nombre: z.string().min(1),
@@ -67,7 +68,19 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     res.status(404).json({ error: "Periodo no encontrado" });
     return;
   }
-  const periodo = await prisma.periodo.update({ where: { id }, data: parsed.data });
+  const periodo = await prisma.$transaction(async (tx) => {
+    const p = await tx.periodo.update({ where: { id }, data: parsed.data });
+    if (parsed.data.estado && parsed.data.estado !== existe.estado) {
+      await registrarAuditoria(tx, {
+        usuarioId: req.user!.sub,
+        accion: parsed.data.estado === EstadoPeriodo.CERRADO ? AccionAuditoria.CERRAR_PERIODO : AccionAuditoria.REABRIR_PERIODO,
+        entidad: "Periodo",
+        entidadId: id,
+        detalle: { nombre: p.nombre },
+      });
+    }
+    return p;
+  });
   res.json(periodo);
 }
 

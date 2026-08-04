@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
+import { registrarAuditoria } from "../lib/auditoria.js";
+import { AccionAuditoria } from "@prisma/client";
 
 const createSchema = z.object({
   nombre: z.string().min(1),
@@ -31,9 +33,19 @@ export async function crear(req: Request, res: Response): Promise<void> {
     return;
   }
   const passwordHash = await bcrypt.hash(password, 10);
-  const usuario = await prisma.usuario.create({
-    data: { nombre, email: email.toLowerCase(), passwordHash, rol, debeCambiarPassword: true },
-    select: { id: true, nombre: true, email: true, rol: true, activo: true, debeCambiarPassword: true },
+  const usuario = await prisma.$transaction(async (tx) => {
+    const u = await tx.usuario.create({
+      data: { nombre, email: email.toLowerCase(), passwordHash, rol, debeCambiarPassword: true },
+      select: { id: true, nombre: true, email: true, rol: true, activo: true, debeCambiarPassword: true },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: req.user!.sub,
+      accion: AccionAuditoria.CREAR_USUARIO,
+      entidad: "Usuario",
+      entidadId: u.id,
+      detalle: { email: u.email, rol: u.rol },
+    });
+    return u;
   });
   res.status(201).json(usuario);
 }

@@ -14,6 +14,7 @@ async function tokenDe(email: string) {
 }
 
 beforeAll(async () => {
+  await prisma.auditoria.deleteMany({ where: { usuario: { email: { in: emails } } } });
   await prisma.usuario.deleteMany({ where: { email: { in: emails } } });
   await prisma.usuario.create({
     data: { nombre: "Roles Auxiliar", email: emails[0], passwordHash: await bcrypt.hash("clave123", 10), rol: "AUXILIAR" },
@@ -24,6 +25,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await prisma.auditoria.deleteMany({ where: { usuario: { email: { in: emails } } } });
   await prisma.usuario.deleteMany({ where: { email: { in: emails } } });
   await prisma.$disconnect();
 });

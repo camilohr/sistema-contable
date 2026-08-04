@@ -17,8 +17,8 @@ documentados en `docs/modelo-datos.md` (tablas `activos_fijos`, `depreciaciones`
 
 ## Orden de prioridad sugerido
 
-1. Activos fijos y depreciación `[GAP EXISTENTE]`
-2. Bitácora de auditoría `[GAP EXISTENTE]`
+1. Activos fijos y depreciación `[GAP EXISTENTE]` `[COMPLETADO 2026-08-04]`
+2. Bitácora de auditoría `[GAP EXISTENTE]` `[COMPLETADO 2026-08-04]`
 3. Cierre de ejercicio anual
 4. Provisión de cartera (deterioro)
 5. Indicadores financieros y análisis comparativo

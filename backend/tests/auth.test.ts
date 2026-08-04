@@ -9,6 +9,7 @@ const app = createApp();
 const testEmails = ["test@test.local", "admin@test.local"];
 
 beforeAll(async () => {
+  await prisma.auditoria.deleteMany({ where: { usuario: { email: { in: testEmails } } } });
   await prisma.usuario.deleteMany({ where: { email: { in: testEmails } } });
   await prisma.usuario.create({
     data: { nombre: "Usuario Prueba", email: "test@test.local", passwordHash: await bcrypt.hash("clave123", 10), rol: "AUXILIAR" },
@@ -19,6 +20,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await prisma.auditoria.deleteMany({ where: { usuario: { email: { in: testEmails } } } });
   await prisma.usuario.deleteMany({ where: { email: { in: testEmails } } });
   await prisma.$disconnect();
 });

@@ -32,6 +32,7 @@ beforeAll(async () => {
   await prisma.comprobante.deleteMany({});
   await prisma.periodo.deleteMany({});
   await prisma.tercero.deleteMany({ where: { documento: { in: ["FASE4CC"] } } });
+  await prisma.auditoria.deleteMany({ where: { usuario: { email: { in: emails } } } });
   await prisma.usuario.deleteMany({ where: { email: { in: emails } } });
   await prisma.consecutivo.deleteMany({});
 
@@ -69,6 +70,7 @@ afterAll(async () => {
   await prisma.comprobante.deleteMany({});
   await prisma.periodo.deleteMany({});
   await prisma.tercero.deleteMany({ where: { documento: { in: ["FASE4CC"] } } });
+  await prisma.auditoria.deleteMany({ where: { usuario: { email: { in: emails } } } });
   await prisma.usuario.deleteMany({ where: { email: { in: emails } } });
   await prisma.$disconnect();
 });

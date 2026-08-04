@@ -62,6 +62,7 @@ async function dejarSoloActivo(activoId: number) {
 beforeAll(async () => {
   await prisma.depreciacion.deleteMany({});
   await prisma.activoFijo.deleteMany({});
+  await prisma.auditoria.deleteMany({ where: { usuario: { email: { in: emails } } } });
   await prisma.usuario.deleteMany({ where: { email: { in: emails } } });
 
   await prisma.usuario.create({ data: { nombre: "AF Admin", email: emails[0], passwordHash: await bcrypt.hash("clave123", 10), rol: "ADMIN" } });
@@ -102,6 +103,7 @@ afterAll(async () => {
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Depreciación" } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Baja" } } });
   await prisma.periodo.deleteMany({ where: { nombre: { startsWith: `AF-${suf}` } } });
+  await prisma.auditoria.deleteMany({ where: { usuario: { email: { in: emails } } } });
   await prisma.usuario.deleteMany({ where: { email: { in: emails } } });
   await prisma.$disconnect();
 });

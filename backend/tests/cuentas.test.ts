@@ -16,6 +16,7 @@ async function login(email: string, password: string): Promise<string> {
 }
 
 beforeAll(async () => {
+  await prisma.auditoria.deleteMany({ where: { usuario: { email: { in: emails } } } });
   await prisma.usuario.deleteMany({ where: { email: { in: emails } } });
   await prisma.usuario.create({ data: { nombre: "Admin 2", email: "admin2@test.local", passwordHash: await bcrypt.hash("clave123", 10), rol: "ADMIN" } });
   await prisma.usuario.create({ data: { nombre: "Aux 2", email: "aux2@test.local", passwordHash: await bcrypt.hash("clave123", 10), rol: "AUXILIAR" } });
@@ -26,6 +27,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await prisma.cuenta.deleteMany({ where: { codigo: { in: ["11050501", "11050502", "11050503"] } } });
+  await prisma.auditoria.deleteMany({ where: { usuario: { email: { in: emails } } } });
   await prisma.usuario.deleteMany({ where: { email: { in: emails } } });
   await prisma.$disconnect();
 });

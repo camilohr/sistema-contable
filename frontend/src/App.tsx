@@ -10,6 +10,7 @@ import Reportes from "./pages/Reportes";
 import Cartera from "./pages/Cartera";
 import Productos from "./pages/Productos";
 import ActivosFijos from "./pages/ActivosFijos";
+import Auditoria from "./pages/Auditoria";
 import Usuarios from "./pages/Usuarios";
 import CambiarPassword from "./pages/CambiarPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -39,6 +40,7 @@ export default function App() {
             <Route path="/productos" element={<Productos />} />
             <Route path="/activos-fijos" element={<ActivosFijos />} />
             <Route path="/usuarios" element={<Usuarios />} />
+            <Route path="/auditoria" element={<Auditoria />} />
             <Route path="/cambiar-password" element={<CambiarPassword />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

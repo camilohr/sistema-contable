@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Prisma, EstadoComprobante, TipoComprobante, EstadoPeriodo } from "@prisma/client";
+import { Prisma, EstadoComprobante, TipoComprobante, EstadoPeriodo, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
+import { registrarAuditoria } from "../lib/auditoria.js";
 
 const asientoSchema = z.object({
   cuentaId: z.number().int().positive(),
@@ -324,10 +325,20 @@ export async function contabilizar(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "El comprobante debe estar en borrador para contabilizarse" });
     return;
   }
-  const actualizado = await prisma.comprobante.update({
-    where: { id },
-    data: { estado: EstadoComprobante.CONTABILIZADO },
-    include: { periodo: true },
+  const actualizado = await prisma.$transaction(async (tx) => {
+    const c = await tx.comprobante.update({
+      where: { id },
+      data: { estado: EstadoComprobante.CONTABILIZADO },
+      include: { periodo: true },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: req.user!.sub,
+      accion: AccionAuditoria.CONTABILIZAR,
+      entidad: "Comprobante",
+      entidadId: id,
+      detalle: { consecutivo: c.consecutivo, tipo: c.tipo, concepto: c.concepto },
+    });
+    return c;
   });
   res.json(serializarComprobante(actualizado));
 }
@@ -343,10 +354,20 @@ export async function anular(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "Solo se pueden anular comprobantes contabilizados" });
     return;
   }
-  const actualizado = await prisma.comprobante.update({
-    where: { id },
-    data: { estado: EstadoComprobante.ANULADO, usuarioAnuloId: req.user!.sub, fechaAnulacion: new Date() },
-    include: { periodo: true },
+  const actualizado = await prisma.$transaction(async (tx) => {
+    const c = await tx.comprobante.update({
+      where: { id },
+      data: { estado: EstadoComprobante.ANULADO, usuarioAnuloId: req.user!.sub, fechaAnulacion: new Date() },
+      include: { periodo: true },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: req.user!.sub,
+      accion: AccionAuditoria.ANULAR,
+      entidad: "Comprobante",
+      entidadId: id,
+      detalle: { consecutivo: c.consecutivo, tipo: c.tipo, concepto: c.concepto },
+    });
+    return c;
   });
   res.json(serializarComprobante(actualizado));
 }
@@ -362,6 +383,15 @@ export async function eliminar(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "Solo se pueden eliminar comprobantes en borrador" });
     return;
   }
-  await prisma.comprobante.delete({ where: { id } });
+  await prisma.$transaction(async (tx) => {
+    await tx.comprobante.delete({ where: { id } });
+    await registrarAuditoria(tx, {
+      usuarioId: req.user!.sub,
+      accion: AccionAuditoria.ELIMINAR_COMPROBANTE,
+      entidad: "Comprobante",
+      entidadId: id,
+      detalle: { consecutivo: existe.consecutivo, tipo: existe.tipo, concepto: existe.concepto },
+    });
+  });
   res.json({ ok: true });
 }

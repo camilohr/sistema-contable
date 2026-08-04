@@ -14,6 +14,14 @@ Siguiente iteración sobre la V1.0.0; alcance definido en [Roadmap V1.1](docs/ro
 - Página de Activos Fijos en el frontend (listado, alta, depreciación por periodo, baja, historial).
 - 17 pruebas nuevas (189 en total).
 
+### Módulo 2 — Bitácora de auditoría
+- Modelo `Auditoria` (migración `auditoria`) con `AccionAuditoria` tipada, `detalle` JSON y registro inmutable de solo lectura (sin endpoints de borrado/edición).
+- Helper `lib/auditoria.ts` (`registrarAuditoria`) que escribe dentro de la misma transacción del cambio, garantizando atomicidad.
+- Integración en los puntos críticos: contabilizar/anular/eliminar comprobante, cerrar/reabrir periodo, crear usuario, crear/editar cuenta y acciones de activos fijos (crear, editar, depreciar, baja).
+- Endpoint `GET /api/auditoria` (solo ADMIN) con filtros por usuario, entidad, acción, rango de fechas y paginación por cursor.
+- Página de Bitácora de auditoría en el frontend (solo ADMIN) con filtros y "cargar más".
+- 13 pruebas nuevas (202 en total).
+
 ## [1.0.0] - 2026-08-03
 
 Primera versión liberada: sistema contable completo según normatividad colombiana, desplegable en un servidor local.

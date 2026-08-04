@@ -32,3 +32,6 @@ desktop.ini
 
 # Respaldos generados por el sistema
 backups/
+
+# Artefactos del navegador MCP (playwright)
+.playwright-mcp/

@@ -21,7 +21,10 @@ const links = [
   { to: "/cambiar-password", label: "Cambiar contraseña" },
 ];
 
-const soloAdmin = [{ to: "/usuarios", label: "Usuarios", end: true }];
+const soloAdmin = [
+  { to: "/usuarios", label: "Usuarios", end: true },
+  { to: "/auditoria", label: "Bitácora de auditoría", end: true },
+];
 
 export default function Layout() {
   const { usuario, logout } = useAuth();

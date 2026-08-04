@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { derivarPuc } from "../lib/puc.js";
+import { registrarAuditoria } from "../lib/auditoria.js";
+import { AccionAuditoria } from "@prisma/client";
 
 const CODIGO_PATTERN = /^(?:\d{1}|\d{2}|\d{4}|\d{6}|\d{8})$/;
 
@@ -74,14 +76,24 @@ export async function crear(req: Request, res: Response): Promise<void> {
     }
   }
 
-  const cuenta = await prisma.cuenta.create({
-    data: {
-      codigo,
-      nombre,
-      requiereTercero: requiereTercero ?? false,
-      permiteMovimiento: false,
-      ...derivarPuc(codigo),
-    },
+  const cuenta = await prisma.$transaction(async (tx) => {
+    const c = await tx.cuenta.create({
+      data: {
+        codigo,
+        nombre,
+        requiereTercero: requiereTercero ?? false,
+        permiteMovimiento: false,
+        ...derivarPuc(codigo),
+      },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: req.user!.sub,
+      accion: AccionAuditoria.CREAR_CUENTA,
+      entidad: "Cuenta",
+      entidadId: c.id,
+      detalle: { codigo: c.codigo, nombre: c.nombre },
+    });
+    return c;
   });
   res.status(201).json(cuenta);
 }
@@ -93,9 +105,19 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
     return;
   }
-  const cuenta = await prisma.cuenta.update({
-    where: { id },
-    data: parsed.data,
+  const cuenta = await prisma.$transaction(async (tx) => {
+    const c = await tx.cuenta.update({
+      where: { id },
+      data: parsed.data,
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: req.user!.sub,
+      accion: AccionAuditoria.EDITAR_CUENTA,
+      entidad: "Cuenta",
+      entidadId: id,
+      detalle: { codigo: c.codigo, nombre: c.nombre, cambios: parsed.data },
+    });
+    return c;
   });
   res.json(cuenta);
 }
