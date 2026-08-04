@@ -67,6 +67,10 @@ Siguiente iteración sobre la V1.0.0; alcance definido en [Roadmap V1.1](docs/ro
 - La URL de la base de tests se inyecta a los workers vía `test.env` (`vitest.config.ts`); las pruebas que antes borraban tablas de producción ahora lo hacen solo en `contabilidad_test`.
 - Documentación de la variable `DATABASE_URL_TEST` en `backend/.env.example` y en `AGENTS.md`.
 
+### Infraestructura de pruebas — CI en GitHub Actions
+- `.github/workflows/ci.yml`: en cada push a `master` (o PR) ejecuta dos jobs — backend (`npm ci`, `prisma generate`, `npm test`, `npm run build` con un servicio PostgreSQL 16) y frontend (`npm ci`, `npm run lint`, `npm run build`).
+- El CI crea su propia base `contabilidad` como servicio y la suite deriva `contabilidad_test` automáticamente, sin depender de credenciales reales.
+
 ## [1.0.0] - 2026-08-03
 
 Primera versión liberada: sistema contable completo según normatividad colombiana, desplegable en un servidor local.
