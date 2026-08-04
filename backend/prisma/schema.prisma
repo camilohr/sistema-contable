@@ -90,6 +90,7 @@ enum AccionAuditoria {
   DEPRECIAR_ACTIVOS
   BAJA_ACTIVO
   CERRAR_ANIO
+  CALCULAR_PROVISION
 }
 
 model Usuario {
@@ -187,6 +188,7 @@ model Periodo {
   comprobantes Comprobante[]
 
   depreciaciones Depreciacion[]
+  provisionesCartera ProvisionCartera[]
 
   @@index([estado])
 }
@@ -220,6 +222,7 @@ model Comprobante {
   inventarioMovimientos InventarioMovimiento[]
   depreciaciones   Depreciacion[]
   cierreAnual      CierreAnual?
+  provisionesCartera ProvisionCartera[]
 
   @@unique([tipo, consecutivo])
   @@index([periodoId])
@@ -426,4 +429,28 @@ model CierreAnual {
   comprobante    Comprobante @relation(fields: [comprobanteId], references: [id])
   cuentaUtilidad Cuenta      @relation("CierreCuentaUtilidad", fields: [cuentaUtilidadId], references: [id])
   usuario        Usuario     @relation(fields: [usuarioId], references: [id])
+}
+
+model ParametroProvision {
+  id         Int      @id @default(autoincrement())
+  diasDesde  Int
+  diasHasta  Int?
+  porcentaje Decimal  @db.Decimal(5, 2)
+  createdAt  DateTime @default(now())
+
+  @@unique([diasDesde, diasHasta])
+}
+
+model ProvisionCartera {
+  id             Int      @id @default(autoincrement())
+  periodoId      Int
+  comprobanteId  Int?
+  totalCalculado Decimal  @db.Decimal(15, 2)
+  fecha          DateTime @default(now())
+
+  periodo     Periodo      @relation(fields: [periodoId], references: [id])
+  comprobante Comprobante? @relation(fields: [comprobanteId], references: [id])
+
+  @@unique([periodoId])
+  @@index([periodoId])
 }

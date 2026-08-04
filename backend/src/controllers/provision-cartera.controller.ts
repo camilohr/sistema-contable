@@ -1,0 +1,321 @@
+import { Request, Response } from "express";
+import { z } from "zod";
+import { Prisma, EstadoComprobante, EstadoPeriodo, AccionAuditoria } from "@prisma/client";
+import { prisma } from "../lib/prisma.js";
+import { registrarAuditoria } from "../lib/auditoria.js";
+import { crearComprobanteDiario } from "../lib/comprobantes.js";
+
+const CUENTA_PROVISION = "1399";
+const CUENTA_GASTO = "5199";
+
+const redondear2 = (n: number) => Math.round(n * 100) / 100;
+
+const num = (v: { toNumber(): number } | number): number => (typeof v === "number" ? v : v.toNumber());
+
+const parametroSchema = z.object({
+  diasDesde: z.number().int().min(0),
+  diasHasta: z.number().int().min(0).nullable().optional(),
+  porcentaje: z.number().min(0).max(100),
+});
+
+const actualizarParametrosSchema = z.object({
+  parametros: z.array(parametroSchema).min(1),
+});
+
+function validarRangos(parametros: z.infer<typeof parametroSchema>[]): string | null {
+  const pares = parametros.map((p) => `${p.diasDesde}-${p.diasHasta ?? "null"}`);
+  if (new Set(pares).size !== pares.length) {
+    return "No puede haber rangos de días duplicados";
+  }
+  const ordenados = [...parametros].sort((a, b) => a.diasDesde - b.diasDesde);
+  for (let i = 0; i < ordenados.length; i++) {
+    const p = ordenados[i];
+    if (p.diasHasta !== null && p.diasHasta !== undefined && p.diasHasta < p.diasDesde) {
+      return `El rango que inicia en ${p.diasDesde} días tiene un límite superior menor al inferior`;
+    }
+  }
+  for (let i = 1; i < ordenados.length; i++) {
+    const anterior = ordenados[i - 1];
+    const actual = ordenados[i];
+    if (anterior.diasHasta === null || anterior.diasHasta === undefined) {
+      return "Solo el último rango puede no tener límite superior";
+    }
+    if (actual.diasDesde <= anterior.diasHasta) {
+      return "Los rangos de días no pueden solaparse";
+    }
+  }
+  return null;
+}
+
+function serializarParametro(p: { id: number; diasDesde: number; diasHasta: number | null; porcentaje: { toNumber(): number } }) {
+  return { id: p.id, diasDesde: p.diasDesde, diasHasta: p.diasHasta, porcentaje: num(p.porcentaje) };
+}
+
+export async function obtenerParametros(_req: Request, res: Response): Promise<void> {
+  const parametros = await prisma.parametroProvision.findMany({ orderBy: { diasDesde: "asc" } });
+  res.json(parametros.map(serializarParametro));
+}
+
+export async function actualizarParametros(req: Request, res: Response): Promise<void> {
+  const parsed = actualizarParametrosSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
+    return;
+  }
+  const parametros = parsed.data.parametros;
+  const error = validarRangos(parametros);
+  if (error) {
+    res.status(400).json({ error });
+    return;
+  }
+  const guardados = await prisma.$transaction(async (tx) => {
+    await tx.parametroProvision.deleteMany({});
+    await tx.parametroProvision.createMany({
+      data: parametros.map((p) => ({
+        diasDesde: p.diasDesde,
+        diasHasta: p.diasHasta ?? null,
+        porcentaje: new Prisma.Decimal(p.porcentaje),
+      })),
+    });
+    return tx.parametroProvision.findMany({ orderBy: { diasDesde: "asc" } });
+  });
+  res.json(guardados.map(serializarParametro));
+}
+
+async function saldoCuenta(codigo: string): Promise<number> {
+  const asientos = await prisma.asiento.findMany({
+    where: {
+      cuenta: { codigo },
+      comprobante: { estado: EstadoComprobante.CONTABILIZADO },
+    },
+    select: { debito: true, credito: true },
+  });
+  return redondear2(asientos.reduce((s, a) => s + (num(a.credito) - num(a.debito)), 0));
+}
+
+export async function calcularProvision(req: Request, res: Response): Promise<void> {
+  const periodoId = Number(req.params.periodoId);
+  if (!Number.isInteger(periodoId)) {
+    res.status(400).json({ error: "Periodo inválido" });
+    return;
+  }
+  const periodo = await prisma.periodo.findUnique({ where: { id: periodoId } });
+  if (!periodo) {
+    res.status(404).json({ error: `No existe el periodo ${periodoId}` });
+    return;
+  }
+  if (periodo.estado !== EstadoPeriodo.ABIERTO) {
+    res.status(400).json({ error: "El periodo está cerrado" });
+    return;
+  }
+
+  const existente = await prisma.provisionCartera.findUnique({
+    where: { periodoId },
+    include: { comprobante: { select: { estado: true } } },
+  });
+  if (existente) {
+    if (existente.comprobanteId === null || existente.comprobante?.estado === EstadoComprobante.ANULADO) {
+      await prisma.provisionCartera.delete({ where: { id: existente.id } });
+    } else {
+      res.status(400).json({ error: "La provisión de cartera para este periodo ya fue calculada; anule el comprobante para recalcular" });
+      return;
+    }
+  }
+
+  const cuentas = await prisma.cuenta.findMany({ where: { codigo: { in: [CUENTA_PROVISION, CUENTA_GASTO] } } });
+  const cuentaProvision = cuentas.find((c) => c.codigo === CUENTA_PROVISION);
+  const cuentaGasto = cuentas.find((c) => c.codigo === CUENTA_GASTO);
+  if (!cuentaProvision || !cuentaGasto) {
+    res.status(400).json({ error: `No se encontraron las cuentas ${CUENTA_PROVISION} (Provisión de cartera) y ${CUENTA_GASTO} (Gasto de provisión); verifique el catálogo` });
+    return;
+  }
+  if (!cuentaProvision.permiteMovimiento || !cuentaGasto.permiteMovimiento || !cuentaProvision.activa || !cuentaGasto.activa) {
+    res.status(400).json({ error: `Las cuentas ${CUENTA_PROVISION} y ${CUENTA_GASTO} deben estar activas y permitir movimiento` });
+    return;
+  }
+
+  const parametros = await prisma.parametroProvision.findMany({ orderBy: { diasDesde: "asc" } });
+  if (parametros.length === 0) {
+    res.status(400).json({ error: "Configure los parámetros de provisión antes de calcular" });
+    return;
+  }
+
+  const documentos = await prisma.cuentaPorCobrar.findMany({
+    where: { estado: { in: ["PENDIENTE", "VENCIDA", "ABONADA"] } },
+    select: {
+      id: true,
+      numeroDocumento: true,
+      tercero: { select: { nombreRazonSocial: true, documento: true } },
+      fechaVencimiento: true,
+      saldo: true,
+    },
+  });
+
+  interface Linea {
+    documentoId: number;
+    numeroDocumento: string;
+    tercero: string;
+    saldo: number;
+    diasMora: number;
+    porcentaje: number;
+    provision: number;
+  }
+
+  const lineas: Linea[] = [];
+  let requerido = 0;
+  const refFin = periodo.fechaFin.getTime();
+  for (const doc of documentos) {
+    const saldo = num(doc.saldo);
+    if (saldo <= 0) continue;
+    const diasMora = Math.floor((refFin - doc.fechaVencimiento.getTime()) / 86400000);
+    if (diasMora <= 0) continue;
+    const parametro = parametros.find((p) => p.diasDesde <= diasMora && (p.diasHasta === null || diasMora <= p.diasHasta));
+    if (!parametro) continue;
+    const porcentaje = num(parametro.porcentaje);
+    const provision = redondear2(saldo * (porcentaje / 100));
+    if (provision <= 0) continue;
+    requerido = redondear2(requerido + provision);
+    lineas.push({
+      documentoId: doc.id,
+      numeroDocumento: doc.numeroDocumento,
+      tercero: doc.tercero.nombreRazonSocial,
+      saldo,
+      diasMora,
+      porcentaje,
+      provision,
+    });
+  }
+  requerido = redondear2(requerido);
+
+  const balanceProvision = await saldoCuenta(CUENTA_PROVISION);
+  const incremental = redondear2(requerido - balanceProvision);
+
+  const usuarioId = req.user!.sub;
+  const asientos =
+    incremental > 0
+      ? [
+          { cuentaId: cuentaGasto.id, debito: incremental, credito: 0, detalle: `Provisión de cartera ${periodo.nombre}` },
+          { cuentaId: cuentaProvision.id, debito: 0, credito: incremental, detalle: `Provisión de cartera ${periodo.nombre}` },
+        ]
+      : [
+          { cuentaId: cuentaProvision.id, debito: Math.abs(incremental), credito: 0, detalle: `Reversión de provisión de cartera ${periodo.nombre}` },
+          { cuentaId: cuentaGasto.id, debito: 0, credito: Math.abs(incremental), detalle: `Reversión de provisión de cartera ${periodo.nombre}` },
+        ];
+
+  const resultado = await prisma.$transaction(async (tx) => {
+    let comprobanteId: number | null = null;
+    if (incremental !== 0) {
+      const comprobante = await crearComprobanteDiario(tx, {
+        periodoId,
+        fecha: periodo.fechaFin,
+        concepto: incremental > 0 ? `Provisión de cartera ${periodo.nombre}` : `Reversión de provisión de cartera ${periodo.nombre}`,
+        usuarioId,
+        asientos,
+      });
+      comprobanteId = comprobante.id;
+    }
+    const provision = await tx.provisionCartera.create({
+      data: {
+        periodoId,
+        comprobanteId,
+        totalCalculado: new Prisma.Decimal(requerido),
+      },
+      include: {
+        comprobante: { include: { asientos: { include: { cuenta: { select: { codigo: true } } } } } },
+      },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId,
+      accion: AccionAuditoria.CALCULAR_PROVISION,
+      entidad: "ProvisionCartera",
+      entidadId: provision.id,
+      detalle: {
+        periodo: periodo.nombre,
+        totalCalculado: requerido,
+        balanceProvision,
+        incremental,
+        comprobanteId,
+      },
+    });
+    return provision;
+  });
+
+  res.status(201).json({
+    provision: {
+      id: resultado.id,
+      periodoId,
+      totalCalculado: num(resultado.totalCalculado),
+      comprobanteId: resultado.comprobanteId,
+    },
+    resumen: { requerido, balanceProvision, incremental },
+    comprobante: resultado.comprobante
+      ? {
+          id: resultado.comprobante.id,
+          tipo: resultado.comprobante.tipo,
+          consecutivo: resultado.comprobante.consecutivo,
+          fecha: resultado.comprobante.fecha.toISOString().slice(0, 10),
+          concepto: resultado.comprobante.concepto,
+          totalDebito: num(resultado.comprobante.totalDebito),
+          totalCredito: num(resultado.comprobante.totalCredito),
+          numAsientos: resultado.comprobante.asientos.length,
+          asientos: resultado.comprobante.asientos.map((a) => ({
+            codigoCuenta: (a as { cuenta?: { codigo: string } }).cuenta?.codigo,
+            debito: num(a.debito),
+            credito: num(a.credito),
+            detalle: a.detalle,
+          })),
+        }
+      : null,
+    lineas,
+  });
+}
+
+export async function obtenerProvision(req: Request, res: Response): Promise<void> {
+  const periodoId = Number(req.params.periodoId);
+  if (!Number.isInteger(periodoId)) {
+    res.status(400).json({ error: "Periodo inválido" });
+    return;
+  }
+  const provision = await prisma.provisionCartera.findUnique({
+    where: { periodoId },
+    include: {
+      periodo: { select: { nombre: true } },
+      comprobante: {
+        include: { asientos: { include: { cuenta: { select: { codigo: true, nombre: true } } } } },
+      },
+    },
+  });
+  if (!provision) {
+    res.status(404).json({ error: `No hay provisión calculada para el periodo ${periodoId}` });
+    return;
+  }
+  res.json({
+    id: provision.id,
+    periodoId,
+    periodo: provision.periodo.nombre,
+    fecha: provision.fecha.toISOString(),
+    totalCalculado: num(provision.totalCalculado),
+    comprobanteId: provision.comprobanteId,
+    comprobante: provision.comprobante
+      ? {
+          id: provision.comprobante.id,
+          tipo: provision.comprobante.tipo,
+          consecutivo: provision.comprobante.consecutivo,
+          fecha: provision.comprobante.fecha.toISOString().slice(0, 10),
+          concepto: provision.comprobante.concepto,
+          totalDebito: num(provision.comprobante.totalDebito),
+          totalCredito: num(provision.comprobante.totalCredito),
+          estado: provision.comprobante.estado,
+          asientos: provision.comprobante.asientos.map((a) => ({
+            codigoCuenta: a.cuenta.codigo,
+            nombreCuenta: a.cuenta.nombre,
+            debito: num(a.debito),
+            credito: num(a.credito),
+            detalle: a.detalle,
+          })),
+        }
+      : null,
+  });
+}
+
+export const provision = { obtenerParametros, actualizarParametros, calcularProvision, obtenerProvision };

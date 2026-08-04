@@ -11,6 +11,7 @@ import Cartera from "./pages/Cartera";
 import Productos from "./pages/Productos";
 import ActivosFijos from "./pages/ActivosFijos";
 import CierreAnual from "./pages/CierreAnual";
+import ProvisionCartera from "./pages/ProvisionCartera";
 import Auditoria from "./pages/Auditoria";
 import Usuarios from "./pages/Usuarios";
 import CambiarPassword from "./pages/CambiarPassword";
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="/productos" element={<Productos />} />
             <Route path="/activos-fijos" element={<ActivosFijos />} />
             <Route path="/cierre-anual" element={<CierreAnual />} />
+            <Route path="/provision-cartera" element={<ProvisionCartera />} />
             <Route path="/usuarios" element={<Usuarios />} />
             <Route path="/auditoria" element={<Auditoria />} />
             <Route path="/cambiar-password" element={<CambiarPassword />} />

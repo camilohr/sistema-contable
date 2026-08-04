@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../src/lib/prisma.js";
-import { PUC } from "./puc.js";
+import { PUC } from "./seed/puc.js";
 import { derivarPuc } from "../src/lib/puc.js";
 
 async function importarPuc(): Promise<void> {
@@ -50,9 +51,30 @@ async function seedParametros(): Promise<void> {
   }
 }
 
+const PARAMETROS_PROVISION_DEFECTO = [
+  { diasDesde: 1, diasHasta: 30, porcentaje: 1 },
+  { diasDesde: 31, diasHasta: 60, porcentaje: 5 },
+  { diasDesde: 61, diasHasta: 90, porcentaje: 10 },
+  { diasDesde: 91, diasHasta: null, porcentaje: 20 },
+];
+
+async function seedParametroProvision(): Promise<void> {
+  const existentes = await prisma.parametroProvision.count();
+  if (existentes > 0) return;
+  await prisma.parametroProvision.createMany({
+    data: PARAMETROS_PROVISION_DEFECTO.map((p) => ({
+      diasDesde: p.diasDesde,
+      diasHasta: p.diasHasta,
+      porcentaje: new Prisma.Decimal(p.porcentaje),
+    })),
+  });
+  console.log("Parámetros de provisión de cartera por defecto creados.");
+}
+
 async function main(): Promise<void> {
   await seedUsuarioAdmin();
   await seedParametros();
+  await seedParametroProvision();
   await importarPuc();
 }
 

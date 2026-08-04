@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { cxc, cxp } from "../controllers/cartera.controller.js";
+import { provision } from "../controllers/provision-cartera.controller.js";
 
 const router = Router();
 
@@ -19,5 +20,10 @@ router.get("/cxp/:id", cxp.detalle);
 router.patch("/cxp/:id", requireRole("ADMIN", "CONTADOR"), cxp.actualizar);
 router.delete("/cxp/:id", requireRole("ADMIN", "CONTADOR"), cxp.eliminar);
 router.post("/cxp/:id/pagos", requireRole("ADMIN", "CONTADOR"), cxp.abonar);
+
+router.get("/cartera/provision/parametros", provision.obtenerParametros);
+router.put("/cartera/provision/parametros", requireRole("ADMIN", "CONTADOR"), provision.actualizarParametros);
+router.post("/cartera/provision/calcular/:periodoId", requireRole("ADMIN", "CONTADOR"), provision.calcularProvision);
+router.get("/cartera/provision/:periodoId", provision.obtenerProvision);
 
 export default router;

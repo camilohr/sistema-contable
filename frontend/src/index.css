@@ -564,6 +564,17 @@ input:focus {
   max-width: 460px;
 }
 
+.section-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin-top: 1.5rem;
+}
+
 .form-card label {
   margin: 0;
 }

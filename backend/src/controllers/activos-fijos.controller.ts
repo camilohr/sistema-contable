@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Prisma, EstadoComprobante, EstadoPeriodo, EstadoActivoFijo, AccionAuditoria } from "@prisma/client";
+import { Prisma, EstadoPeriodo, EstadoActivoFijo, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
+import { crearComprobanteDiario, AsientoGenerado } from "../lib/comprobantes.js";
 
 const crearSchema = z.object({
   cuentaId: z.number().int().positive(),
@@ -75,58 +76,6 @@ async function validarCuentas(cuentaId: number, cuentaDepreciacionId: number, cu
     if (!c.permiteMovimiento) return { error: `La cuenta ${c.codigo} (${c.nombre}) no permite movimiento` };
   }
   return { porId };
-}
-
-interface AsientoGenerado {
-  cuentaId: number;
-  debito: number;
-  credito: number;
-  detalle?: string;
-}
-
-async function crearComprobanteDiario(tx: Prisma.TransactionClient, data: {
-  periodoId: number;
-  fecha: Date;
-  concepto: string;
-  usuarioId: string;
-  asientos: AsientoGenerado[];
-}) {
-  const totalDebito = data.asientos.reduce((s, a) => s.plus(a.debito), new Prisma.Decimal(0));
-  const totalCredito = data.asientos.reduce((s, a) => s.plus(a.credito), new Prisma.Decimal(0));
-  if (!totalDebito.equals(totalCredito)) {
-    throw new Error(`La partida doble no cuadra: débitos ${totalDebito.toFixed(2)} vs créditos ${totalCredito.toFixed(2)}`);
-  }
-
-  const [max, cont] = await Promise.all([
-    tx.comprobante.aggregate({ _max: { consecutivo: true }, where: { tipo: "DIARIO" } }),
-    tx.consecutivo.upsert({ where: { tipo: "DIARIO" }, create: { tipo: "DIARIO", ultimo: 0 }, update: {} }),
-  ]);
-  const base = Math.max(max._max.consecutivo ?? 0, cont.ultimo);
-  const consecutivo = base + 1;
-  await tx.consecutivo.update({ where: { tipo: "DIARIO" }, data: { ultimo: consecutivo } });
-
-  return tx.comprobante.create({
-    data: {
-      tipo: "DIARIO",
-      consecutivo,
-      fecha: data.fecha,
-      periodoId: data.periodoId,
-      concepto: data.concepto,
-      totalDebito,
-      totalCredito,
-      estado: EstadoComprobante.CONTABILIZADO,
-      usuarioCreoId: data.usuarioId,
-      asientos: {
-        create: data.asientos.map((a) => ({
-          cuentaId: a.cuentaId,
-          debito: a.debito,
-          credito: a.credito,
-          detalle: a.detalle ?? null,
-        })),
-      },
-    },
-    include: { asientos: true, periodo: true },
-  });
 }
 
 export async function listar(req: Request, res: Response): Promise<void> {

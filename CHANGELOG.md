@@ -32,6 +32,18 @@ Siguiente iteración sobre la V1.0.0; alcance definido en [Roadmap V1.1](docs/ro
 - Página de Cierre anual en el frontend: listado de años cerrados, formulario de ejecución (solo ADMIN) y detalle del asiento de cierre.
 - 15 pruebas nuevas (217 en total).
 
+### Módulo 4 — Provisión de cartera (deterioro)
+- Modelos `ParametroProvision` (rangos de días de mora y porcentaje, `@@unique([diasDesde, diasHasta])`) y `ProvisionCartera` (un registro por periodo, con el total calculado y referencia opcional al comprobante).
+- Cuentas PUC nuevas en el seed: `1399` "Provisión de cartera" y `5199` "Provisión de cartera" (gasto), más parámetros por defecto (1-30 días: 1%, 31-60: 5%, 61-90: 10%, 91+: 20%).
+- `POST /api/cartera/provision/calcular/:periodoId` (ADMIN/CONTADOR): calcula el deterioro con base en la mora de las cuentas por cobrar al cierre del periodo y contabiliza solo el incremento no registrado — débito a 5199 y crédito a 1399, o reversión en el caso contrario — mediante un comprobante DIARIO contabilizado. Si el incremento es cero se registra la provisión sin comprobante.
+- Cálculo incremental sobre lo ya contabilizado (saldo de la cuenta 1399 en comprobantes contabilizados); un solo cálculo por periodo; anular el comprobante permite recalcular.
+- `PUT /api/cartera/provision/parametros` (ADMIN/CONTADOR) con validación de rangos (sin solapamiento ni duplicados, solo el último rango sin límite superior); `GET` para consulta.
+- `GET /api/cartera/provision/:periodoId` con el detalle del asiento para todos los roles autenticados.
+- Registro de la acción `CALCULAR_PROVISION` en la bitácora de auditoría (módulo 2).
+- Refactor: `lib/comprobantes.ts` centraliza `crearComprobanteDiario` (partida doble y consecutivo), ahora usado por activos fijos, cierre anual y provisión de cartera.
+- Página de Provisión de cartera en el frontend: cálculo por periodo, resumen del ajuste, desglose de cartera por días de mora, consulta por periodo y edición de parámetros.
+- 18 pruebas nuevas (235 en total).
+
 ## [1.0.0] - 2026-08-03
 
 Primera versión liberada: sistema contable completo según normatividad colombiana, desplegable en un servidor local.

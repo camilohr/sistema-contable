@@ -13,6 +13,7 @@ const links = [
   { to: "/reportes", label: "Libros y reportes" },
   { to: "/cxc", label: "Cuentas por cobrar" },
   { to: "/cxp", label: "Cuentas por pagar" },
+  { to: "/provision-cartera", label: "Provisión de cartera" },
   { to: "/productos", label: "Productos e inventario" },
   { to: "/activos-fijos", label: "Activos fijos" },
   { to: "/cierre-anual", label: "Cierre anual" },
