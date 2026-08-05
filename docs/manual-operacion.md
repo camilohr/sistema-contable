@@ -54,6 +54,11 @@ El respaldo genera además `contabilidad_YYYYMMDD_HHMMSS.adjuntos.zip` con la ca
 de adjuntos completa; la restauración lo extrae automáticamente. Ver
 [respaldo.md](respaldo.md).
 
+Cada respaldo verifica además **por cliente** (via `psql`): imprime y registra en
+`backup.log` los conteos de objetos de cada empresa (comprobantes, adjuntos, usuarios,
+etc.). Si un cliente esperado falta en el informe, revise la copia antes de
+sobrescribir respaldos antiguos.
+
 Programación automática (semanal):
 
 ```powershell

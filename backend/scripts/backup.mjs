@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Respaldo de la base de datos con pg_dump (formato custom), verificación
-// automática con pg_restore --list y retención de copias.
+// automática con pg_restore --list, informe por empresa (conteos por cliente con
+// sus adjuntos, vía psql) y retención de copias.
 //
 // Uso:
 //   node scripts/backup.mjs                       # crea un respaldo y aplica retención
@@ -25,6 +26,27 @@ const backendDir = path.resolve(__dirname, "..");
 dotenv.config({ path: path.join(backendDir, ".env") });
 
 const exec = promisify(execFile);
+
+// Conteos por cliente (tablas con scoping directo por empresaId). Se ejecutan sobre
+// la BD viva inmediatamente después del dump verificado: el respaldo es una copia
+// íntegra, así que estos totales son los que debe contener el archivo.
+const SQL_POR_EMPRESA = `
+SELECT e.nombre,
+  CASE WHEN e.activa THEN 'activa' ELSE 'inactiva' END,
+  (SELECT count(*) FROM "Tercero" t WHERE t."empresaId" = e.id),
+  (SELECT count(*) FROM "Periodo" p WHERE p."empresaId" = e.id),
+  (SELECT count(*) FROM "Comprobante" c WHERE c."empresaId" = e.id),
+  (SELECT count(*) FROM "CuentaPorCobrar" x WHERE x."empresaId" = e.id),
+  (SELECT count(*) FROM "CuentaPorPagar" y WHERE y."empresaId" = e.id),
+  (SELECT count(*) FROM "Producto" pr WHERE pr."empresaId" = e.id),
+  (SELECT count(*) FROM "ActivoFijo" af WHERE af."empresaId" = e.id),
+  (SELECT count(*) FROM "ProcesoContable" pc WHERE pc."empresaId" = e.id),
+  (SELECT count(*) FROM "Conciliacion" cc WHERE cc."empresaId" = e.id),
+  (SELECT count(*) FROM "Adjunto" a WHERE a."empresaId" = e.id),
+  (SELECT count(*) FROM "UsuarioEmpresa" ue WHERE ue."empresaId" = e.id)
+FROM "Empresa" e
+ORDER BY e.nombre;
+`;
 const existe = async (p) => {
   try {
     await access(p);
@@ -84,6 +106,34 @@ async function verificar(pgRestore, archivo) {
   }
 }
 
+async function verificarPorEmpresa(pg, dbUri, logFile) {
+  const db = String(dbUri).split("?")[0];
+  let stdout;
+  try {
+    ({ stdout } = await exec(pg, ["-At", "-F", "\t", "-c", SQL_POR_EMPRESA, db], { encoding: "utf8" }));
+  } catch (err) {
+    const msg = err.stderr?.trim() || err.message;
+    console.warn(`AVISO: no se generó el informe por empresa (${msg}). El respaldo sigue siendo válido.`);
+    await registrar(logFile, `ERROR por-empresa: ${msg}`);
+    return;
+  }
+  const filas = stdout.split("\n").filter((l) => l.trim().length > 0).map((l) => l.split("\t"));
+  if (filas.length === 0) {
+    console.log("Por empresa: no hay clientes registrados.");
+    await registrar(logFile, "OK por-empresa: 0 clientes");
+    return;
+  }
+  const encabezados = ["Empresa", "Estado", "Terc", "Per", "Comp", "CxC", "CxP", "Prod", "Activos", "Proc", "Conc", "Adj", "Usr"];
+  const anchos = encabezados.map((h, i) => Math.max(h.length, ...filas.map((r) => String(r[i] ?? "").length)));
+  const fila = (celdas) => celdas.map((c, i) => String(c).padEnd(anchos[i])).join("  ");
+  console.log("Verificación por empresa:");
+  console.log(fila(encabezados));
+  console.log(fila(encabezados.map((h, i) => "-".repeat(anchos[i]))));
+  for (const r of filas) console.log(fila(r));
+  const resumen = filas.map((r) => `${r[0]} (${r[4]} comp, ${r[11]} adj)`).join("; ");
+  await registrar(logFile, `OK por-empresa: ${filas.length} cliente(s) - ${resumen}`);
+}
+
 async function listar(opt, pgRestore) {
   await mkdir(opt.dir, { recursive: true });
   const archivos = (await readdir(opt.dir))
@@ -113,6 +163,7 @@ async function main() {
   const opt = leerArgs();
   const pgDump = await tool("pg_dump");
   const pgRestore = await tool("pg_restore");
+  const pg = await tool("psql");
 
   if (!process.env.DATABASE_URL) {
     console.error("ERROR: no se encontró DATABASE_URL en backend/.env");
@@ -180,6 +231,8 @@ async function main() {
     await registrar(logFile, `Eliminado por retención: ${f}`);
     console.log(`Retención: eliminado ${f}`);
   }
+
+  await verificarPorEmpresa(pg, dbUri, logFile);
 
   const st = await stat(ruta);
   await registrar(

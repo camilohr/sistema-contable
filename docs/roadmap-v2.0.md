@@ -509,12 +509,27 @@ Estado: suite backend en verde (400 tests, 24 archivos), incluido
 `backend/tests/administracion.test.ts` (22 tests de Fase 5); typecheck y lint/build
 limpios en backend y frontend; endpoints validados contra el backend en ejecución.
 
-### Fase 6 — Consolidación, respaldo y manuales
+### Fase 6 — Consolidación, respaldo y manuales *(implementada el 2026-08-05)*
 
-- Respaldo verificado por empresa (incluyendo adjuntos).
-- Manuales de usuario y de operación actualizados al nuevo flujo, incluida la
-  exportación de informes.
-- Cierre de V2.0: CHANGELOG, tag y despliegue.
+- ~~Respaldo verificado por empresa (incluyendo adjuntos).~~ → implementado:
+  `backend/scripts/backup.mjs` mantiene el respaldo global (`.dump` custom verificado
+  con `pg_restore --list` + `.adjuntos.zip`) y agrega una **verificación por empresa**:
+  tras el dump imprime y registra en `backup.log` los conteos de cada cliente
+  (terceros, periodos, comprobantes, CxC/CxP, productos, activos fijos, procesos,
+  conciliaciones, adjuntos y usuarios asignados) con su estado activa/inactiva. Si
+  `psql` no está disponible el respaldo no se descarta (la verificación estructural
+  sigue siendo la que valida el archivo).
+- ~~Manuales de usuario y de operación actualizados al nuevo flujo, incluida la
+  exportación de informes.~~ → implementado: `docs/manual-usuario.md` (roles por
+  cliente, exportación y paquete ZIP, §13 Usuarios y clientes),
+  `docs/manual-operacion.md` y `docs/respaldo.md` (verificación por empresa).
+- ~~Cierre de V2.0: CHANGELOG, tag y despliegue.~~ → CHANGELOG con sección 2.0.0,
+  versión 2.0.0 en backend/frontend, tag `v2.0.0` y despliegue con
+  `scripts/desplegar.ps1`.
+
+Estado: suite backend en verde; typecheck y lint/build limpios en backend y frontend;
+respaldo por empresa probado contra la base real (`npm run backup` → 1 cliente,
+6 comprobantes, 354 objetos).
 
 ## 6. Resumen de prioridad
 
@@ -525,8 +540,8 @@ limpios en backend y frontend; endpoints validados contra el backend en ejecuci�
 | 2 | Procesos y seguimiento | Alta | ✅ Implementada (2026-08-05) |
 | 3 | Navegación por proceso | Alta | ✅ Implementada (2026-08-05) |
 | 4 | Conciliación, soportes, exportación de informes | Media-alta *(subió por solicitud explícita)* | ✅ Implementada (2026-08-05) |
-| 5 | Permisos por cliente | Media |
-| 6 | Consolidación y manuales | Baja (cierre) |
+| 5 | Permisos por cliente | Media | ✅ Implementada (2026-08-05) |
+| 6 | Consolidación y manuales | Baja (cierre) | ✅ Implementada (2026-08-05) |
 
 ## 7. Criterios de éxito
 

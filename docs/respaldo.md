@@ -30,6 +30,16 @@ STORE (sin compresión, el contenido ya suele ser PDF/ofimático) implementado e
 `backend/scripts/zip-lite.mjs` sin dependencias externas. Si la carpeta de adjuntos
 no existe o está vacía, el ZIP no se genera y la restauración lo omite sin error.
 
+Cada respaldo incluye además una **verificación por empresa**: el script consulta la
+base (vía `psql`) y muestra en pantalla y en `backup.log` los conteos de objetos de
+cada cliente (terceros, periodos, comprobantes, CxC/CxP, productos, activos fijos,
+procesos, conciliaciones, adjuntos y usuarios asignados), con su estado activa/
+inactiva. Como el `.dump` es una copia íntegra de la base verificada con
+`pg_restore --list`, estos totales son los que debe contener el archivo; si un cliente
+esperado no aparece o aparece con ceros, el respaldo puede estar incompleto. Si `psql`
+no está disponible, se muestra un aviso y el respaldo **no se descarta** (la
+verificación estructural con `pg_restore` sigue siendo la que valida el archivo).
+
 Opciones:
 
 | Comando | Efecto |

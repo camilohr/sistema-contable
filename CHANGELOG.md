@@ -1,5 +1,65 @@
 # Historial de cambios
 
+## [2.0.0] - 2026-08-05
+
+Estudio contable multicliente, seguimiento por proceso y exportación de informes.
+Alcance definido en [Roadmap V2.0](docs/roadmap-v2.0.md); reestructuración estructural
+(multientidad), integración, seguimiento y exportación — sin nuevas reglas contables.
+
+### Fase 1 — Multientidad
+- Cada fila de negocio pertenece a una empresa (`empresaId`); una sola base de datos
+  multientidad, nunca una BD por cliente. Scoping por tabla y unicidades compuestas
+  (`[empresaId, ...]`) en consecutivos, códigos y periodos.
+- Modelos `Empresa` y `UsuarioEmpresa` (acceso y rol por cliente); `Cuenta`,
+  `ParametroNomina` y `ParametroProvision` globales con override por empresa.
+- Header `X-Empresa-Id` + middleware `requireEmpresa`: empresa activa y rol efectivo
+  (el más restrictivo entre el rol global y el de la empresa); un ADMIN global accede
+  a todas las empresas sin fila.
+- Frontend con `EmpresaContext`, selector de empresa y rutas `/empresa/:empresaId/...`.
+
+### Fase 2 — Procesos contables y seguimiento
+- Modelos `ProcesoContable` (uno por empresa y año), `ActividadProceso` (checklist de
+  7 actividades) y `NotaSeguimiento`; plantilla por defecto en código.
+- Endpoints `/api/procesos` (listar, crear, detalle, estado, marcar actividad, notas,
+  cartera global) e integración automática: cierre, nómina, provisión, presupuesto y
+  comprobantes marcan su actividad dentro de la misma transacción.
+- Página de Seguimiento por procesos y cartera de clientes con semáforo en el frontend.
+
+### Fase 3 — Navegación por proceso
+- `GET /api/resumen`: vista consolidada de la empresa activa (periodo objetivo,
+  proceso con avance, estado de cada área y alertas por severidad).
+- Landing por empresa ("Resumen del proceso"), menú lateral agrupado por el ciclo del
+  proceso y página de módulos.
+
+### Fase 4 — Conciliación, soportes y exportación
+- Conciliación bancaria: modelos `Conciliacion` y `MovimientoExtracto`, importación de
+  extracto CSV idempotente (hash de fila), cruce automático con asientos, aprobación
+  que marca la actividad del proceso.
+- Adjuntos por comprobante y empresa (máx. 15 MB, hash SHA-256), carpeta `adjuntos/`
+  incluida en el respaldo (`*.adjuntos.zip`) y extraída en la restauración.
+- Exportación de informes: PDF completados (balance general, estado de resultados,
+  indicadores), CSV/XLSX de los seis reportes y paquete ZIP por periodo/año, todo
+  local (módulo `zip-lite.mjs` sin dependencias).
+
+### Fase 5 — Permisos por cliente y administración
+- `GET /api/usuarios`, `/api/usuarios/disponibles`, `POST /api/usuarios/:id/vincular`,
+  `PATCH /api/usuarios/:id/rol` y `DELETE /api/usuarios/:id` (retiro), con bloqueo de
+  auto-operación y auditoría.
+- `GET /api/empresas/administracion`, creación/edición de clientes con su proceso del
+  año, activación/desactivación y **baja ordenada**: `POST
+  /api/empresas/:empresaId/informes/paquete-final` valida procesos e informes y
+  entrega el ZIP final del cliente antes de desactivarlo.
+- `enum AccionAuditoria` ampliado con 12 acciones (empresa y proceso).
+- Frontend: páginas "Usuarios" (rol por empresa, asignar disponibles, retirar) y
+  "Clientes" (listado con conteos, crear/editar, baja ordenada, reactivar, paquete).
+
+### Fase 6 — Consolidación, respaldo y manuales
+- Respaldo global verificado con **informe por empresa**: conteos por cliente
+  (objetos y adjuntos) impresos y registrados en `backup.log` tras cada copia.
+- Manuales de usuario y de operación actualizados al flujo multicliente, incluida la
+  exportación de informes.
+- Cierre: este CHANGELOG, versión 2.0.0 y tag `v2.0.0`.
+
 ## [1.1.0] - en desarrollo
 
 Siguiente iteración sobre la V1.0.0; alcance definido en [Roadmap V1.1](docs/roadmap-v1.1.md).
