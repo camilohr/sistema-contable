@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
+import styles from "./Login.module.css";
 
 export default function Login() {
   const { login } = useAuth();
@@ -27,11 +28,11 @@ export default function Login() {
   };
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <h1 className="login-title">Sistema Contable</h1>
-        <p className="login-subtitle">Inicie sesión para continuar</p>
-        <form onSubmit={onSubmit} className="login-form">
+    <div className={styles.loginPage}>
+      <div className={styles.loginCard}>
+        <h1 className={styles.loginTitle}>Sistema Contable</h1>
+        <p className={styles.loginSubtitle}>Inicie sesión para continuar</p>
+        <form onSubmit={onSubmit} className={styles.loginForm}>
           <label>
             Correo electrónico
             <input
