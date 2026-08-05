@@ -1,0 +1,67 @@
+.asientos-head,
+.asientos-fila {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.6fr) minmax(120px, 0.9fr) 110px 110px minmax(140px, 1fr) 34px;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.asientos-head {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.asientos-fila {
+  margin-bottom: 0.4rem;
+  position: relative;
+}
+
+.asientos-fila input,
+.asientos-fila select {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.88rem;
+}
+
+.asientos-head .col-debito,
+.asientos-head .col-credito {
+  text-align: right;
+}
+
+.asientos-fila .col-debito input,
+.asientos-fila .col-credito input {
+  text-align: right;
+}
+
+.asientos-fila .col-quitar {
+  justify-self: end;
+  padding-left: 0;
+  padding-right: 0;
+  min-width: 32px;
+}
+
+.requiere-tercero {
+  position: absolute;
+  top: -0.35rem;
+  right: 2.2rem;
+  background: #fdecea;
+  color: #c0392b;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  z-index: 2;
+}
+
+.totales {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.9rem;
+  background: #f8fafb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+}

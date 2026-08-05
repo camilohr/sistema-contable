@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
+import styles from "./ComprobanteForm.module.css";
 
 interface Cuenta {
   id: number;
@@ -201,20 +202,20 @@ export default function ComprobanteForm({ inicial, titulo, onClose, onGuardado }
               <input value={form.concepto} onChange={(e) => set("concepto", e.target.value)} required placeholder="Ej: Venta de contado" />
             </label>
 
-            <div className="asientos-head">
-              <span className="col-cuenta">Cuenta<span className="req">*</span></span>
-              <span className="col-tercero">Tercero</span>
-              <span className="col-debito">Débito</span>
-              <span className="col-credito">Crédito</span>
-              <span className="col-detalle">Detalle</span>
-              <span className="col-quitar"></span>
+            <div className={styles.asientosHead}>
+              <span className={styles.colCuenta}>Cuenta<span className="req">*</span></span>
+              <span className={styles.colTercero}>Tercero</span>
+              <span className={styles.colDebito}>Débito</span>
+              <span className={styles.colCredito}>Crédito</span>
+              <span className={styles.colDetalle}>Detalle</span>
+              <span className={styles.colQuitar}></span>
             </div>
             {form.asientos.map((a, i) => {
               const cuenta = a.cuentaId ? cuentaPorId.get(a.cuentaId) : undefined;
               return (
-                <div className="asientos-fila" key={i}>
+                <div className={styles.asientosFila} key={i}>
                   <select
-                    className="col-cuenta"
+                    className={styles.colCuenta}
                     value={a.cuentaId}
                     onChange={(e) => setAsiento(i, "cuentaId", e.target.value)}
                     required
@@ -226,7 +227,7 @@ export default function ComprobanteForm({ inicial, titulo, onClose, onGuardado }
                       </option>
                     ))}
                   </select>
-                  <select className="col-tercero" value={a.terceroId} onChange={(e) => setAsiento(i, "terceroId", e.target.value)}>
+                  <select className={styles.colTercero} value={a.terceroId} onChange={(e) => setAsiento(i, "terceroId", e.target.value)}>
                     <option value="">—</option>
                     {terceros.map((t) => (
                       <option key={t.id} value={t.id}>
@@ -235,7 +236,7 @@ export default function ComprobanteForm({ inicial, titulo, onClose, onGuardado }
                     ))}
                   </select>
                   <input
-                    className="col-debito"
+                    className={styles.colDebito}
                     type="number"
                     min="0"
                     step="0.01"
@@ -244,7 +245,7 @@ export default function ComprobanteForm({ inicial, titulo, onClose, onGuardado }
                     onChange={(e) => setAsiento(i, "debito", e.target.value)}
                   />
                   <input
-                    className="col-credito"
+                    className={styles.colCredito}
                     type="number"
                     min="0"
                     step="0.01"
@@ -253,16 +254,16 @@ export default function ComprobanteForm({ inicial, titulo, onClose, onGuardado }
                     onChange={(e) => setAsiento(i, "credito", e.target.value)}
                   />
                   <input
-                    className="col-detalle"
+                    className={styles.colDetalle}
                     value={a.detalle}
                     onChange={(e) => setAsiento(i, "detalle", e.target.value)}
                     placeholder="Detalle"
                   />
-                  <button type="button" className="btn btn-secondary btn-sm col-quitar" onClick={() => quitarAsiento(i)}>
+                  <button type="button" className={`btn btn-secondary btn-sm ${styles.colQuitar}`} onClick={() => quitarAsiento(i)}>
                     ✕
                   </button>
                   {cuenta?.requiereTercero && !a.terceroId && (
-                    <span className="requiere-tercero">requiere tercero</span>
+                    <span className={styles.requiereTercero}>requiere tercero</span>
                   )}
                 </div>
               );
@@ -273,7 +274,7 @@ export default function ComprobanteForm({ inicial, titulo, onClose, onGuardado }
               </button>
             </div>
 
-            <div className="totales">
+            <div className={styles.totales}>
               <span>Débitos: <strong>{totales.debito.toFixed(2)}</strong></span>
               <span>Créditos: <strong>{totales.credito.toFixed(2)}</strong></span>
               <span className={totales.cuadra ? "success-msg" : "error-msg"}>
