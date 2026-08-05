@@ -518,7 +518,3 @@ select {
   border-radius: 999px;
   transition: width 0.2s ease;
 }
-
-.conciliacion-crear .filters {
-  margin-bottom: 0;
-}

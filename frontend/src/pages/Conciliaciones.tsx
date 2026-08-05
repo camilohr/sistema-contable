@@ -3,6 +3,7 @@ import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import ConfirmModal from "../components/ConfirmModal";
 import { cop } from "../lib/formato";
+import styles from "./Conciliaciones.module.css";
 
 interface Periodo {
   id: number;
@@ -182,7 +183,7 @@ export default function Conciliaciones() {
       </div>
 
       {puedeEditar && (
-        <div className="section-card conciliacion-crear">
+        <div className={`section-card ${styles.conciliacionCrear}`}>
           <h3 className="section-title">Nueva conciliación</h3>
           <div className="filters">
             <select className="filter-input" value={periodoId} onChange={(e) => setPeriodoId(e.target.value)}>
