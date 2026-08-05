@@ -148,7 +148,7 @@ export default function Resumen() {
       <div className="estado-grid">
         {tarjetas.map((t) => (
           <div key={t.titulo} className="estado-card clickable" onClick={() => ir(t.ruta)}>
-            <span className="estado-titulo">{t.titulo}</span>
+            <span className="resumen-card-titulo">{t.titulo}</span>
             <span className={`estado-valor ${t.valorClase ?? ""}`}>{t.valor}</span>
             <span className="estado-sub">{t.sub}</span>
             {t.ruta && <span className="estado-ir">Ir a {t.titulo.toLowerCase()} →</span>}

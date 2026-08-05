@@ -162,6 +162,14 @@ input:focus {
   background: #fff;
 }
 
+.topbar-empresa {
+  min-width: 220px;
+  padding: 0.4rem 0.6rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
 .topbar-user em {
   font-style: normal;
   color: #aed6f1;
@@ -535,6 +543,23 @@ input:focus {
   font-size: 0.88rem;
 }
 
+.asientos-head .col-debito,
+.asientos-head .col-credito {
+  text-align: right;
+}
+
+.asientos-fila .col-debito input,
+.asientos-fila .col-credito input {
+  text-align: right;
+}
+
+.asientos-fila .col-quitar {
+  justify-self: end;
+  padding-left: 0;
+  padding-right: 0;
+  min-width: 32px;
+}
+
 .requiere-tercero {
   position: absolute;
   top: -0.35rem;
@@ -812,6 +837,11 @@ select {
   transition: width 0.2s ease;
 }
 
+.checklist {
+  display: flex;
+  flex-direction: column;
+}
+
 .check-item {
   display: flex;
   align-items: center;
@@ -897,7 +927,7 @@ select {
   gap: 0.35rem;
 }
 
-.estado-titulo {
+.resumen-card-titulo {
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
