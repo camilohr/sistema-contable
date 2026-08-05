@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate, useParams } from "react-router";
 import { useAuth } from "../context/AuthContext";
 import { useEmpresa } from "../context/EmpresaContext";
+import styles from "./Layout.module.css";
 
 const rolLabels: Record<string, string> = {
   ADMIN: "Administrador",
@@ -73,13 +74,13 @@ export default function Layout() {
   const base = `/empresa/${empresaActiva?.id ?? ""}`;
 
   return (
-    <div className="layout">
-      <aside className="sidebar">
-        <div className="sidebar-brand">Sistema Contable</div>
-        <nav className="sidebar-nav">
+    <div className={styles.layout}>
+      <aside className={styles.sidebar}>
+        <div className={styles.sidebarBrand}>Sistema Contable</div>
+        <nav className={styles.sidebarNav}>
           {gruposNavegacion.map((g) => (
-            <div key={g.titulo} className="sidebar-grupo">
-              <span className="sidebar-grupo-titulo">{g.titulo}</span>
+            <div key={g.titulo} className={styles.sidebarGrupo}>
+              <span className={styles.sidebarGrupoTitulo}>{g.titulo}</span>
               {g.items.map((l) => (
                 <NavLink key={l.to} to={`${base}/${l.to}`} end={l.end} className={({ isActive }) => (isActive ? "active" : "")}>
                   {l.label}
@@ -88,8 +89,8 @@ export default function Layout() {
             </div>
           ))}
           {rol === "ADMIN" && (
-            <div className="sidebar-grupo">
-              <span className="sidebar-grupo-titulo">Administración</span>
+            <div className={styles.sidebarGrupo}>
+              <span className={styles.sidebarGrupoTitulo}>Administración</span>
               {soloAdmin.map((l) => (
                 <NavLink key={l.to} to={`${base}/${l.to}`} end={l.end} className={({ isActive }) => (isActive ? "active" : "")}>
                   {l.label}
@@ -102,13 +103,13 @@ export default function Layout() {
           </NavLink>
         </nav>
       </aside>
-      <div className="main-area">
-        <header className="topbar">
+      <div className={styles.mainArea}>
+        <header className={styles.topbar}>
           {cargando ? (
-            <span className="topbar-empresa">Cargando empresas...</span>
+            <span className={styles.topbarEmpresa}>Cargando empresas...</span>
           ) : (
             <select
-              className="empresa-selector"
+              className={styles.empresaSelector}
               value={empresaActiva?.id ?? ""}
               onChange={(e) => {
                 seleccionarEmpresa(e.target.value);
@@ -123,7 +124,7 @@ export default function Layout() {
               ))}
             </select>
           )}
-          <div className="topbar-user">
+          <div className={styles.topbarUser}>
             <span>
               {usuario?.nombre} <em>({rolLabels[rol ?? ""]})</em>
             </span>
@@ -138,7 +139,7 @@ export default function Layout() {
             </button>
           </div>
         </header>
-        <main className="content">
+        <main className={styles.content}>
           <Outlet key={empresaId ?? ""} />
         </main>
       </div>
