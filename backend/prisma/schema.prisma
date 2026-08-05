@@ -54,6 +54,13 @@ enum EstadoNomina {
   ANULADO
 }
 
+enum TipoAlerta {
+  CARTERA_VENCE
+  PERIODO_SIN_CERRAR
+  ACTIVO_SIN_BAJA
+  TERCERO_SIN_MOVIMIENTO
+}
+
 enum EstadoCartera {
   PENDIENTE
   ABONADA
@@ -609,4 +616,13 @@ model Presupuesto {
 
   @@unique([cuentaId, periodoId])
   @@index([periodoId])
+}
+
+model ReglaAlerta {
+  id        Int        @id @default(autoincrement())
+  tipo      TipoAlerta @unique
+  dias      Int?
+  activa    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }

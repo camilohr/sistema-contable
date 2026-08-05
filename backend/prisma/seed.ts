@@ -162,6 +162,26 @@ async function seedParametroCuentaNomina(): Promise<void> {
   console.log(`Mapeo de cuentas de nómina: ${CUENTAS_NOMINA_DEFECTO.length} conceptos (${creados} nuevos).`);
 }
 
+const REGLAS_ALERTA_DEFECTO: Array<{ tipo: Prisma.TipoAlerta; dias: number | null }> = [
+  { tipo: "CARTERA_VENCE", dias: 15 },
+  { tipo: "PERIODO_SIN_CERRAR", dias: null },
+  { tipo: "ACTIVO_SIN_BAJA", dias: null },
+  { tipo: "TERCERO_SIN_MOVIMIENTO", dias: 90 },
+];
+
+async function seedReglasAlerta(): Promise<void> {
+  let creadas = 0;
+  for (const r of REGLAS_ALERTA_DEFECTO) {
+    const resultado = await prisma.reglaAlerta.upsert({
+      where: { tipo: r.tipo },
+      update: {},
+      create: { tipo: r.tipo, dias: r.dias },
+    });
+    if (resultado.createdAt.getTime() === resultado.updatedAt.getTime()) creadas += 1;
+  }
+  console.log(`Reglas de alertas por defecto: ${REGLAS_ALERTA_DEFECTO.length} (${creadas} nuevas).`);
+}
+
 async function main(): Promise<void> {
   await seedUsuarioAdmin();
   await seedParametros();
@@ -169,6 +189,7 @@ async function main(): Promise<void> {
   await importarPuc();
   await seedParametroNomina();
   await seedParametroCuentaNomina();
+  await seedReglasAlerta();
 }
 
 main()

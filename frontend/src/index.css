@@ -656,3 +656,67 @@ select {
   background: #f8fafb;
   border-top: 1px solid var(--border);
 }
+
+.alerta-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.alerta-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: #f8fafb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.alerta-tipo {
+  font-weight: 600;
+  color: var(--primary-dark);
+  white-space: nowrap;
+}
+
+.alerta-msg {
+  color: var(--text);
+}
+
+.reglas-alerta {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+.reglas-alerta h4 {
+  margin: 0 0 0.75rem;
+}
+
+.regla-alerta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.regla-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.regla-dias {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.regla-dias input {
+  width: 90px;
+}

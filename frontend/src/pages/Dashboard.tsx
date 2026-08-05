@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
+import AlertasPanel from "../components/AlertasPanel";
 
 export default function Dashboard() {
   const { usuario } = useAuth();
@@ -34,6 +35,7 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+      <AlertasPanel />
     </div>
   );
 }

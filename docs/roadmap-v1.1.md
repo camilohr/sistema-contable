@@ -24,7 +24,7 @@ documentados en `docs/modelo-datos.md` (tablas `activos_fijos`, `depreciaciones`
 5. Indicadores financieros y análisis comparativo `[COMPLETADO 2026-08-04]`
 6. Exportación de libros oficiales a PDF `[COMPLETADO 2026-08-04]`
 7. Presupuesto y control presupuestal `[COMPLETADO 2026-08-04]`
-8. Alertas y recordatorios internos
+8. Alertas y recordatorios internos `[COMPLETADO 2026-08-04]`
 9. Nómina simplificada (solo cálculo, sin PILA) `[COMPLETADO 2026-08-04]`
 
 ---
@@ -398,7 +398,7 @@ model Presupuesto {
 
 ---
 
-## 8. Alertas y recordatorios internos
+## 8. Alertas y recordatorios internos `[COMPLETADO 2026-08-04]`
 
 **Qué hace:** reglas simples sobre datos ya existentes: cartera próxima a vencer,
 periodo sin cerrar, activo totalmente depreciado sin dar de baja, cliente sin

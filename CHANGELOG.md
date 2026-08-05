@@ -71,6 +71,13 @@ Siguiente iteración sobre la V1.0.0; alcance definido en [Roadmap V1.1](docs/ro
 - `.github/workflows/ci.yml`: en cada push a `master` (o PR) ejecuta dos jobs — backend (`npm ci`, `prisma generate`, `npm test`, `npm run build` con un servicio PostgreSQL 16) y frontend (`npm ci`, `npm run lint`, `npm run build`).
 - El CI crea su propia base `contabilidad` como servicio y la suite deriva `contabilidad_test` automáticamente, sin depender de credenciales reales.
 
+### Módulo 8 — Alertas y recordatorios internos
+- Modelo `ReglaAlerta` (migración `regla_alerta`) con `tipo` único, `dias` (umbral opcional) y `activa`; `enum TipoAlerta` con `CARTERA_VENCE`, `PERIODO_SIN_CERRAR`, `ACTIVO_SIN_BAJA` y `TERCERO_SIN_MOVIMIENTO`. Se siembran las 4 reglas por defecto (cartera 15 días, cliente sin movimientos 90 días) en `npm run db:seed`.
+- `backend/src/lib/alertas.ts`: evaluación de las reglas activas contra el estado actual — cartera por cobrar/pagar con saldo vencida (ALTA) o próxima a vencer (MEDIA), periodos que terminaron y siguen abiertos (MEDIA), activos totalmente depreciados sin dar de baja (MEDIA) y clientes sin movimientos recientes (BAJA) — con fallback a los valores por defecto si no hay reglas.
+- Endpoints `/api/alertas` (GET, todos los roles), `/api/alertas/reglas` (GET todos, PUT ADMIN/CONTADOR para activar/desactivar y ajustar el umbral de días).
+- Panel "Alertas y recordatorios" en el Dashboard del frontend: lista con badge de severidad y edición de reglas para ADMIN/CONTADOR.
+- 11 pruebas nuevas (315 en total).
+
 ### Módulo 7 — Presupuesto y control presupuestal
 - Modelo `Presupuesto` (migración `presupuesto`) con `cuentaId`, `periodoId` y `valor` `Decimal(15,2)`, único por cuenta y periodo; sin modelos extra de reportes.
 - `PUT /api/presupuesto/:periodoId` (ADMIN/CONTADOR): reemplaza el presupuesto completo del periodo (upsert + eliminación del resto), valida cuentas activas con `permiteMovimiento`, rechaza cuentas inexistentes o sin movimiento y valores negativos.
