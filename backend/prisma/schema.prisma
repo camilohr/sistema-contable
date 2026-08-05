@@ -55,6 +55,13 @@ enum TipoDocumento {
   PASAPORTE
 }
 
+enum TipoDocumentoCliente {
+  NIT
+  CC
+  CE
+  PASAPORTE
+}
+
 enum TipoComprobante {
   DIARIO
   INGRESO
@@ -171,6 +178,7 @@ model Empresa {
   id               String   @id @default(uuid())
   nombre           String
   nit              String
+  tipoDocumento    TipoDocumentoCliente @default(NIT)
   direccion        String?
   telefono         String?
   moneda           String   @default("COP")

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { AccionAuditoria } from "@prisma/client";
+import { AccionAuditoria, TipoDocumentoCliente } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { rolMasRestrictivo } from "../middleware/auth.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
@@ -9,6 +9,7 @@ import { crearProcesoConPlantilla } from "../lib/procesos.js";
 const crearSchema = z.object({
   nombre: z.string().min(1),
   nit: z.string().min(1),
+  tipoDocumento: z.nativeEnum(TipoDocumentoCliente).optional(),
   direccion: z.string().nullable().optional(),
   telefono: z.string().nullable().optional(),
   moneda: z.string().optional(),
@@ -20,6 +21,7 @@ const actualizarSchema = z
   .object({
     nombre: z.string().min(1).optional(),
     nit: z.string().min(1).optional(),
+    tipoDocumento: z.nativeEnum(TipoDocumentoCliente).optional(),
     direccion: z.string().nullable().optional(),
     telefono: z.string().nullable().optional(),
     moneda: z.string().optional(),
@@ -68,6 +70,7 @@ export async function administracion(req: Request, res: Response): Promise<void>
       id: e.id,
       nombre: e.nombre,
       nit: e.nit,
+      tipoDocumento: e.tipoDocumento,
       direccion: e.direccion,
       telefono: e.telefono,
       moneda: e.moneda,
@@ -92,12 +95,13 @@ export async function crear(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
     return;
   }
-  const { nombre, nit, direccion, telefono, moneda, anioFiscalInicio, mensajeRecibo } = parsed.data;
+  const { nombre, nit, tipoDocumento, direccion, telefono, moneda, anioFiscalInicio, mensajeRecibo } = parsed.data;
   const empresa = await prisma.$transaction(async (tx) => {
     const e = await tx.empresa.create({
       data: {
         nombre,
         nit,
+        tipoDocumento: tipoDocumento ?? "NIT",
         direccion: direccion ?? null,
         telefono: telefono ?? null,
         moneda: moneda ?? "COP",

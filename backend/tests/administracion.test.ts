@@ -286,6 +286,63 @@ describe("Gestión de clientes (/api/empresas)", () => {
   });
 });
 
+describe("Tipo de documento del cliente (persona natural vs juridica)", () => {
+  const creadas: string[] = [];
+
+  it("crear cliente tipo CC se guarda con tipoDocumento CC", async () => {
+    const res = await request(app)
+      .post("/api/empresas")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ nombre: `Cliente CC ${suf}`, nit: "123456789", tipoDocumento: "CC" });
+    expect(res.status).toBe(201);
+    creadas.push(res.body.id);
+    const reg = await prisma.empresa.findUnique({ where: { id: res.body.id } });
+    expect(reg?.tipoDocumento).toBe("CC");
+  });
+
+  it("crear cliente sin tipoDocumento usa NIT por defecto", async () => {
+    const res = await request(app)
+      .post("/api/empresas")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ nombre: `Cliente NIT ${suf}`, nit: `9002${suf}` });
+    expect(res.status).toBe(201);
+    creadas.push(res.body.id);
+    const reg = await prisma.empresa.findUnique({ where: { id: res.body.id } });
+    expect(reg?.tipoDocumento).toBe("NIT");
+  });
+
+  it("editar cliente puede cambiar el tipo de documento", async () => {
+    const res = await request(app)
+      .post("/api/empresas")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ nombre: `Cliente CE ${suf}`, nit: "A12345", tipoDocumento: "CE" });
+    expect(res.status).toBe(201);
+    creadas.push(res.body.id);
+    const upd = await request(app)
+      .patch(`/api/empresas/${res.body.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ tipoDocumento: "NIT" });
+    expect(upd.status).toBe(200);
+    const reg = await prisma.empresa.findUnique({ where: { id: res.body.id } });
+    expect(reg?.tipoDocumento).toBe("NIT");
+  });
+
+  it("administración devuelve tipoDocumento por cliente", async () => {
+    const listado = await request(app).get("/api/empresas/administracion").set("Authorization", `Bearer ${adminToken}`);
+    expect(listado.status).toBe(200);
+    const cc = (listado.body as { id: string; tipoDocumento?: string }[]).find((e) => e.id === creadas[0]);
+    expect(cc?.tipoDocumento).toBe("CC");
+  });
+
+  afterAll(async () => {
+    if (creadas.length) {
+      await prisma.auditoria.deleteMany({ where: { empresaId: { in: creadas } } });
+      await prisma.procesoContable.deleteMany({ where: { empresaId: { in: creadas } } });
+      await prisma.empresa.deleteMany({ where: { id: { in: creadas } } });
+    }
+  });
+});
+
 describe("Administración de usuarios por empresa (/api/usuarios)", () => {
   it("listar disponibles excluye a los ya asignados", async () => {
     await prisma.usuarioEmpresa.deleteMany({ where: { usuarioId: nuevoId } });

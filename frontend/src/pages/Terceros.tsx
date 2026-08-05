@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
+import { docLabel } from "../lib/documentos";
 
 interface Tercero {
   id: string;
@@ -17,7 +18,6 @@ interface Tercero {
 }
 
 const tipoLabel: Record<string, string> = { CLIENTE: "Cliente", PROVEEDOR: "Proveedor", AMBOS: "Cliente/Proveedor" };
-const docLabel: Record<string, string> = { CC: "CC", NIT: "NIT", CE: "CE", PASAPORTE: "Pasaporte" };
 
 export default function Terceros() {
   const { usuario } = useAuth();

@@ -3,11 +3,13 @@ import type { FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import ConfirmModal from "../components/ConfirmModal";
+import { docLabel } from "../lib/documentos";
 
 interface Cliente {
   id: string;
   nombre: string;
   nit: string;
+  tipoDocumento: string;
   direccion: string | null;
   telefono: string | null;
   moneda: string;
@@ -22,11 +24,12 @@ interface Cliente {
 interface FormaDatos {
   nombre: string;
   nit: string;
+  tipoDocumento: string;
   direccion: string;
   telefono: string;
 }
 
-const vacio: FormaDatos = { nombre: "", nit: "", direccion: "", telefono: "" };
+const vacio: FormaDatos = { nombre: "", nit: "", tipoDocumento: "NIT", direccion: "", telefono: "" };
 
 export default function Clientes() {
   const { usuario } = useAuth();
@@ -138,7 +141,7 @@ export default function Clientes() {
             <thead>
               <tr>
                 <th>Cliente</th>
-                <th>NIT</th>
+                <th>Documento</th>
                 <th>Dirección</th>
                 <th>Estado</th>
                 <th>Usuarios</th>
@@ -152,7 +155,9 @@ export default function Clientes() {
               {clientes.map((c) => (
                 <tr key={c.id} className={!c.activa ? "inactiva" : ""}>
                   <td>{c.nombre}</td>
-                  <td className="codigo-cell">{c.nit}</td>
+                  <td className="codigo-cell">
+                    {docLabel[c.tipoDocumento]}: {c.nit}
+                  </td>
                   <td>{c.direccion ?? "-"}</td>
                   <td>
                     {c.activa ? <span className="badge badge-mov">Activa</span> : <span className="badge badge-err">Dada de baja</span>}
@@ -228,7 +233,7 @@ function FormaCliente({
 }) {
   const [form, setForm] = useState<FormaDatos>(
     cliente
-      ? { nombre: cliente.nombre, nit: cliente.nit, direccion: cliente.direccion ?? "", telefono: cliente.telefono ?? "" }
+      ? { nombre: cliente.nombre, nit: cliente.nit, tipoDocumento: cliente.tipoDocumento, direccion: cliente.direccion ?? "", telefono: cliente.telefono ?? "" }
       : vacio
   );
   const [error, setError] = useState("");
@@ -260,13 +265,23 @@ function FormaCliente({
         <h3>{cliente ? "Editar cliente" : "Nuevo cliente"}</h3>
         <form onSubmit={onSubmit} className="form-card">
           <label>
-            Razón social
+            Razón social <span className="req">*</span>
             <input value={form.nombre} onChange={(e) => set("nombre", e.target.value)} required />
           </label>
-          <label>
-            NIT
-            <input value={form.nit} onChange={(e) => set("nit", e.target.value)} required />
-          </label>
+          <div className="form-row">
+            <label>
+              Tipo de documento
+              <select value={form.tipoDocumento} onChange={(e) => set("tipoDocumento", e.target.value)}>
+                {Object.entries(docLabel).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Número <span className="req">*</span>
+              <input value={form.nit} onChange={(e) => set("nit", e.target.value)} required />
+            </label>
+          </div>
           <label>
             Dirección
             <input value={form.direccion} onChange={(e) => set("direccion", e.target.value)} />

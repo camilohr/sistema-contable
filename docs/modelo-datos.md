@@ -303,7 +303,8 @@ sección usan la nomenclatura de Prisma).
 |---|---|---|
 | id | PK (uuid) | |
 | nombre | string | |
-| nit | string | |
+| nit | string | número del documento |
+| tipoDocumento | enum | `NIT`, `CC`, `CE`, `PASAPORTE` (default `NIT`; distingue persona jurídica de natural) |
 | direccion / telefono | string? | |
 | moneda | string | COP |
 | anioFiscalInicio | int | mes de inicio del año fiscal |
