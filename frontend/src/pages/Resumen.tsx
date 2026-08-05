@@ -5,6 +5,7 @@ import { api } from "../api/client";
 import AlertasPanel from "../components/AlertasPanel";
 import CarteraProcesos from "../components/CarteraProcesos";
 import AdjuntosLista from "../components/AdjuntosLista";
+import styles from "./Resumen.module.css";
 
 interface ProcesoResumen {
   id: string;
@@ -39,6 +40,12 @@ function semaforo(porcentaje: number, estado: string) {
   if (porcentaje >= 50) return { clase: "semaforo-ambar", etiqueta: "En proceso" };
   return { clase: "semaforo-rojo", etiqueta: "Pendiente" };
 }
+
+const valorClaseModulo: Record<string, string> = {
+  "estado-ok": styles.estadoOk,
+  "estado-pend": styles.estadoPend,
+  "estado-err": styles.estadoErr,
+};
 
 export default function Resumen() {
   const { empresaActiva } = useEmpresa();
@@ -130,7 +137,7 @@ export default function Resumen() {
 
   return (
     <div className="page">
-      <div className="resumen-head">
+      <div className={styles.resumenHead}>
         <div>
           <h2>Proceso de {resumen.empresa.nombre}</h2>
           <p className="count-hint">
@@ -145,13 +152,13 @@ export default function Resumen() {
         )}
       </div>
 
-      <div className="estado-grid">
+      <div className={styles.estadoGrid}>
         {tarjetas.map((t) => (
-          <div key={t.titulo} className="estado-card clickable" onClick={() => ir(t.ruta)}>
-            <span className="resumen-card-titulo">{t.titulo}</span>
-            <span className={`estado-valor ${t.valorClase ?? ""}`}>{t.valor}</span>
-            <span className="estado-sub">{t.sub}</span>
-            {t.ruta && <span className="estado-ir">Ir a {t.titulo.toLowerCase()} →</span>}
+          <div key={t.titulo} className={`${styles.estadoCard} clickable`} onClick={() => ir(t.ruta)}>
+            <span className={styles.resumenCardTitulo}>{t.titulo}</span>
+            <span className={`${styles.estadoValor} ${t.valorClase ? valorClaseModulo[t.valorClase] ?? t.valorClase : ""}`}>{t.valor}</span>
+            <span className={styles.estadoSub}>{t.sub}</span>
+            {t.ruta && <span className={styles.estadoIr}>Ir a {t.titulo.toLowerCase()} →</span>}
           </div>
         ))}
       </div>
