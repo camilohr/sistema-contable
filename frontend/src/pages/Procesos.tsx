@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import ConfirmModal from "../components/ConfirmModal";
+import styles from "./Procesos.module.css";
 
 const ETIQUETAS_ACTIVIDAD: Record<string, string> = {
   COMPROBANTES: "Comprobantes y asientos al día",
@@ -237,7 +238,7 @@ export default function Procesos() {
                 {procesos.map((p) => {
                   const t = semaforo(p.avance.porcentaje, p.estado);
                   return (
-                    <tr key={p.id} className={seleccionado?.id === p.id ? "fila-activa" : ""}>
+                    <tr key={p.id} className={seleccionado?.id === p.id ? styles.filaActiva : ""}>
                       <td className="mono">{p.anio}</td>
                       <td>{ETIQUETAS_ESTADO[p.estado] ?? p.estado}</td>
                       <td>
@@ -289,14 +290,14 @@ export default function Procesos() {
             <span className="muted">({ETIQUETAS_ESTADO[seleccionado.estado] ?? seleccionado.estado})</span>
           </h3>
 
-          <div className="checklist">
+          <div className={styles.checklist}>
             {seleccionado.actividades.map((a) => (
-              <div key={a.id} className={`check-item${a.estado ? " hecho" : ""}`}>
-                <span className="check-num">{a.estado ? "✓" : a.orden}</span>
-                <span className="check-nombre">
+              <div key={a.id} className={`${styles.checkItem}${a.estado ? " hecho" : ""}`}>
+                <span className={styles.checkNum}>{a.estado ? "✓" : a.orden}</span>
+                <span className={styles.checkNombre}>
                   {ETIQUETAS_ACTIVIDAD[a.tipo] ?? a.tipo}
-                  {a.fechaEsperada && <span className="check-fecha"> · esperada {a.fechaEsperada}</span>}
-                  {a.fechaReal && <span className="check-fecha"> · completada {fechaBonita(a.fechaReal)}</span>}
+                  {a.fechaEsperada && <span className={styles.checkFecha}> · esperada {a.fechaEsperada}</span>}
+                  {a.fechaReal && <span className={styles.checkFecha}> · completada {fechaBonita(a.fechaReal)}</span>}
                 </span>
                 {puedeEditar && (
                   <button type="button" className={`btn btn-sm ${a.estado ? "btn-secondary" : "btn-primary"}`} onClick={() => marcarActividad(a, !a.estado)}>
@@ -327,7 +328,7 @@ export default function Procesos() {
             </div>
           )}
 
-          <div className="notas-seguimiento">
+          <div className={styles.notasSeguimiento}>
             <h4>Notas de seguimiento</h4>
             {seleccionado.notas.length === 0 && <p className="count-hint">Sin notas registradas.</p>}
             {seleccionado.notas.map((n) => (

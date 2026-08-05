@@ -1,0 +1,58 @@
+.checklist {
+  display: flex;
+  flex-direction: column;
+}
+
+.checkItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.checkItem:last-child {
+  border-bottom: none;
+}
+
+.checkNum {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: #eef1f4;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.checkItem:global(.hecho) .checkNum {
+  background: #e8f6ef;
+  color: #1e8449;
+}
+
+.checkItem .checkNombre {
+  flex: 1;
+}
+
+.checkItem .checkFecha {
+  font-size: 0.8rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.filaActiva {
+  background: #f0f6ff;
+}
+
+.notasSeguimiento {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.notasSeguimiento h4 {
+  margin: 0 0 0.5rem;
+}
