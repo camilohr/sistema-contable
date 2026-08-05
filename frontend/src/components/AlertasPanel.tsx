@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
+import styles from "./AlertasPanel.module.css";
 
 type Severidad = "ALTA" | "MEDIA" | "BAJA";
 type TipoAlerta = "CARTERA_VENCE" | "PERIODO_SIN_CERRAR" | "ACTIVO_SIN_BAJA" | "TERCERO_SIN_MOVIMIENTO";
@@ -104,11 +105,11 @@ export default function AlertasPanel() {
       {!cargando && alertas.length === 0 && <p className="count-hint">Sin alertas pendientes.</p>}
 
       {!cargando && alertas.length > 0 && (
-        <ul className="alerta-list">
+        <ul className={styles.alertaList}>
           {alertas.map((a) => (
             <li key={`${a.entidad}:${a.entidadId}`} className="alerta-item">
               <span className={`badge ${badgeSeveridad(a.severidad)}`}>{ETIQUETAS_SEVERIDAD[a.severidad]}</span>
-              <span className="alerta-tipo">{ETIQUETAS_TIPO[a.tipo]}</span>
+              <span className={styles.alertaTipo}>{ETIQUETAS_TIPO[a.tipo]}</span>
               <span className="alerta-msg">{a.mensaje}</span>
             </li>
           ))}
@@ -116,11 +117,11 @@ export default function AlertasPanel() {
       )}
 
       {!cargando && puedeEditar && (
-        <div className="reglas-alerta">
+        <div className={styles.reglasAlerta}>
           <h4>Reglas configurables</h4>
           {reglas.map((r) => (
-            <div key={r.tipo} className="regla-alerta">
-              <label className="regla-check">
+            <div key={r.tipo} className={styles.reglaAlerta}>
+              <label className={styles.reglaCheck}>
                 <input
                   type="checkbox"
                   checked={r.activa}
@@ -129,7 +130,7 @@ export default function AlertasPanel() {
                 {ETIQUETAS_TIPO[r.tipo]}
               </label>
               {requiereDias(r.tipo) && (
-                <label className="regla-dias">
+                <label className={styles.reglaDias}>
                   Días
                   <input
                     type="number"

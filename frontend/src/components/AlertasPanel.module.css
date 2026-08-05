@@ -1,0 +1,48 @@
+.alertaList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.alertaTipo {
+  font-weight: 600;
+  color: var(--primary-dark);
+  white-space: nowrap;
+}
+
+.reglasAlerta {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+.reglasAlerta h4 {
+  margin: 0 0 0.75rem;
+}
+
+.reglaAlerta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.reglaCheck {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.reglaDias {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.reglaDias input {
+  width: 90px;
+}
