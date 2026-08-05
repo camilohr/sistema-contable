@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
+import { useEmpresa } from "../context/EmpresaContext";
 import { cop } from "../lib/formato";
 
 type Tab = "diario" | "mayor" | "balance" | "balance-general" | "resultados";
@@ -86,6 +87,7 @@ const tabs: { id: Tab; label: string }[] = [
 const naturaLabel: Record<string, string> = { DEUDORA: "Deudora", ACREEDORA: "Acreedora" };
 
 export default function Reportes() {
+  const { empresaActiva } = useEmpresa();
   const [tab, setTab] = useState<Tab>("diario");
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
@@ -142,31 +144,77 @@ export default function Reportes() {
     }
   }, [tab, periodoId, fechaDesde, fechaHasta, cuentaId]);
 
+  const descargar = useCallback(async (ruta: string, nombre: string) => {
+    setError("");
+    try {
+      const res = await api.get(ruta, { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = nombre;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("No se pudo generar el archivo.");
+    }
+  }, []);
+
+  const paramsActuales = useCallback(() => {
+    const params = new URLSearchParams();
+    if (periodoId) params.set("periodoId", periodoId);
+    if (fechaDesde) params.set("fechaDesde", fechaDesde);
+    if (fechaHasta) params.set("fechaHasta", fechaHasta);
+    if (tab === "mayor" && cuentaId) params.set("cuentaId", cuentaId);
+    const q = params.toString() ? `?${params}` : "";
+    return q;
+  }, [periodoId, fechaDesde, fechaHasta, tab, cuentaId]);
+
   const descargarPdf = useCallback(
     async (archivo: "libro-diario.pdf" | "libro-mayor.pdf" | "libro-inventarios.pdf") => {
-      setError("");
-      const params = new URLSearchParams();
-      if (periodoId) params.set("periodoId", periodoId);
-      if (fechaDesde) params.set("fechaDesde", fechaDesde);
-      if (fechaHasta) params.set("fechaHasta", fechaHasta);
-      if (archivo === "libro-mayor.pdf" && cuentaId) params.set("cuentaId", cuentaId);
-      const q = params.toString() ? `?${params}` : "";
-      try {
-        const res = await api.get(`/reportes/${archivo}${q}`, { responseType: "blob" });
-        const url = URL.createObjectURL(res.data);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = archivo;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      } catch {
-        setError("No se pudo generar el PDF.");
-      }
+      const q = paramsActuales();
+      await descargar(`/reportes/${archivo}${q}`, archivo);
     },
-    [periodoId, fechaDesde, fechaHasta, cuentaId]
+    [paramsActuales, descargar]
   );
+
+  const exportar = useCallback(
+    async (formato: "csv" | "xlsx") => {
+      const ruta: Record<Tab, string> = {
+        diario: "libro-diario",
+        mayor: "libro-mayor",
+        balance: "balance-comprobacion",
+        "balance-general": "balance-general",
+        resultados: "estado-resultados",
+      };
+      const q = paramsActuales();
+      await descargar(`/reportes/${ruta[tab]}.${formato}${q}`, `${ruta[tab]}.${formato}`);
+    },
+    [tab, paramsActuales, descargar]
+  );
+
+  const descargarPaquete = async () => {
+    if (!empresaActiva) return;
+    setError("");
+    try {
+      const res = await api.post(
+        `/empresas/${empresaActiva.id}/informes/paquete`,
+        periodoId ? { periodoId: Number(periodoId) } : { anio: new Date().getFullYear() },
+        { responseType: "blob" }
+      );
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `informes-${periodoId ? periodos.find((p) => p.id === Number(periodoId))?.nombre ?? "periodo" : new Date().getFullYear()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("No se pudo generar el paquete de informes.");
+    }
+  };
 
   useEffect(() => {
     const t = setTimeout(() => cargar(), 250);
@@ -225,10 +273,30 @@ export default function Reportes() {
           </button>
         )}
         {tab === "balance-general" && (
-          <button className="btn btn-secondary" onClick={() => descargarPdf("libro-inventarios.pdf")}>
-            Descargar libro de inventarios (PDF)
+          <>
+            <button className="btn btn-secondary" onClick={() => descargarPdf("libro-inventarios.pdf")}>
+              Descargar libro de inventarios (PDF)
+            </button>
+            <button className="btn btn-secondary" onClick={() => descargar("/reportes/balance-general.pdf" + paramsActuales(), "balance-general.pdf")}>
+              Descargar balance general (PDF)
+            </button>
+          </>
+        )}
+        {tab === "resultados" && (
+          <button className="btn btn-secondary" onClick={() => descargar("/reportes/estado-resultados.pdf" + paramsActuales(), "estado-resultados.pdf")}>
+            Descargar estado de resultados (PDF)
           </button>
         )}
+        <span className="count-hint export-hint">Exportar como tabla:</span>
+        <button className="btn btn-secondary" onClick={() => exportar("csv")}>
+          CSV
+        </button>
+        <button className="btn btn-secondary" onClick={() => exportar("xlsx")}>
+          XLSX
+        </button>
+        <button className="btn btn-secondary" onClick={descargarPaquete}>
+          Paquete de informes (ZIP)
+        </button>
       </div>
 
       {tab === "diario" && diario && (

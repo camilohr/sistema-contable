@@ -23,6 +23,7 @@ const gruposNavegacion: { titulo: string; items: { to: string; label: string; en
     titulo: "Ciclo del mes",
     items: [
       { to: "comprobantes", label: "Comprobantes" },
+      { to: "conciliaciones", label: "Conciliación bancaria" },
       { to: "nomina", label: "Nómina" },
       { to: "parametros-nomina", label: "Parámetros de nómina" },
       { to: "provision-cartera", label: "Provisión de cartera" },

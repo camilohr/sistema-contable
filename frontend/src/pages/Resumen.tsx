@@ -4,6 +4,7 @@ import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import AlertasPanel from "../components/AlertasPanel";
 import CarteraProcesos from "../components/CarteraProcesos";
+import AdjuntosLista from "../components/AdjuntosLista";
 
 interface ProcesoResumen {
   id: string;
@@ -174,6 +175,12 @@ export default function Resumen() {
 
       <AlertasPanel />
       <CarteraProcesos />
+
+      {empresaActiva && (
+        <div className="section-card">
+          <AdjuntosLista entidad="EMPRESA" entidadId={empresaActiva.id} />
+        </div>
+      )}
     </div>
   );
 }

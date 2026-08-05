@@ -12,6 +12,8 @@ const EMPRESA_REQUERIDA = new Set<string>([
   "ActivoFijo",
   "ParametroCuentaNomina",
   "CierreAnual",
+  "Adjunto",
+  "Conciliacion",
 ]);
 
 const base = new PrismaClient();

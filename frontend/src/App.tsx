@@ -8,6 +8,7 @@ import Cuentas from "./pages/Cuentas";
 import Terceros from "./pages/Terceros";
 import Periodos from "./pages/Periodos";
 import Comprobantes from "./pages/Comprobantes";
+import Conciliaciones from "./pages/Conciliaciones";
 import Reportes from "./pages/Reportes";
 import Cartera from "./pages/Cartera";
 import Productos from "./pages/Productos";
@@ -53,6 +54,7 @@ export default function App() {
               <Route path="/empresa/:empresaId/terceros" element={<Terceros />} />
               <Route path="/empresa/:empresaId/periodos" element={<Periodos />} />
               <Route path="/empresa/:empresaId/comprobantes" element={<Comprobantes />} />
+              <Route path="/empresa/:empresaId/conciliaciones" element={<Conciliaciones />} />
               <Route path="/empresa/:empresaId/reportes" element={<Reportes />} />
               <Route path="/empresa/:empresaId/cxc" element={<Cartera tipo="cxc" />} />
               <Route path="/empresa/:empresaId/cxp" element={<Cartera tipo="cxp" />} />

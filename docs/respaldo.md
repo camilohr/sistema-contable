@@ -23,6 +23,13 @@ Crea `backups\contabilidad_YYYYMMDD_HHMMSS.dump` (formato custom, comprimido) en
 carpeta `backups\` del proyecto, lo **verifica** con `pg_restore --list` y aplica la
 **retención** (por defecto conserva las 14 copias más recientes).
 
+Además del `.dump`, el respaldo genera un archivo hermano
+`contabilidad_YYYYMMDD_HHMMSS.adjuntos.zip` con **toda la carpeta de adjuntos**
+(`backend/adjuntos`, o la ruta indicada en `ADJUNTOS_DIR`). El ZIP usa el método
+STORE (sin compresión, el contenido ya suele ser PDF/ofimático) implementado en
+`backend/scripts/zip-lite.mjs` sin dependencias externas. Si la carpeta de adjuntos
+no existe o está vacía, el ZIP no se genera y la restauración lo omite sin error.
+
 Opciones:
 
 | Comando | Efecto |
@@ -66,6 +73,12 @@ node scripts/restore.mjs "..\backups\contabilidad_20260803_143507.dump" --list
 
 Formatos admitidos: `.dump` (pg_restore) y `.sql` (psql con `ON_ERROR_STOP=1`).
 
+Si existe el archivo `contabilidad_YYYYMMDD_HHMMSS.adjuntos.zip` junto al `.dump`,
+la restauración con `--confirm` lo **extrae automáticamente** en la carpeta de
+adjuntos (`backend/adjuntos` o `ADJUNTOS_DIR`), dejando la información contable y
+sus documentos asociados consistentes. Se puede configurar `ADJUNTOS_DIR` antes de
+restaurar para que los adjuntos vayan a otra ubicación.
+
 ## Procedimiento de restauración recomendado
 
 1. Detener el servicio del backend (PM2 o la ventana de Node).
@@ -82,7 +95,10 @@ Formatos admitidos: `.dump` (pg_restore) y `.sql` (psql con `ON_ERROR_STOP=1`).
 
 - Los respaldos contienen información contable sensible: la carpeta `backups\` está
   excluida del control de versiones; protéjala con permisos del sistema y considere
-  copiarla a un medio externo.
+  copiarla a un medio externo. El ZIP de adjuntos tiene la misma sensibilidad que la
+  base de datos: no se debe distribuir sin cifrado.
+- La retención elimina por cada `.dump` sobrante su archivo `.adjuntos.zip`
+  asociado, para que no queden respaldos huérfanos.
 - La restauración usa `--clean --if-exists --no-owner --no-privileges`, es decir,
   elimina los objetos existentes antes de recrearlos sin exigir los mismos roles de
   propietario del servidor original.

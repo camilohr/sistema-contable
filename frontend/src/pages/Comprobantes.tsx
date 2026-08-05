@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import ComprobanteForm, { type ComprobanteFormData } from "../components/ComprobanteForm";
+import AdjuntosLista from "../components/AdjuntosLista";
 import { cop } from "../lib/formato";
 
 interface AsientoDet {
@@ -329,6 +330,7 @@ function DetalleComprobante({ comprobante: c, onClose }: { comprobante: Comproba
             ))}
           </tbody>
         </table>
+        <AdjuntosLista entidad="COMPROBANTE" entidadId={String(c.id)} />
         <div className="modal-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Cerrar

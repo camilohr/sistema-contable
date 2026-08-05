@@ -391,16 +391,42 @@ en backend y frontend.
 Estado: suite backend en verde (346 tests, 20 archivos); typecheck y lint/build limpios
 en backend y frontend.
 
-### Fase 4 — Herramientas del proceso: conciliación, soportes y exportación de informes
+### Fase 4 — Herramientas del proceso: conciliación, soportes y exportación de informes *(implementada el 2026-08-05)*
 
 **Conciliación bancaria**
-- Modelo `Conciliacion` / `MovimientoExtracto`, importación CSV con mapeo
+- ~~Modelo `Conciliacion` / `MovimientoExtracto`, importación CSV con mapeo
   configurable, cruce con asientos (cuenta de bancos 1110), informe de diferencias y
-  aprobación.
+  aprobación.~~ → implementado:
+  - Tablas `Conciliacion` (única por `[empresaId, periodoId, cuentaId]`, saldos de
+    libros y extracto, diferencia, estado EN_PROCESO/APROBADA/ANULADA, aprobador) y
+    `MovimientoExtracto` (hash único, cruce opcional con `Asiento` vía `asientoId`).
+  - Endpoints bajo `/api/conciliaciones`: listar/detalle (lectura todos los roles),
+    crear, importar CSV, cruzar, aprobar y anular (ADMIN/CONTADOR). La importación es
+    idempotente por hash de movimiento, cruza automáticamente con los asientos de la
+    cuenta de bancos (1110) del periodo y calcula la diferencia. Aprobar marca la
+    actividad `CONCILIACION` del proceso como completada y registra auditoría.
+  - CSV: delimitador `;` o `,`, mapeo de columnas configurable
+    (`fechaCol`, `referenciaCol`, `descripcionCol`, `debitoCol`, `creditoCol`,
+    `saldoCol`), UTF-8 con/sin BOM, validación de filas con reporte de errores.
+  - Frontend: página "Conciliación bancaria" (crear, importar extracto, listado con
+    diferencias, detalle de movimientos con estado de cruce, aprobar/anular).
 
 **Adjuntos**
-- Tabla `Adjunto` (entidad/entidadId, archivo en carpeta local, hash, usuario),
-  subida/descarga en comprobantes y clientes, incluidos en el respaldo.
+- ~~Tabla `Adjunto` (entidad/entidadId, archivo en carpeta local, hash, usuario),
+  subida/descarga en comprobantes y clientes, incluidos en el respaldo.~~ → implementado:
+  - Tabla `Adjunto` (entidad COMPROBANTE/EMPRESA, entidadId, nombre original y
+    archivo seguro, mime, tamaño, hash SHA-256, usuario). Archivos en
+    `backend/adjuntos/` (o `ADJUNTOS_DIR`), con nombre aleatorio seguro y límite de
+    15 MB.
+  - Endpoints bajo `/api/adjuntos`: subir (multipart), listar por entidad,
+    descargar y eliminar (ADMIN/CONTADOR); todo con auditoría
+    (`SUBIR_ADJUNTO`/`ELIMINAR_ADJUNTO`).
+  - **Respaldo integrado**: `npm run backup` genera además un ZIP
+    (`contabilidad_YYYYMMDD_HHMMSS.adjuntos.zip`) con toda la carpeta de adjuntos
+    (método STORE, sin dependencias, `backend/scripts/zip-lite.mjs`); la restauración
+    lo extrae automáticamente. Ver `docs/respaldo.md`.
+  - Frontend: componente `AdjuntosLista` en el detalle de comprobantes y en el
+    resumen de cada empresa.
 
 **Exportación de informes** *(ampliado por solicitud explícita del contador)*
 
@@ -429,6 +455,17 @@ Alcance de la fase:
    local-first (§2.3): no se sube a ningún servicio externo, el contador decide cómo
    la comparte con su cliente.
 
+- ~~Implementación de 1-3~~ → completada: PDF de balance general, estado de resultados
+  e indicadores (`/api/reportes/balance-general.pdf`, `estado-resultados.pdf`,
+  `indicadores/:periodoId.pdf`), exportación CSV (con BOM UTF-8 y `;`) y XLSX de los
+  seis reportes (rutas `*.csv`/`*.xlsx` o `?formato=`), y paquete ZIP de informes por
+  periodo o año. El frontend de "Libros y reportes" ofrece los botones PDF, CSV, XLSX
+  y "Paquete de informes (ZIP)".
+
+Estado: suite backend en verde (378 tests, 23 archivos); typecheck y build limpios en
+backend y frontend; respaldo con adjuntos probado (creación, verificación y
+restauración del ZIP).
+
 ### Fase 5 — Permisos por cliente y administración
 
 - `UsuarioEmpresa` ya definido en §4.5; se implementa la UI de administración
@@ -452,8 +489,8 @@ Alcance de la fase:
 | 0 | Diseño y decisiones | Cerrada por este documento |
 | 1 | Multientidad | Crítica | ✅ Implementada (2026-08-05) |
 | 2 | Procesos y seguimiento | Alta | ✅ Implementada (2026-08-05) |
-| 3 | Navegación por proceso | Alta |
-| 4 | Conciliación, soportes, exportación de informes | Media-alta *(subió por solicitud explícita)* |
+| 3 | Navegación por proceso | Alta | ✅ Implementada (2026-08-05) |
+| 4 | Conciliación, soportes, exportación de informes | Media-alta *(subió por solicitud explícita)* | ✅ Implementada (2026-08-05) |
 | 5 | Permisos por cliente | Media |
 | 6 | Consolidación y manuales | Baja (cierre) |
 

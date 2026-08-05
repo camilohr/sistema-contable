@@ -113,6 +113,17 @@ enum EstadoActivoFijo {
   DADO_DE_BAJA
 }
 
+enum EstadoConciliacion {
+  EN_PROCESO
+  APROBADA
+  ANULADA
+}
+
+enum TipoAdjuntoEntidad {
+  COMPROBANTE
+  EMPRESA
+}
+
 enum AccionAuditoria {
   CONTABILIZAR
   ANULAR
@@ -137,6 +148,11 @@ enum AccionAuditoria {
   PROVISIONAR_NOMINA
   ACTUALIZAR_PARAMETROS_NOMINA
   CARGAR_PRESUPUESTO
+  SUBIR_ADJUNTO
+  ELIMINAR_ADJUNTO
+  IMPORTAR_EXTRACTO
+  APROBAR_CONCILIACION
+  ANULAR_CONCILIACION
 }
 
 model Empresa {
@@ -168,6 +184,8 @@ model Empresa {
   parametrosNomina       ParametroNomina[]
   parametrosCuentaNomina ParametroCuentaNomina[]
   procesosContables      ProcesoContable[]
+  adjuntos               Adjunto[]
+  conciliaciones         Conciliacion[]
 
   @@index([activa])
 }
@@ -205,6 +223,8 @@ model Usuario {
   cierresAnuales       CierreAnual[]
   usuarioEmpresas      UsuarioEmpresa[]
   notasSeguimiento     NotaSeguimiento[]
+  adjuntos             Adjunto[]
+  conciliaciones       Conciliacion[] @relation("ConciliacionAprobador")
 }
 
 model ProcesoContable {
@@ -280,6 +300,7 @@ model Cuenta {
   cierresAnuales       CierreAnual[] @relation("CierreCuentaUtilidad")
   parametrosCuentaNomina ParametroCuentaNomina[]
   presupuestos         Presupuesto[]
+  conciliaciones       Conciliacion[]
 
   @@unique([empresaId, codigo])
   @@index([clase, grupo])
@@ -334,6 +355,7 @@ model Periodo {
   nominas          Nomina[]
   provisionesNomina ProvisionNomina[]
   presupuestos     Presupuesto[]
+  conciliaciones   Conciliacion[]
 
   @@unique([empresaId, nombre])
   @@index([estado])
@@ -392,6 +414,8 @@ model Asiento {
   comprobante Comprobante @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)
   cuenta      Cuenta      @relation(fields: [cuentaId], references: [id])
   tercero     Tercero?    @relation(fields: [terceroId], references: [id])
+
+  movimientosExtracto MovimientoExtracto[]
 
   @@index([comprobanteId])
   @@index([cuentaId])
@@ -777,4 +801,67 @@ model ReglaAlerta {
   activa    Boolean    @default(true)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+}
+
+model Adjunto {
+  id            Int                  @id @default(autoincrement())
+  empresaId     String
+  entidad       TipoAdjuntoEntidad
+  entidadId     String
+  nombreOriginal String
+  nombreArchivo String
+  mimeType      String
+  tamanoBytes   Int
+  hash          String
+  usuarioId     String
+  createdAt     DateTime             @default(now())
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([empresaId, entidad, entidadId])
+}
+
+model Conciliacion {
+  id           Int                 @id @default(autoincrement())
+  empresaId    String
+  periodoId    Int
+  cuentaId     Int
+  estado       EstadoConciliacion  @default(EN_PROCESO)
+  saldoLibros  Decimal             @default(0) @db.Decimal(15, 2)
+  saldoExtracto Decimal            @default(0) @db.Decimal(15, 2)
+  diferencia   Decimal             @default(0) @db.Decimal(15, 2)
+  aprobadaPor  String?
+  aprobadaEn   DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  empresa    Empresa             @relation(fields: [empresaId], references: [id])
+  periodo    Periodo             @relation(fields: [periodoId], references: [id])
+  cuenta     Cuenta              @relation(fields: [cuentaId], references: [id])
+  aprobador  Usuario?            @relation("ConciliacionAprobador", fields: [aprobadaPor], references: [id])
+  movimientos MovimientoExtracto[]
+
+  @@unique([empresaId, periodoId, cuentaId])
+  @@index([empresaId, estado])
+}
+
+model MovimientoExtracto {
+  id             Int      @id @default(autoincrement())
+  conciliacionId Int
+  fecha          DateTime @db.Date
+  referencia     String
+  descripcion    String
+  debito         Decimal  @default(0) @db.Decimal(15, 2)
+  credito        Decimal  @default(0) @db.Decimal(15, 2)
+  saldo          Decimal  @default(0) @db.Decimal(15, 2)
+  hashMovimiento String
+  conciliado     Boolean  @default(false)
+  asientoId      Int?
+
+  conciliacion Conciliacion @relation(fields: [conciliacionId], references: [id], onDelete: Cascade)
+  asiento      Asiento?     @relation(fields: [asientoId], references: [id])
+
+  @@unique([conciliacionId, hashMovimiento])
+  @@index([conciliacionId])
 }

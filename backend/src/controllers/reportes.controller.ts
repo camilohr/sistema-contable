@@ -211,9 +211,26 @@ export async function libroMayor(req: Request, res: Response): Promise<void> {
   res.json(datos);
 }
 
-export async function balanceComprobacion(req: Request, res: Response): Promise<void> {
+export interface DatosBalanceComprobacion {
+  totalDebitos: number;
+  totalCreditos: number;
+  saldosDeudores: number;
+  saldosAcreedores: number;
+  cuentas: {
+    codigo: string;
+    nombre: string;
+    clase: number;
+    naturaleza: Naturaleza;
+    debitos: number;
+    creditos: number;
+    saldoDeudor: number;
+    saldoAcreedor: number;
+  }[];
+}
+
+export async function datosBalanceComprobacion(where: Prisma.ComprobanteWhereInput): Promise<DatosBalanceComprobacion> {
   const comprobantes = await prisma.comprobante.findMany({
-    where: whereFiltros(req),
+    where,
     select: {
       asientos: {
         include: { cuenta: { select: { codigo: true, nombre: true, clase: true, naturaleza: true } } },
@@ -266,7 +283,12 @@ export async function balanceComprobacion(req: Request, res: Response): Promise<
     })
     .sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
 
-  res.json({ totalDebitos, totalCreditos, saldosDeudores, saldosAcreedores, cuentas });
+  return { totalDebitos, totalCreditos, saldosDeudores, saldosAcreedores, cuentas };
+}
+
+export async function balanceComprobacion(req: Request, res: Response): Promise<void> {
+  const datos = await datosBalanceComprobacion(whereFiltros(req));
+  res.json(datos);
 }
 
 async function nombreGrupos(empresaId: string): Promise<Map<string, string>> {
@@ -343,9 +365,19 @@ export async function balanceGeneral(req: Request, res: Response): Promise<void>
   res.json(datos);
 }
 
-export async function estadoResultados(req: Request, res: Response): Promise<void> {
-  const saldos = await saldosPorCuenta(whereFiltros(req));
-  const nombres = await nombreGrupos(req.empresaId!);
+export interface DatosEstadoResultados {
+  ingresos: GrupoBalance[];
+  costos: GrupoBalance[];
+  gastos: GrupoBalance[];
+  totalIngresos: number;
+  totalCostos: number;
+  totalGastos: number;
+  resultado: number;
+}
+
+export async function datosEstadoResultados(where: Prisma.ComprobanteWhereInput, empresaId: string): Promise<DatosEstadoResultados> {
+  const saldos = await saldosPorCuenta(where);
+  const nombres = await nombreGrupos(empresaId);
 
   const ingresos = construirSeccion(agruparPorClase(saldos, [4]), nombres);
   const costos = construirSeccion(agruparPorClase(saldos, [6]), nombres);
@@ -355,7 +387,7 @@ export async function estadoResultados(req: Request, res: Response): Promise<voi
   const totalCostos = costos.reduce((s, g) => s + g.total, 0);
   const totalGastos = gastos.reduce((s, g) => s + g.total, 0);
 
-  res.json({
+  return {
     ingresos,
     costos,
     gastos,
@@ -363,5 +395,10 @@ export async function estadoResultados(req: Request, res: Response): Promise<voi
     totalCostos,
     totalGastos,
     resultado: totalIngresos - totalCostos - totalGastos,
-  });
+  };
+}
+
+export async function estadoResultados(req: Request, res: Response): Promise<void> {
+  const datos = await datosEstadoResultados(whereFiltros(req), req.empresaId!);
+  res.json(datos);
 }

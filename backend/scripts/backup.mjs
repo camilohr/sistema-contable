@@ -18,6 +18,7 @@ import { access, appendFile, mkdir, readdir, stat, unlink } from "node:fs/promis
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
+import { escribirZipDesdeCarpeta, extraerZip } from "./zip-lite.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendDir = path.resolve(__dirname, "..");
@@ -86,7 +87,7 @@ async function verificar(pgRestore, archivo) {
 async function listar(opt, pgRestore) {
   await mkdir(opt.dir, { recursive: true });
   const archivos = (await readdir(opt.dir))
-    .filter((f) => f.endsWith(".dump") || f.endsWith(".sql"))
+    .filter((f) => f.endsWith(".dump") || f.endsWith(".sql") || f.endsWith(".adjuntos.zip"))
     .sort();
   if (archivos.length === 0) {
     console.log("No hay respaldos en", opt.dir);
@@ -96,6 +97,11 @@ async function listar(opt, pgRestore) {
   for (const f of archivos) {
     const ruta = path.join(opt.dir, f);
     const st = await stat(ruta);
+    if (f.endsWith(".adjuntos.zip")) {
+      const mb = (st.size / 1024 / 1024).toFixed(2);
+      console.log(`  ${f.padEnd(32)} ${mb.padStart(8)} MB   adjuntos`);
+      continue;
+    }
     const estado = f.endsWith(".dump") ? await verificar(pgRestore, ruta) : { ok: null };
     const marca = estado.ok ? `OK (${estado.objetos} objetos)` : estado.ok === false ? "CORRUPTO" : "—";
     const mb = (st.size / 1024 / 1024).toFixed(2);
@@ -149,6 +155,20 @@ async function main() {
 
   console.log(`Respaldo verificado: OK (${verif.objetos} objetos)`);
 
+  const rutaAdjuntos = ruta.replace(/\.dump$/, ".adjuntos.zip");
+  const adjuntosDir = process.env.ADJUNTOS_DIR ? path.resolve(process.env.ADJUNTOS_DIR) : path.join(backendDir, "adjuntos");
+  if (await existe(adjuntosDir)) {
+    try {
+      const tam = await escribirZipDesdeCarpeta(adjuntosDir, rutaAdjuntos);
+      console.log(`Adjuntos empaquetados: ${(tam / 1024 / 1024).toFixed(2)} MB`);
+      await registrar(logFile, `OK adjuntos ${path.basename(rutaAdjuntos)} (${(tam / 1024).toFixed(0)} KB)`);
+    } catch (err) {
+      await unlink(rutaAdjuntos).catch(() => {});
+      await registrar(logFile, `ERROR adjuntos: ${err.message}`);
+      console.error("ERROR al empaquetar los adjuntos:", err.message);
+    }
+  }
+
   const dumps = (await readdir(opt.dir))
     .filter((f) => f.endsWith(".dump") && !f.includes(".tmp"))
     .sort()
@@ -156,6 +176,7 @@ async function main() {
   const sobrantes = dumps.slice(opt.keep);
   for (const f of sobrantes) {
     await unlink(path.join(opt.dir, f));
+    await unlink(path.join(opt.dir, f.replace(/\.dump$/, ".adjuntos.zip"))).catch(() => {});
     await registrar(logFile, `Eliminado por retención: ${f}`);
     console.log(`Retención: eliminado ${f}`);
   }

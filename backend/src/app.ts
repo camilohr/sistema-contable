@@ -23,6 +23,8 @@ import presupuestoRoutes from "./routes/presupuesto.routes.js";
 import procesosRoutes from "./routes/procesos.routes.js";
 import resumenRoutes from "./routes/resumen.routes.js";
 import alertasRoutes from "./routes/alertas.routes.js";
+import adjuntosRoutes from "./routes/adjuntos.routes.js";
+import conciliacionRoutes from "./routes/conciliacion.routes.js";
 import { notFound, errorHandler } from "./middleware/error.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -62,6 +64,8 @@ export function createApp(): express.Express {
   app.use("/api/procesos", procesosRoutes);
   app.use("/api/resumen", resumenRoutes);
   app.use("/api/alertas", alertasRoutes);
+  app.use("/api/adjuntos", adjuntosRoutes);
+  app.use("/api/conciliaciones", conciliacionRoutes);
 
   if (sirveFrontend) {
     app.use(express.static(frontendDist));

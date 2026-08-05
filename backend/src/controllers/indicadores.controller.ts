@@ -23,6 +23,14 @@ function mapearRazones(r: Razones) {
   };
 }
 
+export async function obtenerDatosIndicadores(periodoId: number): Promise<{ periodo: { id: number; nombre: string }; datos: ReturnType<typeof agregarDatos>; razones: ReturnType<typeof mapearRazones> }> {
+  const periodo = await prisma.periodo.findUnique({ where: { id: periodoId } });
+  if (!periodo) return null as never;
+  const saldos = await saldosPorCuenta({ estado: EstadoComprobante.CONTABILIZADO, periodoId });
+  const datos = agregarDatos(saldos);
+  return { periodo: { id: periodo.id, nombre: periodo.nombre }, datos, razones: mapearRazones(calcularRazones(datos)) };
+}
+
 export async function indicadoresPorPeriodo(req: Request, res: Response): Promise<void> {
   const periodoId = Number(req.params.periodoId);
   if (!Number.isInteger(periodoId)) {
@@ -30,20 +38,12 @@ export async function indicadoresPorPeriodo(req: Request, res: Response): Promis
     return;
   }
 
-  const periodo = await prisma.periodo.findUnique({ where: { id: periodoId } });
-  if (!periodo) {
+  const datos = await obtenerDatosIndicadores(periodoId);
+  if (!datos) {
     res.status(404).json({ error: "Periodo no encontrado" });
     return;
   }
-
-  const saldos = await saldosPorCuenta({ estado: EstadoComprobante.CONTABILIZADO, periodoId });
-  const datos = agregarDatos(saldos);
-
-  res.json({
-    periodo: { id: periodo.id, nombre: periodo.nombre },
-    datos,
-    razones: mapearRazones(calcularRazones(datos)),
-  });
+  res.json(datos);
 }
 
 export async function indicadoresComparativo(req: Request, res: Response): Promise<void> {

@@ -19,6 +19,7 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
+import { extraerZip } from "./zip-lite.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendDir = path.resolve(__dirname, "..");
@@ -129,6 +130,21 @@ async function main() {
   }
 
   console.log("Restauración completada.");
+
+  if (esDump && confirmar) {
+    const adjuntosZip = archivo.replace(/\.dump$/i, ".adjuntos.zip");
+    const adjuntosDir = process.env.ADJUNTOS_DIR ? path.resolve(process.env.ADJUNTOS_DIR) : path.join(backendDir, "adjuntos");
+    if (await existe(adjuntosZip)) {
+      try {
+        await extraerZip(adjuntosZip, adjuntosDir);
+        console.log(`Adjuntos restaurados en ${adjuntosDir}`);
+      } catch (err) {
+        console.error("ERROR al restaurar los adjuntos:", err.message);
+      }
+    } else {
+      console.log("No se encontró un archivo de adjuntos asociado; se omiten los adjuntos.");
+    }
+  }
 }
 
 main().catch((err) => {

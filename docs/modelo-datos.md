@@ -412,3 +412,72 @@ año.
 
 Las notas quedan ligadas al proceso y a su autor, y se incluyen en el respaldo como
 parte de la base de datos.
+
+## 8. Conciliación, adjuntos y exportación (Fase 4 de V2.0)
+
+Fuente de verdad: `backend/prisma/schema.prisma`.
+
+### 8.1 `Conciliacion`
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | PK (autoincrement) | |
+| empresaId | FK → empresas | scoping directo |
+| periodoId | FK → periodos | periodo que se concilia |
+| cuentaId | FK → cuentas | cuenta de bancos (1110) |
+| saldoLibros | DECIMAL(15,2) | acumulado de asientos de la cuenta hasta `periodo.fechaFin` |
+| saldoExtracto | DECIMAL(15,2)? | saldo final del extracto importado |
+| diferencia | DECIMAL(15,2)? | `saldoExtracto - saldoLibros` |
+| estado | enum | `EN_PROCESO`, `APROBADA`, `ANULADA` |
+| aprobadaPor / aprobadaEn | FK → usuarios / datetime? | quién y cuándo aprobó |
+| createdAt / updatedAt | datetime | |
+
+- `@@unique([empresaId, periodoId, cuentaId])` (una conciliación por cliente, periodo y
+  cuenta de banco) y `@@index([empresaId])`.
+- La actividad `CONCILIACION` del proceso se marca al aprobar (arquitectura §9.4).
+
+### 8.2 `MovimientoExtracto`
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | PK (autoincrement) | |
+| conciliacionId | FK → conciliaciones | |
+| fecha | date | |
+| referencia | string | |
+| descripcion | string | |
+| debito / credito | DECIMAL(15,2) | |
+| saldo | DECIMAL(15,2) | saldo acumulado de la fila del extracto |
+| hashMovimiento | string | hash determinístico (fecha, referencia, débito, crédito, saldo) |
+| conciliado | bool | cruce con un asiento |
+| asientoId | FK → asientos? | asiento que cruza la partida (opcional) |
+| createdAt | datetime | |
+
+- `@@unique([conciliacionId, hashMovimiento])`: la reimportación del mismo extracto no
+  duplica movimientos (idempotencia).
+
+### 8.3 `Adjunto`
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | PK (autoincrement) | |
+| empresaId | FK → empresas | scoping directo |
+| entidad | enum | `COMPROBANTE`, `EMPRESA` |
+| entidadId | string | id de la entidad (comprobante o empresa) |
+| nombreOriginal | string | nombre visible del archivo |
+| nombreArchivo | string | nombre seguro aleatorio en disco |
+| mimeType | string | |
+| tamanoBytes | int | límite 15 MB |
+| hash | string | SHA-256 del contenido |
+| usuarioId | FK → usuarios | quién lo subió |
+| createdAt | datetime | |
+
+- `@@index([empresaId, entidad, entidadId])`.
+- El **contenido** vive en `backend/adjuntos/` (o `ADJUNTOS_DIR`); el respaldo empaqueta
+  esa carpeta en un ZIP junto al `.dump` y la restauración la extrae de vuelta
+  (ver `docs/respaldo.md`).
+
+### 8.4 Exportación de informes
+
+No hay tablas nuevas: CSV, XLSX y ZIP se generan en memoria a partir de las consultas
+existentes (`exportacion.controller.ts` + `libros-pdf.controller.ts`). El paquete ZIP
+usa el módulo sin dependencias `backend/scripts/zip-lite.mjs` (método STORE).

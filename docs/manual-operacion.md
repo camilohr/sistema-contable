@@ -12,7 +12,8 @@ Guía técnica para administrar el sistema contable en el servidor local. Comple
 | Frontend (build) | `frontend/dist/` | Generado con `npm run build`; lo sirve el backend |
 | Base de datos | PostgreSQL 18, BD `contabilidad` | Conexión en `backend/.env` (`DATABASE_URL`) |
 | Proceso | PM2 `contabilidad-backend` | Auto-reinicio y logs (ver `ecosystem.config.cjs`) |
-| Respaldos | `backups/` | Copias `.dump` + `backup.log` |
+| Respaldos | `backups/` | Copias `.dump` + `.adjuntos.zip` + `backup.log` |
+| Adjuntos | `backend/adjuntos/` (o `ADJUNTOS_DIR`) | Archivos soporte de comprobantes y empresas |
 
 ## 2. Arranque y detención
 
@@ -49,6 +50,10 @@ npm run backup                 # copia + verificación + retención (14)
 npm run backup:list            # comprobar que las copias están OK
 ```
 
+El respaldo genera además `contabilidad_YYYYMMDD_HHMMSS.adjuntos.zip` con la carpeta
+de adjuntos completa; la restauración lo extrae automáticamente. Ver
+[respaldo.md](respaldo.md).
+
 Programación automática (semanal):
 
 ```powershell
@@ -74,6 +79,7 @@ powershell -ExecutionPolicy Bypass -File backend\scripts\programar-respaldo.ps1
 | `password authentication failed` | Password mal en `.env` | Corregir `DATABASE_URL` en `backend\.env` y reiniciar |
 | La app inicia pero la API falla | Build desactualizado | `scripts\desplegar.ps1` |
 | `pg_dump` no encontrado | PostgreSQL no está en el PATH | Definir `PGDUMP_PATH` (ver respaldo.md) |
+| Adjuntos no aparecen al restaurar | Falta el `.adjuntos.zip` junto al `.dump` | Revisar que el respaldo haya generado el ZIP (ver `backup:list`) |
 | BD llena / espacio | Datos y respaldos | Revisar `backups/` y mantener la retención |
 
 Registros útiles:

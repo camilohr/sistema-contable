@@ -240,3 +240,52 @@ su módulo (`procesos`, `comprobantes`, `nomina`, `provision-cartera`, `presupue
 
 `backend/tests/resumen.test.ts` cubre el resumen por rol y por estado (borrador vs.
 contabilizado) de cada área. No hay cambios de esquema en esta fase.
+
+## 11. Conciliación bancaria, adjuntos y exportación (Fase 4 de V2.0)
+
+### 11.1 Conciliación bancaria
+
+- **Modelo:** `Conciliacion` (una por `[empresaId, periodoId, cuentaId]`) +
+  `MovimientoExtracto` (hash de fila para idempotencia, cruce opcional con
+  `Asiento`). Detalle en `docs/modelo-datos.md` (§8).
+- **Lógica** (`backend/src/lib/conciliacion.ts`): `parsearExtractoCsv` normaliza el
+  CSV (UTF-8 con/sin BOM, `;` o `,`, mapeo de columnas) y `cruzarMovimientos`
+  empareja movimientos del extracto con asientos de la cuenta de bancos (1110) del
+  periodo por referencia/valor.
+- **Endpoints** (`/api/conciliaciones`): listar y detalle para todos los roles;
+  crear, importar CSV, cruzar, aprobar y anular solo ADMIN/CONTADOR.
+- **Importación idempotente:** al reimportar el mismo archivo no se duplican
+  movimientos (hash de fila) y se recalcula el cruce; la diferencia
+  (`saldoExtracto − saldoLibros`) se guarda en la conciliación.
+- **Proceso:** aprobar marca la actividad `CONCILIACION` del proceso del año
+  (`marcarActividadProceso`, §9.4) y registra auditoría
+  (`IMPORTAR_EXTRACTO`, `APROBAR_CONCILIACION`, `ANULAR_CONCILIACION`).
+- **Frontend:** página "Conciliación bancaria" (`/empresa/:empresaId/conciliaciones`).
+
+### 11.2 Adjuntos
+
+- **Modelo:** `Adjunto` (entidad COMPROBANTE/EMPRESA, hash SHA-256, usuario).
+  Los archivos se guardan en `backend/adjuntos/` (o `ADJUNTOS_DIR`) con nombre
+  seguro aleatorio; la BD guarda metadatos y hash.
+- **Endpoints** (`/api/adjuntos`): subir (multipart, límite 15 MB), listar por
+  entidad, descargar y eliminar (ADMIN/CONTADOR), con auditoría.
+- **Respaldo:** `npm run backup` empaqueta la carpeta de adjuntos en un ZIP
+  (`*.adjuntos.zip`) junto al `.dump` usando el módulo sin dependencias
+  `backend/scripts/zip-lite.mjs`; `restore` lo extrae automáticamente
+  (ver `docs/respaldo.md`).
+- **Frontend:** componente `AdjuntosLista` reutilizable en el detalle de
+  comprobantes y en el resumen de cada empresa.
+
+### 11.3 Exportación de informes
+
+- **PDF completado** (`libros-pdf.controller.ts`): balance general,
+  estado de resultados e indicadores (además de libro diario, libro mayor e
+  inventarios).
+- **CSV/XLSX** (`exportacion.controller.ts`): los seis reportes sirven tablas
+  (`TablaDatos`) en CSV (UTF-8 con BOM, separador `;`) y XLSX (ExcelJS), vía rutas
+  `*.csv`/`*.xlsx` o `?formato=`.
+- **Paquete ZIP:** `POST /api/empresas/:empresaId/informes/paquete` con `periodoId` o
+  `anio` genera un ZIP (módulo `zip-lite`) con los 6 PDF por periodo en subcarpetas.
+- **Frontend:** "Libros y reportes" agrega botones CSV, XLSX, PDFs faltantes y
+  "Paquete de informes (ZIP)".
+- Todo se genera y sirve localmente (local-first, roadmap §2.3).

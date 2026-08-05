@@ -65,7 +65,41 @@ En *Libros y reportes* encontrará pestañas:
 
 Estados financieros y libros requieren comprobantes **contabilizados** en el periodo seleccionado.
 
-## 7. Cuentas por cobrar y por pagar (CxC / CxP)
+### Exportación de informes
+
+En la parte superior de cada pestaña hay botones para **exportar** la información:
+
+- **CSV / XLSX**: descarga la tabla del reporte en curso (útil para ajustar, graficar o entregar a un tercero). Respeta los filtros activos (periodo, fechas, cuenta).
+- **PDF**: descarga el informe en PDF (libro diario, libro mayor, libro de inventarios, balance general y estado de resultados).
+- **Paquete de informes (ZIP)**: un solo clic empaqueta todos los informes del cliente en PDF (libros + estados financieros + indicadores) en un `.zip`. Si hay un periodo seleccionado empaqueta ese periodo; si no, el año en curso. Ideal al cerrar un mes o un año con un cliente.
+
+Todo se genera y descarga localmente; nada se sube a servicios externos.
+
+## 7. Conciliación bancaria
+
+Permite comparar el **saldo de libros** (asientos de la cuenta de bancos 1110) con el **saldo del extracto** del banco y cruzar los movimientos.
+
+1. En *Conciliación bancaria* seleccione el **periodo** y pulse *Crear conciliación*. El sistema calcula el saldo de libros y toma la cuenta de bancos (1110) por defecto.
+2. Descargue el extracto del banco como **CSV** y pulse *Importar extracto (CSV)* eligiendo el archivo.
+   - El CSV debe tener columnas de fecha, referencia, descripción y saldo (débito/crédito opcionales). Puede usar `;` o `,` como separador y UTF-8 (con o sin BOM).
+   - El sistema valida las filas, las importa (sin duplicar si vuelve a importar el mismo archivo) y las **cruza automáticamente** con los asientos del libro de bancos.
+3. Revise el resultado: filas del archivo, importadas, movimientos totales, **conciliados** y la **diferencia** (saldo extracto − saldo libros).
+4. Abra el detalle (`Ver`) para revisar cada movimiento y si quedó *Conciliado* o *Pendiente*.
+5. Cuando la diferencia sea coherente (partidas en tránsito, cheques sin cobrar, etc.), pulse **Aprobar**. La actividad de conciliación del proceso queda marcada y se registra en la bitácora.
+6. **Anular** deja la conciliación anulada (útil si se importó el archivo equivocado).
+
+> Si la diferencia no cuadra, revise los movimientos *Pendientes*: faltan registros en libros o en el extracto.
+
+## 8. Documentos adjuntos
+
+Cada **comprobante** y cada **empresa** admite **soportes adjuntos** (facturas, recibos, contratos, PDF, imágenes, etc.) de hasta 15 MB por archivo.
+
+- En el detalle de un comprobante (botón *Ver*) o en el resumen de la empresa, en *Documentos adjuntos* pulse **Adjuntar archivo**.
+- El archivo queda ligado a su entidad, con autor, fecha, tamaño y hash.
+- **Descargar** lo trae de vuelta con su nombre original; **Eliminar** lo borra (solo ADMIN/CONTADOR). Eliminar borra también el archivo físico.
+- Los adjuntos quedan **incluidos en el respaldo** del sistema (ver *Manual de operación*).
+
+## 9. Cuentas por cobrar y por pagar (CxC / CxP)
 
 - **Cuentas por cobrar** (clientes) y **Cuentas por pagar** (proveedores) en el menú lateral.
 - **Nueva CxC/CxP**: tercero, número de documento, fecha de emisión, vencimiento y valor.
@@ -77,7 +111,7 @@ Estados financieros y libros requieren comprobantes **contabilizados** en el per
   - **Vencida**: pasó la fecha de vencimiento sin cancelarse.
 - El sistema **rechaza abonos mayores al saldo** y **no permite eliminar** un documento con abonos.
 
-## 8. Productos e inventario
+## 10. Productos e inventario
 
 - **Nuevo producto**: código, nombre, categoría y unidad.
 - **Kardex** (botón *Kardex*): registre **entradas y salidas** con cantidad, costo unitario y fecha.
@@ -86,14 +120,15 @@ Estados financieros y libros requieren comprobantes **contabilizados** en el per
 - Un producto con movimientos **no se elimina**: se desactiva conservando el kardex.
 - La lista muestra stock, costo promedio y valor del inventario.
 
-## 9. Cambiar contraseña
+## 11. Cambiar contraseña
 
 En *Cambiar contraseña* ingrese la actual y la nueva (mínimo 8 caracteres).
 
-## 10. Buenas prácticas
+## 12. Buenas prácticas
 
 - Registre los movimientos **dentro de su periodo** (la fecha del comprobante debe estar entre inicio y fin del periodo abierto).
-- Contabilice siempre con soporte documental (factura, recibo, egreso) en el concepto.
+- Contabilice siempre con soporte documental (factura, recibo, egreso) y **adjúntelo** al comprobante.
+- Haga la **conciliación bancaria** de cada mes y apruebe solo cuando la diferencia esté explicada.
 - Revise el **balance de comprobación** antes de cerrar el periodo.
-- Al final del periodo: genere reportes, **cierre el periodo** y cree el siguiente.
+- Al final del periodo: genere reportes (use el **paquete ZIP** para entregar "todo" al cliente), **cierre el periodo** y cree el siguiente.
 - Realice **respaldos frecuentes** (ver *Manual de operación*).
