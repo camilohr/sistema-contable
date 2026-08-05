@@ -71,6 +71,14 @@ Siguiente iteración sobre la V1.0.0; alcance definido en [Roadmap V1.1](docs/ro
 - `.github/workflows/ci.yml`: en cada push a `master` (o PR) ejecuta dos jobs — backend (`npm ci`, `prisma generate`, `npm test`, `npm run build` con un servicio PostgreSQL 16) y frontend (`npm ci`, `npm run lint`, `npm run build`).
 - El CI crea su propia base `contabilidad` como servicio y la suite deriva `contabilidad_test` automáticamente, sin depender de credenciales reales.
 
+### Módulo 7 — Presupuesto y control presupuestal
+- Modelo `Presupuesto` (migración `presupuesto`) con `cuentaId`, `periodoId` y `valor` `Decimal(15,2)`, único por cuenta y periodo; sin modelos extra de reportes.
+- `PUT /api/presupuesto/:periodoId` (ADMIN/CONTADOR): reemplaza el presupuesto completo del periodo (upsert + eliminación del resto), valida cuentas activas con `permiteMovimiento`, rechaza cuentas inexistentes o sin movimiento y valores negativos.
+- `GET /api/presupuesto/:periodoId` (consulta) y `GET /api/presupuesto/:periodoId/ejecucion`: ejecución sobre comprobantes `CONTABILIZADO` del periodo por cuenta (presupuestado, ejecutado, variación y porcentaje de ejecución), con totales.
+- `enum AccionAuditoria` extendido con `CARGAR_PRESUPUESTO`; cada carga registra la acción en la bitácora (módulo 2) con el detalle de partidas y total.
+- Página de Presupuesto en el frontend: selector de periodo, edición de partidas con búsqueda de cuentas activas con movimiento, guardado por reemplazo y consulta de ejecución presupuestal; edición solo ADMIN/CONTADOR.
+- 13 pruebas nuevas (304 en total).
+
 ### Módulo 9 — Nómina simplificada
 - `docs/diseno-nomina.md`: diseño previo a la implementación con las decisiones de alcance V1 (sueldo, auxilio de transporte automático, horas extras y descuentos manuales, aportes, provisión mensual de prestaciones, asientos de nómina y de provisión), parámetros anuales con valores 2026 (SMMLV 1.750.905, auxilio de transporte 249.095), fórmulas con ejemplo numérico, modelo Prisma (Empleado, Nomina, ProvisionNomina, ParametroNomina, ParametroCuentaNomina), mapeo al PUC existente, endpoints y tests sugeridos.
 - Modelos Prisma (migraciones `nomina` y `arl_precision`): `Empleado` (documento/tipo, sueldo, auxilio de transporte, ARL variable, fecha de ingreso/retiro, activo), `Nomina` (liquidación mensual por empleado con estado LIQUIDADO/CONTABILIZADO/ANULADO), `ProvisionNomina` (cesantías, intereses, primas y vacaciones), `ParametroNomina` (parámetros anuales con `anio` único) y `ParametroCuentaNomina` (mapeo de conceptos a cuentas PUC). `arlEmpleador` usa `Decimal(5,3)`.

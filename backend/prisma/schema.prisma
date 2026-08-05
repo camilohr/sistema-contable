@@ -105,6 +105,7 @@ enum AccionAuditoria {
   ANULAR_NOMINA
   PROVISIONAR_NOMINA
   ACTUALIZAR_PARAMETROS_NOMINA
+  CARGAR_PRESUPUESTO
 }
 
 model Usuario {
@@ -148,6 +149,7 @@ model Cuenta {
   activosGasto         ActivoFijo[] @relation("ActivoCuentaGasto")
   cierresAnuales       CierreAnual[] @relation("CierreCuentaUtilidad")
   parametrosCuentaNomina ParametroCuentaNomina[]
+  presupuestos         Presupuesto[]
 
   @@index([clase, grupo])
   @@index([nivel])
@@ -207,6 +209,7 @@ model Periodo {
   provisionesCartera ProvisionCartera[]
   nominas          Nomina[]
   provisionesNomina ProvisionNomina[]
+  presupuestos     Presupuesto[]
 
   @@index([estado])
 }
@@ -591,4 +594,19 @@ model ParametroCuentaNomina {
   cuenta Cuenta @relation(fields: [cuentaId], references: [id])
 
   @@index([cuentaId])
+}
+
+model Presupuesto {
+  id        Int      @id @default(autoincrement())
+  cuentaId  Int
+  periodoId Int
+  valor     Decimal  @db.Decimal(15, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cuenta  Cuenta  @relation(fields: [cuentaId], references: [id])
+  periodo Periodo @relation(fields: [periodoId], references: [id])
+
+  @@unique([cuentaId, periodoId])
+  @@index([periodoId])
 }

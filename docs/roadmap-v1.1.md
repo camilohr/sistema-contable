@@ -23,7 +23,7 @@ documentados en `docs/modelo-datos.md` (tablas `activos_fijos`, `depreciaciones`
 4. Provisión de cartera (deterioro) `[COMPLETADO 2026-08-04]`
 5. Indicadores financieros y análisis comparativo `[COMPLETADO 2026-08-04]`
 6. Exportación de libros oficiales a PDF `[COMPLETADO 2026-08-04]`
-7. Presupuesto y control presupuestal
+7. Presupuesto y control presupuestal `[COMPLETADO 2026-08-04]`
 8. Alertas y recordatorios internos
 9. Nómina simplificada (solo cálculo, sin PILA) `[COMPLETADO 2026-08-04]`
 
@@ -363,7 +363,7 @@ validez `%PDF`, content-type, filtros y 401 sin autenticación).
 
 ---
 
-## 7. Presupuesto y control presupuestal
+## 7. Presupuesto y control presupuestal `[COMPLETADO 2026-08-04]`
 
 **Qué hace:** permite cargar un presupuesto por cuenta y periodo, y compararlo contra
 la ejecución real (los saldos ya contabilizados).

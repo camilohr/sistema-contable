@@ -19,6 +19,7 @@ import CambiarPassword from "./pages/CambiarPassword";
 import Empleados from "./pages/Empleados";
 import Nomina from "./pages/Nomina";
 import ParametrosNomina from "./pages/ParametrosNomina";
+import Presupuesto from "./pages/Presupuesto";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="/empleados" element={<Empleados />} />
             <Route path="/nomina" element={<Nomina />} />
             <Route path="/parametros-nomina" element={<ParametrosNomina />} />
+            <Route path="/presupuesto" element={<Presupuesto />} />
             <Route path="/cambiar-password" element={<CambiarPassword />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

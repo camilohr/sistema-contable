@@ -18,6 +18,7 @@ import auditoriaRoutes from "./routes/auditoria.routes.js";
 import cierreAnualRoutes from "./routes/cierre-anual.routes.js";
 import empleadosRoutes from "./routes/empleados.routes.js";
 import nominaRoutes from "./routes/nomina.routes.js";
+import presupuestoRoutes from "./routes/presupuesto.routes.js";
 import { notFound, errorHandler } from "./middleware/error.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -52,6 +53,7 @@ export function createApp(): express.Express {
   app.use("/api/cierre-anual", cierreAnualRoutes);
   app.use("/api/empleados", empleadosRoutes);
   app.use("/api/nomina", nominaRoutes);
+  app.use("/api/presupuesto", presupuestoRoutes);
 
   if (sirveFrontend) {
     app.use(express.static(frontendDist));
