@@ -86,6 +86,8 @@ En el primer ingreso, el sistema exige cambiar la contraseña inicial.
 - [Manual de usuario](docs/manual-usuario.md)
 - [Manual de operación](docs/manual-operacion.md)
 - [Datos de prueba (demo)](docs/datos-demo.md)
+- [Roadmap V1.1 (funcionalidades adicionales)](docs/roadmap-v1.1.md)
+- [Roadmap V2.0 (estudio multicliente y seguimiento por proceso)](docs/roadmap-v2.0.md)
 - [Historial de cambios](CHANGELOG.md)
 
 ## Estado del proyecto

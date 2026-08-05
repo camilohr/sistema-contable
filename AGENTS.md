@@ -6,7 +6,7 @@ Sistema contable local para contador particular, normatividad colombiana (PUC), 
 
 - `backend/` — Node 20+ · TypeScript · Express · Prisma ORM · PostgreSQL · JWT + bcrypt (roles ADMIN, CONTADOR, AUXILIAR)
 - `frontend/` — React 19 · TypeScript · Vite · React Router · axios
-- `docs/` — arquitectura.md, modelo-datos.md, normatividad.md, manual-usuario.md, manual-operacion.md, despliegue.md, respaldo.md, datos-demo.md
+- `docs/` — arquitectura.md, modelo-datos.md, normatividad.md, manual-usuario.md, manual-operacion.md, despliegue.md, respaldo.md, datos-demo.md, roadmap-v1.1.md, roadmap-v2.0.md
 - `scripts/` — utilidades de despliegue en PowerShell (`desplegar.ps1`, `abrir-puerto.ps1`)
 - `.github/workflows/ci.yml` — CI en GitHub Actions: tests + build del backend y lint + build del frontend en cada push a `master`
 - `backend/prisma/schema.prisma` — fuente de verdad del modelo de datos
