@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
-import { prisma } from "../src/lib/prisma.js";
+import { prisma } from "./prisma-test.js";
 import bcrypt from "bcryptjs";
 import { EstadoNomina, EstadoComprobante } from "@prisma/client";
 
@@ -117,7 +117,13 @@ async function restaurarParametros(): Promise<void> {
     solidaridadUmbralSalarios: 4,
     interesesCesantias: 12,
   };
-  await prisma.parametroNomina.upsert({ where: { anio: 2026 }, update: data, create: { anio: 2026, ...data } });
+  await prisma.parametroNomina.deleteMany({ where: { empresaId: { not: null } } });
+  const existente = await prisma.parametroNomina.findFirst({ where: { empresaId: null, anio: 2026 } });
+  if (existente) {
+    await prisma.parametroNomina.update({ where: { id: existente.id }, data });
+  } else {
+    await prisma.parametroNomina.create({ data: { anio: 2026, ...data } });
+  }
   const cuentas = await prisma.cuenta.findMany({ where: { codigo: { in: [...new Set(Object.values(CUENTAS_DEFECTO))] } } });
   const porCodigo = new Map(cuentas.map((c) => [c.codigo, c.id]));
   await prisma.parametroCuentaNomina.deleteMany({});

@@ -25,15 +25,17 @@ export async function listar(req: Request, res: Response): Promise<void> {
   const busqueda = req.query.busqueda ? String(req.query.busqueda).trim() : undefined;
   const soloMovimiento = req.query.soloMovimiento === "true";
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { AND: [{ OR: [{ empresaId: null }, { empresaId: req.empresaId }] }] };
   if (clase) where.clase = clase;
   if (nivel) where.nivel = nivel;
   if (soloMovimiento) where.permiteMovimiento = true;
   if (busqueda) {
-    where.OR = [
-      { codigo: { startsWith: busqueda } },
-      { nombre: { contains: busqueda, mode: "insensitive" } },
-    ];
+    (where.AND as unknown[]).push({
+      OR: [
+        { codigo: { startsWith: busqueda } },
+        { nombre: { contains: busqueda, mode: "insensitive" } },
+      ],
+    });
   }
 
   const cuentas = await prisma.cuenta.findMany({
@@ -61,7 +63,9 @@ export async function crear(req: Request, res: Response): Promise<void> {
   }
   const { codigo, nombre, requiereTercero } = parsed.data;
 
-  const existe = await prisma.cuenta.findUnique({ where: { codigo } });
+  const existe = await prisma.cuenta.findFirst({
+    where: { OR: [{ empresaId: null }, { empresaId: req.empresaId }], codigo },
+  });
   if (existe) {
     res.status(409).json({ error: `La cuenta ${codigo} ya existe` });
     return;
@@ -69,7 +73,9 @@ export async function crear(req: Request, res: Response): Promise<void> {
 
   if (codigo.length > 1) {
     const codigoPadre = codigo.slice(0, codigo.length <= 2 ? 1 : codigo.length - 2);
-    const padre = await prisma.cuenta.findUnique({ where: { codigo: codigoPadre } });
+    const padre = await prisma.cuenta.findFirst({
+      where: { OR: [{ empresaId: null }, { empresaId: req.empresaId }], codigo: codigoPadre },
+    });
     if (!padre) {
       res.status(400).json({ error: `No existe la cuenta padre ${codigoPadre}` });
       return;
@@ -79,6 +85,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
   const cuenta = await prisma.$transaction(async (tx) => {
     const c = await tx.cuenta.create({
       data: {
+        empresaId: req.empresaId,
         codigo,
         nombre,
         requiereTercero: requiereTercero ?? false,
@@ -88,6 +95,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
     });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.CREAR_CUENTA,
       entidad: "Cuenta",
       entidadId: c.id,
@@ -112,6 +120,7 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.EDITAR_CUENTA,
       entidad: "Cuenta",
       entidadId: id,

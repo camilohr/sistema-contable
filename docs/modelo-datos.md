@@ -11,6 +11,20 @@
 ## 2. Diagrama de entidades
 
 ```
+empresas ──< terceros
+empresas ──< cuentas
+empresas ──< periodos
+empresas ──< comprobantes
+empresas ──< consecutivos
+empresas ──< cuentas_por_cobrar
+empresas ──< cuentas_por_pagar
+empresas ──< productos
+empresas ──< activos_fijos
+empresas ──< auditoria
+empresas ──< cierres_anuales
+empresas ──< parametros_nomina / parametros_provision / parametros_cuenta_nomina
+
+usuarios ──< usuarios_empresas >── empresas
 usuarios ──┬──< comprobantes (usuario_creo)
            └──< auditoria
 
@@ -35,8 +49,6 @@ comprobantes ──< inventario_movimientos
 
 activos_fijos ──< depreciaciones
 periodos ──< depreciaciones
-
-parametros (tabla singleton de configuración)
 ```
 
 ## 3. Tablas
@@ -236,6 +248,9 @@ Configuración general (tabla de una sola fila).
 | año_fiscal_inicio | int | mes de inicio del año fiscal |
 | mensaje_recibo | string | texto en recibos/comprobantes |
 
+> **V2.0:** esta tabla se absorbió en `empresas` (§6.1); la configuración pasó a ser
+> datos de cada empresa.
+
 ### 3.16 `auditoria`
 Bitácora de acciones críticas.
 
@@ -274,3 +289,79 @@ Bitácora de acciones críticas.
 
 **Prueba de fuego Fase 0:** el modelo cubre los 12 módulos, respeta la partida doble,
 la inmutabilidad de asientos y el PUC de 9 clases con naturaleza deudora/acreedora.
+
+## 6. Multientidad (Fase 1 de V2.0)
+
+Desde V2.0 el modelo es **multientidad por fila**: las tablas de negocio pertenecen a
+una `empresa` (cliente del contador) mediante `empresaId`. Nunca hay una BD por
+cliente. La fuente de verdad es `backend/prisma/schema.prisma` (los nombres de esta
+sección usan la nomenclatura de Prisma).
+
+### 6.1 `Empresa`
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | PK (uuid) | |
+| nombre | string | |
+| nit | string | |
+| direccion / telefono | string? | |
+| moneda | string | COP |
+| anioFiscalInicio | int | mes de inicio del año fiscal |
+| mensajeRecibo | string? | texto en recibos/comprobantes |
+| activa | bool | da de baja al cliente |
+| createdAt / updatedAt | datetime | |
+
+Absorbió la tabla `parametros` (§3.15).
+
+### 6.2 `UsuarioEmpresa` (acceso y rol por cliente)
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | PK (uuid) | |
+| usuarioId | FK → usuarios | |
+| empresaId | FK → empresas | |
+| rol | enum | `ADMIN`, `CONTADOR`, `AUXILIAR` (rol en esa empresa) |
+| activo | bool | |
+| createdAt / updatedAt | datetime | |
+
+- `@@unique([usuarioId, empresaId])`.
+- Un ADMIN global accede a todas las empresas sin fila; CONTADOR/AUXILIAR solo a las
+  asignadas (`activo = true`).
+- El rol efectivo en una empresa es el más restrictivo entre el rol global del usuario
+  y su rol en `UsuarioEmpresa`.
+
+### 6.3 Scoping por tabla
+
+- `empresaId` **obligatorio** (scoping directo): `Tercero`, `Periodo`, `Comprobante`,
+  `Consecutivo`, `CuentaPorCobrar`, `CuentaPorPagar`, `Producto`, `ActivoFijo`,
+  `CierreAnual`, `ParametroCuentaNomina`. (`Auditoria` lleva `empresaId` opcional para
+  poder filtrar por cliente.)
+- `empresaId` **nulo = global, con override por empresa**: `Cuenta` (catálogo PUC base
+  compartido), `ParametroNomina`, `ParametroProvision`. Al buscar se prefiere el
+  registro de la empresa activa y se cae al global (`empresaId` nulo).
+- **Sin `empresaId` propio** (heredado a través de su tabla padre, que ya es directo, o
+  global): `Asiento`, `Recibo`, `Pago`, `InventarioMovimiento`, `Depreciacion`,
+  `ProvisionCartera`, `Empleado`, `Nomina`, `ProvisionNomina`, `Presupuesto`,
+  `ReglaAlerta` (global).
+
+### 6.4 Unicidades compuestas
+
+- `Cuenta`: `[empresaId, codigo]`
+- `Tercero`: `[empresaId, tipoDocumento, documento]`
+- `Periodo`: `[empresaId, nombre]`
+- `Comprobante`: `[empresaId, tipo, consecutivo]`
+- `Consecutivo`: `[empresaId, tipo]` (clave primaria compuesta)
+- `Producto`: `[empresaId, codigo]`
+- `CierreAnual`: `[empresaId, anio]`
+- `ParametroNomina`: `[empresaId, anio]`
+- `ParametroProvision`: `[empresaId, diasDesde, diasHasta]`
+- `ParametroCuentaNomina`: `[empresaId, concepto]`
+- `UsuarioEmpresa`: `[usuarioId, empresaId]`
+
+### 6.5 Identificación de la empresa activa
+
+- Frontend: `EmpresaContext` mantiene la empresa activa (persistida en `localStorage`)
+  y el cliente HTTP envía el header `X-Empresa-Id` en cada petición.
+- Backend: el middleware `requireEmpresa` valida el header y el acceso del usuario
+  (§6.2) y puebla `req.empresaId`, `req.empresa` y `req.rolEfectivo`; todo filtrado de
+  negocio pasa por `req.empresaId`. Detalle en `docs/arquitectura.md` (§8).

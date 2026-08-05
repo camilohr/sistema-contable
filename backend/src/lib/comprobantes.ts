@@ -10,6 +10,7 @@ export interface AsientoGenerado {
 }
 
 interface CrearComprobanteDiarioArgs {
+  empresaId: string;
   periodoId: number;
   fecha: Date;
   concepto: string;
@@ -30,15 +31,23 @@ export async function crearComprobanteDiario(db: DbEjecutor, data: CrearComproba
   }
 
   const [max, cont] = await Promise.all([
-    db.comprobante.aggregate({ _max: { consecutivo: true }, where: { tipo: "DIARIO" } }),
-    db.consecutivo.upsert({ where: { tipo: "DIARIO" }, create: { tipo: "DIARIO", ultimo: 0 }, update: {} }),
+    db.comprobante.aggregate({ _max: { consecutivo: true }, where: { tipo: "DIARIO", empresaId: data.empresaId } }),
+    db.consecutivo.upsert({
+      where: { empresaId_tipo: { empresaId: data.empresaId, tipo: "DIARIO" } },
+      create: { empresaId: data.empresaId, tipo: "DIARIO", ultimo: 0 },
+      update: {},
+    }),
   ]);
   const base = Math.max(max._max.consecutivo ?? 0, cont.ultimo);
   const consecutivo = base + 1;
-  await db.consecutivo.update({ where: { tipo: "DIARIO" }, data: { ultimo: consecutivo } });
+  await db.consecutivo.update({
+    where: { empresaId_tipo: { empresaId: data.empresaId, tipo: "DIARIO" } },
+    data: { ultimo: consecutivo },
+  });
 
   return db.comprobante.create({
     data: {
+      empresaId: data.empresaId,
       tipo: "DIARIO",
       consecutivo,
       fecha: data.fecha,

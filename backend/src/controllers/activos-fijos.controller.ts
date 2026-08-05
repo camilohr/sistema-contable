@@ -65,9 +65,11 @@ function serializarActivo(a: ActivoConRel) {
   };
 }
 
-async function validarCuentas(cuentaId: number, cuentaDepreciacionId: number, cuentaGastoId: number) {
+async function validarCuentas(cuentaId: number, cuentaDepreciacionId: number, cuentaGastoId: number, empresaId: string) {
   const ids = [...new Set([cuentaId, cuentaDepreciacionId, cuentaGastoId])];
-  const cuentas = await prisma.cuenta.findMany({ where: { id: { in: ids } } });
+  const cuentas = await prisma.cuenta.findMany({
+    where: { id: { in: ids }, OR: [{ empresaId: null }, { empresaId }] },
+  });
   const porId = new Map(cuentas.map((c) => [c.id, c]));
   for (const id of ids) {
     const c = porId.get(id);
@@ -80,7 +82,7 @@ async function validarCuentas(cuentaId: number, cuentaDepreciacionId: number, cu
 
 export async function listar(req: Request, res: Response): Promise<void> {
   const estado = req.query.estado ? String(req.query.estado) : undefined;
-  const where: Prisma.ActivoFijoWhereInput = {};
+  const where: Prisma.ActivoFijoWhereInput = { empresaId: req.empresaId };
   if (estado && (Object.values(EstadoActivoFijo) as string[]).includes(estado)) where.estado = estado as EstadoActivoFijo;
 
   const activos = await prisma.activoFijo.findMany({
@@ -109,7 +111,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const validado = await validarCuentas(data.cuentaId, data.cuentaDepreciacionId, data.cuentaGastoId);
+  const validado = await validarCuentas(data.cuentaId, data.cuentaDepreciacionId, data.cuentaGastoId, req.empresaId!);
   if ("error" in validado) {
     res.status(400).json({ error: validado.error });
     return;
@@ -118,6 +120,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
   const activo = await prisma.$transaction(async (tx) => {
     const a = await tx.activoFijo.create({
       data: {
+        empresaId: req.empresaId,
         cuentaId: data.cuentaId,
         cuentaDepreciacionId: data.cuentaDepreciacionId,
         cuentaGastoId: data.cuentaGastoId,
@@ -136,6 +139,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
     });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.CREAR_ACTIVO,
       entidad: "ActivoFijo",
       entidadId: a.id,
@@ -148,7 +152,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
 
 export async function actualizar(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
-  const existe = await prisma.activoFijo.findUnique({ where: { id } });
+  const existe = await prisma.activoFijo.findFirst({ where: { id, empresaId: req.empresaId } });
   if (!existe) {
     res.status(404).json({ error: "Activo no encontrado" });
     return;
@@ -171,6 +175,7 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.EDITAR_ACTIVO,
       entidad: "ActivoFijo",
       entidadId: id,
@@ -183,7 +188,7 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
 
 export async function depreciar(req: Request, res: Response): Promise<void> {
   const periodoId = Number(req.params.periodoId);
-  const periodo = await prisma.periodo.findUnique({ where: { id: periodoId } });
+  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId: req.empresaId } });
   if (!periodo) {
     res.status(404).json({ error: `No existe el periodo ${periodoId}` });
     return;
@@ -198,7 +203,7 @@ export async function depreciar(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const activos = await prisma.activoFijo.findMany({ where: { estado: EstadoActivoFijo.ACTIVO } });
+  const activos = await prisma.activoFijo.findMany({ where: { estado: EstadoActivoFijo.ACTIVO, empresaId: req.empresaId } });
 
   interface PorDepreciar {
     activo: typeof activos[number];
@@ -231,6 +236,7 @@ export async function depreciar(req: Request, res: Response): Promise<void> {
 
   const resultado = await prisma.$transaction(async (tx) => {
     const comprobante = await crearComprobanteDiario(tx, {
+      empresaId: req.empresaId!,
       periodoId,
       fecha: new Date(),
       concepto: `Depreciación periodo ${periodo.nombre}`,
@@ -257,6 +263,7 @@ export async function depreciar(req: Request, res: Response): Promise<void> {
     }
     await registrarAuditoria(tx, {
       usuarioId,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.DEPRECIAR_ACTIVOS,
       entidad: "Periodo",
       entidadId: periodoId,
@@ -281,7 +288,7 @@ export async function depreciar(req: Request, res: Response): Promise<void> {
 
 export async function baja(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
-  const activo = await prisma.activoFijo.findUnique({ where: { id } });
+  const activo = await prisma.activoFijo.findFirst({ where: { id, empresaId: req.empresaId } });
   if (!activo) {
     res.status(404).json({ error: "Activo no encontrado" });
     return;
@@ -302,7 +309,7 @@ export async function baja(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "Fecha inválida" });
     return;
   }
-  const periodo = await prisma.periodo.findUnique({ where: { id: data.periodoId } });
+  const periodo = await prisma.periodo.findFirst({ where: { id: data.periodoId, empresaId: req.empresaId } });
   if (!periodo) {
     res.status(404).json({ error: `No existe el periodo ${data.periodoId}` });
     return;
@@ -331,6 +338,7 @@ export async function baja(req: Request, res: Response): Promise<void> {
 
   const comprobante = await prisma.$transaction(async (tx) => {
     const creado = await crearComprobanteDiario(tx, {
+      empresaId: req.empresaId!,
       periodoId: data.periodoId,
       fecha,
       concepto: data.concepto,
@@ -343,6 +351,7 @@ export async function baja(req: Request, res: Response): Promise<void> {
     });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.BAJA_ACTIVO,
       entidad: "ActivoFijo",
       entidadId: id,
@@ -373,7 +382,7 @@ export async function baja(req: Request, res: Response): Promise<void> {
 
 export async function listarDepreciaciones(req: Request, res: Response): Promise<void> {
   const activoId = Number(req.params.id);
-  const activo = await prisma.activoFijo.findUnique({ where: { id: activoId } });
+  const activo = await prisma.activoFijo.findFirst({ where: { id: activoId, empresaId: req.empresaId } });
   if (!activo) {
     res.status(404).json({ error: "Activo no encontrado" });
     return;

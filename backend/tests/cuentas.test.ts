@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
-import { prisma } from "../src/lib/prisma.js";
+import { prisma } from "./prisma-test.js";
 import bcrypt from "bcryptjs";
 
 const app = createApp();
@@ -136,7 +136,7 @@ describe("Actualización y eliminación", () => {
   });
 
   it("no permite eliminar cuenta con subcuentas (400)", async () => {
-    const padre = await prisma.cuenta.findUnique({ where: { codigo: "1105" } });
+    const padre = await prisma.cuenta.findFirst({ where: { codigo: "1105" } });
     const res = await request(app).delete(`/api/cuentas/${padre!.id}`).set("Authorization", `Bearer ${adminToken}`);
     expect(res.status).toBe(400);
   });

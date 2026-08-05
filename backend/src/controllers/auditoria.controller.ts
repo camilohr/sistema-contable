@@ -11,7 +11,7 @@ export async function listar(req: Request, res: Response): Promise<void> {
   const limite = Math.min(Number(req.query.limite) || 100, 500);
   const antesDeId = req.query.antesDeId ? Number(req.query.antesDeId) : undefined;
 
-  const where: Prisma.AuditoriaWhereInput = {};
+  const where: Prisma.AuditoriaWhereInput = { OR: [{ empresaId: null }, { empresaId: req.empresaId }] };
   if (usuarioId) where.usuarioId = usuarioId;
   if (entidad) where.entidad = entidad;
   if (accion && (Object.values(AccionAuditoria) as string[]).includes(accion)) {

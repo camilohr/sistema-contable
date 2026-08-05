@@ -8,10 +8,19 @@ export interface AuthUser {
   nombre: string;
 }
 
+export interface EmpresaContext {
+  id: string;
+  nombre: string;
+  nit: string;
+}
+
 declare global {
   namespace Express {
     interface Request {
       user?: AuthUser;
+      empresaId: string;
+      rolEfectivo?: string;
+      empresa?: EmpresaContext;
     }
   }
 }
@@ -60,9 +69,38 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   next();
 }
 
+const EMPRESA_HEADER = "x-empresa-id";
+
+export async function requireEmpresa(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const empresaId = (req.headers[EMPRESA_HEADER] as string | undefined)?.trim();
+  if (!empresaId) {
+    res.status(400).json({ error: "Debe indicar la empresa activa en la cabecera X-Empresa-Id" });
+    return;
+  }
+  let vinculo;
+  try {
+    vinculo = await prisma.usuarioEmpresa.findUnique({
+      where: { usuarioId_empresaId: { usuarioId: req.user!.sub, empresaId } },
+      include: { empresa: true },
+    });
+  } catch (err) {
+    next(err);
+    return;
+  }
+  if (!vinculo || !vinculo.activo || !vinculo.empresa.activa) {
+    res.status(403).json({ error: "Acceso denegado a esta empresa" });
+    return;
+  }
+  req.empresaId = vinculo.empresaId;
+  req.rolEfectivo = vinculo.rol;
+  req.empresa = { id: vinculo.empresa.id, nombre: vinculo.empresa.nombre, nit: vinculo.empresa.nit };
+  next();
+}
+
 export function requireRole(...roles: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user || !roles.includes(req.user.rol)) {
+    const rol = req.rolEfectivo ?? req.user?.rol;
+    if (!rol || !roles.includes(rol)) {
       res.status(403).json({ error: "Acceso denegado" });
       return;
     }

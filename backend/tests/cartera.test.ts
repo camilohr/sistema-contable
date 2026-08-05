@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
-import { prisma } from "../src/lib/prisma.js";
+import { prisma } from "./prisma-test.js";
 import bcrypt from "bcryptjs";
 
 const app = createApp();
@@ -48,8 +48,8 @@ beforeAll(async () => {
   });
   periodoId = periodo.id;
 
-  const caja = await prisma.cuenta.findUniqueOrThrow({ where: { codigo: "110505" } });
-  const ing = await prisma.cuenta.findUniqueOrThrow({ where: { codigo: "4120" } });
+  const caja = await prisma.cuenta.findFirstOrThrow({ where: { codigo: "110505" } });
+  const ing = await prisma.cuenta.findFirstOrThrow({ where: { codigo: "4120" } });
   const comp = await prisma.comprobante.create({
     data: {
       tipo: "DIARIO",

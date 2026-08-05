@@ -147,6 +147,21 @@ input:focus {
   font-size: 0.9rem;
 }
 
+.empresa-selector {
+  min-width: 220px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+  background: var(--primary-dark);
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.empresa-selector option {
+  color: #222;
+  background: #fff;
+}
+
 .topbar-user em {
   font-style: normal;
   color: #aed6f1;

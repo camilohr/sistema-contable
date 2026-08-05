@@ -12,12 +12,23 @@ const createSchema = z.object({
   rol: z.enum(["ADMIN", "CONTADOR", "AUXILIAR"]),
 });
 
-export async function listar(_req: Request, res: Response): Promise<void> {
-  const usuarios = await prisma.usuario.findMany({
-    select: { id: true, nombre: true, email: true, rol: true, activo: true, debeCambiarPassword: true, createdAt: true },
+export async function listar(req: Request, res: Response): Promise<void> {
+  const vinculos = await prisma.usuarioEmpresa.findMany({
+    where: { empresaId: req.empresaId },
     orderBy: { createdAt: "asc" },
+    include: { usuario: { select: { id: true, nombre: true, email: true, activo: true, debeCambiarPassword: true, createdAt: true } } },
   });
-  res.json(usuarios);
+  res.json(
+    vinculos.map((v) => ({
+      id: v.usuario.id,
+      nombre: v.usuario.nombre,
+      email: v.usuario.email,
+      rol: v.rol,
+      activo: v.usuario.activo,
+      debeCambiarPassword: v.usuario.debeCambiarPassword,
+      createdAt: v.usuario.createdAt,
+    }))
+  );
 }
 
 export async function crear(req: Request, res: Response): Promise<void> {
@@ -38,8 +49,12 @@ export async function crear(req: Request, res: Response): Promise<void> {
       data: { nombre, email: email.toLowerCase(), passwordHash, rol, debeCambiarPassword: true },
       select: { id: true, nombre: true, email: true, rol: true, activo: true, debeCambiarPassword: true },
     });
+    await tx.usuarioEmpresa.create({
+      data: { usuarioId: u.id, empresaId: req.empresaId!, rol },
+    });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.CREAR_USUARIO,
       entidad: "Usuario",
       entidadId: u.id,

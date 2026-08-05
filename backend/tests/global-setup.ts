@@ -14,5 +14,6 @@ export default function setup(): void {
   console.log(`\n[test-db] Preparando base de datos de tests: ${db}`);
   run(["prisma", "migrate", "deploy"]);
   run(["tsx", "prisma/seed.ts"]);
+  run(["tsx", "tests/limpiar-links.ts"]);
   console.log("[test-db] Base de tests lista.\n");
 }

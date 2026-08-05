@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
-import { prisma } from "../src/lib/prisma.js";
+import { prisma } from "./prisma-test.js";
 import { Prisma, EstadoComprobante } from "@prisma/client";
 import bcrypt from "bcryptjs";
 

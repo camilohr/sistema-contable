@@ -18,8 +18,8 @@ const cargarSchema = z.object({
 
 const redondear2 = (n: number) => Math.round(n * 100) / 100;
 
-async function periodoValido(periodoId: number) {
-  return prisma.periodo.findUnique({ where: { id: periodoId } });
+async function periodoValido(periodoId: number, empresaId: string) {
+  return prisma.periodo.findFirst({ where: { id: periodoId, empresaId } });
 }
 
 export async function listarPorPeriodo(req: Request, res: Response): Promise<void> {
@@ -28,7 +28,7 @@ export async function listarPorPeriodo(req: Request, res: Response): Promise<voi
     res.status(400).json({ error: "Periodo inválido" });
     return;
   }
-  const periodo = await periodoValido(periodoId);
+  const periodo = await periodoValido(periodoId, req.empresaId!);
   if (!periodo) {
     res.status(404).json({ error: "Periodo no encontrado" });
     return;
@@ -67,7 +67,7 @@ export async function cargar(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const periodo = await periodoValido(periodoId);
+  const periodo = await periodoValido(periodoId, req.empresaId!);
   if (!periodo) {
     res.status(404).json({ error: "Periodo no encontrado" });
     return;
@@ -78,7 +78,7 @@ export async function cargar(req: Request, res: Response): Promise<void> {
   const cuentaIds = [...porCuenta.keys()];
 
   if (cuentaIds.length > 0) {
-    const cuentas = await prisma.cuenta.findMany({ where: { id: { in: cuentaIds } } });
+    const cuentas = await prisma.cuenta.findMany({ where: { id: { in: cuentaIds }, OR: [{ empresaId: null }, { empresaId: req.empresaId }] } });
     const invalidas = cuentas.filter((c) => !c.activa || !c.permiteMovimiento);
     if (invalidas.length > 0) {
       res.status(400).json({
@@ -109,6 +109,7 @@ export async function cargar(req: Request, res: Response): Promise<void> {
     }
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.CARGAR_PRESUPUESTO,
       entidad: "Periodo",
       entidadId: periodoId,
@@ -144,7 +145,7 @@ export async function ejecucion(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "Periodo inválido" });
     return;
   }
-  const periodo = await periodoValido(periodoId);
+  const periodo = await periodoValido(periodoId, req.empresaId!);
   if (!periodo) {
     res.status(404).json({ error: "Periodo no encontrado" });
     return;
@@ -155,7 +156,7 @@ export async function ejecucion(req: Request, res: Response): Promise<void> {
       where: { periodoId },
       include: { cuenta: { select: { codigo: true, nombre: true, clase: true, naturaleza: true } } },
     }),
-    saldosPorCuenta({ estado: EstadoComprobante.CONTABILIZADO, periodoId }),
+    saldosPorCuenta({ estado: EstadoComprobante.CONTABILIZADO, periodoId, empresaId: req.empresaId }),
   ]);
 
   const saldoPorCodigo = new Map(saldos.map((s) => [s.codigo, s.saldo]));

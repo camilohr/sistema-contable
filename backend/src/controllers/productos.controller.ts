@@ -35,7 +35,7 @@ export async function listarProductos(req: Request, res: Response): Promise<void
   const busqueda = req.query.busqueda ? String(req.query.busqueda).trim() : undefined;
   const soloActivos = req.query.soloActivos === "true";
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { empresaId: req.empresaId };
   if (soloActivos) where.activo = true;
   if (busqueda) {
     where.OR = [
@@ -61,7 +61,7 @@ export async function crearProducto(req: Request, res: Response): Promise<void> 
   }
   const data = parsed.data;
 
-  const duplicado = await prisma.producto.findUnique({ where: { codigo: data.codigo } });
+  const duplicado = await prisma.producto.findFirst({ where: { codigo: data.codigo, empresaId: req.empresaId } });
   if (duplicado) {
     res.status(409).json({ error: `Ya existe un producto con el código ${data.codigo}` });
     return;
@@ -69,6 +69,7 @@ export async function crearProducto(req: Request, res: Response): Promise<void> 
 
   const producto = await prisma.producto.create({
     data: {
+      empresaId: req.empresaId,
       codigo: data.codigo,
       nombre: data.nombre,
       categoria: data.categoria ?? null,
@@ -86,7 +87,7 @@ export async function actualizarProducto(req: Request, res: Response): Promise<v
     return;
   }
 
-  const existe = await prisma.producto.findUnique({ where: { id } });
+  const existe = await prisma.producto.findFirst({ where: { id, empresaId: req.empresaId } });
   if (!existe) {
     res.status(404).json({ error: "Producto no encontrado" });
     return;
@@ -98,7 +99,10 @@ export async function actualizarProducto(req: Request, res: Response): Promise<v
 
 export async function eliminarProducto(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
-  const existe = await prisma.producto.findUnique({ where: { id }, include: { _count: { select: { movimientos: true } } } });
+  const existe = await prisma.producto.findFirst({
+    where: { id, empresaId: req.empresaId },
+    include: { _count: { select: { movimientos: true } } },
+  });
   if (!existe) {
     res.status(404).json({ error: "Producto no encontrado" });
     return;
@@ -114,7 +118,7 @@ export async function eliminarProducto(req: Request, res: Response): Promise<voi
 
 export async function listarMovimientos(req: Request, res: Response): Promise<void> {
   const productoId = Number(req.params.id);
-  const producto = await prisma.producto.findUnique({ where: { id: productoId } });
+  const producto = await prisma.producto.findFirst({ where: { id: productoId, empresaId: req.empresaId } });
   if (!producto) {
     res.status(404).json({ error: "Producto no encontrado" });
     return;
@@ -136,13 +140,15 @@ export async function crearMovimiento(req: Request, res: Response): Promise<void
   }
   const data = parsed.data;
 
-  const producto = await prisma.producto.findUnique({ where: { id: productoId } });
+  const producto = await prisma.producto.findFirst({ where: { id: productoId, empresaId: req.empresaId } });
   if (!producto) {
     res.status(404).json({ error: "Producto no encontrado" });
     return;
   }
   if (data.comprobanteId) {
-    const comprobante = await prisma.comprobante.findUnique({ where: { id: data.comprobanteId } });
+    const comprobante = await prisma.comprobante.findFirst({
+      where: { id: data.comprobanteId, empresaId: req.empresaId },
+    });
     if (!comprobante) {
       res.status(400).json({ error: `No existe el comprobante ${data.comprobanteId}` });
       return;

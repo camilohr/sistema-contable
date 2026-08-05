@@ -7,6 +7,10 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const empresaId = localStorage.getItem("empresaId") ?? window.location.pathname.match(/^\/empresa\/([^/]+)/)?.[1];
+  if (empresaId) {
+    config.headers["X-Empresa-Id"] = empresaId;
+  }
   return config;
 });
 

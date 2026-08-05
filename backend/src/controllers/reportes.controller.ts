@@ -15,7 +15,7 @@ interface Linea {
 }
 
 export function whereFiltros(req: Request): Prisma.ComprobanteWhereInput {
-  const where: Prisma.ComprobanteWhereInput = { estado: EstadoComprobante.CONTABILIZADO };
+  const where: Prisma.ComprobanteWhereInput = { estado: EstadoComprobante.CONTABILIZADO, empresaId: req.empresaId };
   const periodoId = req.query.periodoId ? Number(req.query.periodoId) : undefined;
   const fechaDesde = req.query.fechaDesde ? String(req.query.fechaDesde) : undefined;
   const fechaHasta = req.query.fechaHasta ? String(req.query.fechaHasta) : undefined;
@@ -269,8 +269,11 @@ export async function balanceComprobacion(req: Request, res: Response): Promise<
   res.json({ totalDebitos, totalCreditos, saldosDeudores, saldosAcreedores, cuentas });
 }
 
-async function nombreGrupos(): Promise<Map<string, string>> {
-  const grupos = await prisma.cuenta.findMany({ where: { codigo: { not: { contains: "." } } }, select: { codigo: true, nombre: true } });
+async function nombreGrupos(empresaId: string): Promise<Map<string, string>> {
+  const grupos = await prisma.cuenta.findMany({
+    where: { codigo: { not: { contains: "." } }, OR: [{ empresaId: null }, { empresaId }] },
+    select: { codigo: true, nombre: true },
+  });
   const mapa = new Map<string, string>();
   for (const g of grupos) {
     if (g.codigo.length === 2) mapa.set(g.codigo, g.nombre);
@@ -302,9 +305,9 @@ export interface DatosBalanceGeneral {
   ecuacionOK: boolean;
 }
 
-export async function datosBalanceGeneral(where: Prisma.ComprobanteWhereInput): Promise<DatosBalanceGeneral> {
+export async function datosBalanceGeneral(where: Prisma.ComprobanteWhereInput, empresaId: string): Promise<DatosBalanceGeneral> {
   const saldos = await saldosPorCuenta(where);
-  const nombres = await nombreGrupos();
+  const nombres = await nombreGrupos(empresaId);
 
   const activo = construirSeccion(agruparPorClase(saldos, [1]), nombres);
   const pasivo = construirSeccion(agruparPorClase(saldos, [2]), nombres);
@@ -336,13 +339,13 @@ export async function datosBalanceGeneral(where: Prisma.ComprobanteWhereInput): 
 }
 
 export async function balanceGeneral(req: Request, res: Response): Promise<void> {
-  const datos = await datosBalanceGeneral(whereFiltros(req));
+  const datos = await datosBalanceGeneral(whereFiltros(req), req.empresaId!);
   res.json(datos);
 }
 
 export async function estadoResultados(req: Request, res: Response): Promise<void> {
   const saldos = await saldosPorCuenta(whereFiltros(req));
-  const nombres = await nombreGrupos();
+  const nombres = await nombreGrupos(req.empresaId!);
 
   const ingresos = construirSeccion(agruparPorClase(saldos, [4]), nombres);
   const costos = construirSeccion(agruparPorClase(saldos, [6]), nombres);

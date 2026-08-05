@@ -85,7 +85,7 @@ function construirVencimientos(regla: ConfigRegla, docs: DocumentoVencimiento[],
   return out;
 }
 
-async function evaluarCartera(regla: ConfigRegla): Promise<AlertaGenerada[]> {
+async function evaluarCartera(regla: ConfigRegla, empresaId: string): Promise<AlertaGenerada[]> {
   const hoy = inicioDeHoy();
   const limite = new Date(hoy);
   limite.setDate(limite.getDate() + (regla.dias ?? 15));
@@ -93,6 +93,7 @@ async function evaluarCartera(regla: ConfigRegla): Promise<AlertaGenerada[]> {
   const [cxc, cxp] = await Promise.all([
     prisma.cuentaPorCobrar.findMany({
       where: {
+        empresaId,
         saldo: { gt: 0 },
         estado: { in: [EstadoCartera.PENDIENTE, EstadoCartera.VENCIDA] },
         fechaVencimiento: { lte: limite },
@@ -103,6 +104,7 @@ async function evaluarCartera(regla: ConfigRegla): Promise<AlertaGenerada[]> {
     }),
     prisma.cuentaPorPagar.findMany({
       where: {
+        empresaId,
         saldo: { gt: 0 },
         estado: { in: [EstadoCartera.PENDIENTE, EstadoCartera.VENCIDA] },
         fechaVencimiento: { lte: limite },
@@ -119,10 +121,10 @@ async function evaluarCartera(regla: ConfigRegla): Promise<AlertaGenerada[]> {
   ];
 }
 
-async function evaluarPeriodos(regla: ConfigRegla): Promise<AlertaGenerada[]> {
+async function evaluarPeriodos(regla: ConfigRegla, empresaId: string): Promise<AlertaGenerada[]> {
   const hoy = inicioDeHoy();
   const periodos = await prisma.periodo.findMany({
-    where: { estado: EstadoPeriodo.ABIERTO, fechaFin: { lt: hoy } },
+    where: { empresaId, estado: EstadoPeriodo.ABIERTO, fechaFin: { lt: hoy } },
     orderBy: { fechaFin: "asc" },
     take: 20,
   });
@@ -136,9 +138,9 @@ async function evaluarPeriodos(regla: ConfigRegla): Promise<AlertaGenerada[]> {
   }));
 }
 
-async function evaluarActivos(regla: ConfigRegla): Promise<AlertaGenerada[]> {
+async function evaluarActivos(regla: ConfigRegla, empresaId: string): Promise<AlertaGenerada[]> {
   const activos = await prisma.activoFijo.findMany({
-    where: { estado: EstadoActivoFijo.DEPRECIADO_TOTAL },
+    where: { empresaId, estado: EstadoActivoFijo.DEPRECIADO_TOTAL },
     orderBy: { fechaAdquisicion: "desc" },
     take: 20,
   });
@@ -153,13 +155,13 @@ async function evaluarActivos(regla: ConfigRegla): Promise<AlertaGenerada[]> {
   }));
 }
 
-async function evaluarTerceros(regla: ConfigRegla): Promise<AlertaGenerada[]> {
+async function evaluarTerceros(regla: ConfigRegla, empresaId: string): Promise<AlertaGenerada[]> {
   const dias = regla.dias ?? 90;
   const hoy = inicioDeHoy();
   const limite = new Date(hoy);
   limite.setDate(limite.getDate() - dias);
   const terceros = await prisma.tercero.findMany({
-    where: { activo: true, tipo: { in: [TipoTercero.CLIENTE, TipoTercero.AMBOS] } },
+    where: { empresaId, activo: true, tipo: { in: [TipoTercero.CLIENTE, TipoTercero.AMBOS] } },
     select: {
       id: true,
       nombreRazonSocial: true,
@@ -195,23 +197,23 @@ export async function cargarReglas(): Promise<ConfigRegla[]> {
   });
 }
 
-export async function evaluarAlertas(): Promise<AlertaGenerada[]> {
+export async function evaluarAlertas(empresaId: string): Promise<AlertaGenerada[]> {
   const reglas = await cargarReglas();
   const resultado: AlertaGenerada[] = [];
   for (const regla of reglas) {
     if (!regla.activa) continue;
     switch (regla.tipo) {
       case TipoAlerta.CARTERA_VENCE:
-        resultado.push(...(await evaluarCartera(regla)));
+        resultado.push(...(await evaluarCartera(regla, empresaId)));
         break;
       case TipoAlerta.PERIODO_SIN_CERRAR:
-        resultado.push(...(await evaluarPeriodos(regla)));
+        resultado.push(...(await evaluarPeriodos(regla, empresaId)));
         break;
       case TipoAlerta.ACTIVO_SIN_BAJA:
-        resultado.push(...(await evaluarActivos(regla)));
+        resultado.push(...(await evaluarActivos(regla, empresaId)));
         break;
       case TipoAlerta.TERCERO_SIN_MOVIMIENTO:
-        resultado.push(...(await evaluarTerceros(regla)));
+        resultado.push(...(await evaluarTerceros(regla, empresaId)));
         break;
     }
   }

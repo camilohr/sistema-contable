@@ -1,10 +1,11 @@
 import { Router } from "express";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireRole, requireEmpresa } from "../middleware/auth.js";
 import { nomina } from "../controllers/nomina.controller.js";
 
 const router = Router();
 
 router.use(requireAuth);
+router.use(requireEmpresa);
 
 router.get("/parametros", nomina.obtenerParametros);
 router.put("/parametros/:anio", requireRole("ADMIN", "CONTADOR"), nomina.actualizarParametros);

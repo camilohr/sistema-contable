@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { listar, detalle, crear, actualizar, contabilizar, anular, eliminar } from "../controllers/comprobantes.controller.js";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireRole, requireEmpresa } from "../middleware/auth.js";
 
 const router = Router();
 
 router.use(requireAuth);
+router.use(requireEmpresa);
 router.get("/", listar);
 router.get("/:id", detalle);
 router.post("/", requireRole("ADMIN", "CONTADOR"), crear);

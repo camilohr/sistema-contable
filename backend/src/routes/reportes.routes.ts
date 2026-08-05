@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireEmpresa } from "../middleware/auth.js";
 import { libroDiario, libroMayor, balanceComprobacion, balanceGeneral, estadoResultados } from "../controllers/reportes.controller.js";
 import { indicadoresComparativo, indicadoresPorPeriodo } from "../controllers/indicadores.controller.js";
 import { libroDiarioPdf, libroMayorPdf, libroInventariosPdf } from "../controllers/libros-pdf.controller.js";
@@ -7,6 +7,7 @@ import { libroDiarioPdf, libroMayorPdf, libroInventariosPdf } from "../controlle
 const router = Router();
 
 router.use(requireAuth);
+router.use(requireEmpresa);
 
 router.get("/libro-diario", libroDiario);
 router.get("/libro-mayor", libroMayor);

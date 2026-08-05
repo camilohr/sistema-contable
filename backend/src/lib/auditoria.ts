@@ -4,6 +4,7 @@ type DbEjecutor = Prisma.TransactionClient | PrismaClient;
 
 interface RegistrarAuditoriaArgs {
   usuarioId: string;
+  empresaId?: string;
   accion: AccionAuditoria;
   entidad: string;
   entidadId: string | number;
@@ -18,6 +19,7 @@ interface RegistrarAuditoriaArgs {
 export async function registrarAuditoria(db: DbEjecutor, args: RegistrarAuditoriaArgs): Promise<void> {
   await db.auditoria.create({
     data: {
+      empresaId: args.empresaId ?? null,
       usuarioId: args.usuarioId,
       accion: args.accion,
       entidad: args.entidad,

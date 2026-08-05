@@ -65,7 +65,7 @@ function crearControlador(kind: TipoCartera) {
     const estado = req.query.estado ? String(req.query.estado) : undefined;
     const terceroId = req.query.terceroId ? String(req.query.terceroId) : undefined;
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { empresaId: req.empresaId };
     if (terceroId) where.terceroId = terceroId;
     if (busqueda) {
       where.OR = [
@@ -93,7 +93,7 @@ function crearControlador(kind: TipoCartera) {
     }
     const data = parsed.data;
 
-    const tercero = await prisma.tercero.findUnique({ where: { id: data.terceroId } });
+    const tercero = await prisma.tercero.findFirst({ where: { id: data.terceroId, empresaId: req.empresaId } });
     if (!tercero || !tercero.activo) {
       res.status(400).json({ error: "El tercero no existe o está inactivo" });
       return;
@@ -103,7 +103,9 @@ function crearControlador(kind: TipoCartera) {
       return;
     }
     if (data.comprobanteId) {
-      const comprobante = await prisma.comprobante.findUnique({ where: { id: data.comprobanteId } });
+      const comprobante = await prisma.comprobante.findFirst({
+        where: { id: data.comprobanteId, empresaId: req.empresaId },
+      });
       if (!comprobante) {
         res.status(400).json({ error: `No existe el comprobante ${data.comprobanteId}` });
         return;
@@ -112,6 +114,7 @@ function crearControlador(kind: TipoCartera) {
 
     const doc = await modelo.create({
       data: {
+        empresaId: req.empresaId,
         terceroId: data.terceroId,
         comprobanteId: data.comprobanteId ?? null,
         numeroDocumento: data.numeroDocumento,
@@ -132,7 +135,7 @@ function crearControlador(kind: TipoCartera) {
       res.status(400).json({ error: "Id inválido" });
       return;
     }
-    const doc = await modelo.findUnique({ where: { id }, include: incluir });
+    const doc = await modelo.findFirst({ where: { id, empresaId: req.empresaId }, include: incluir });
     if (!doc) {
       res.status(404).json({ error: "Documento no encontrado" });
       return;
@@ -149,21 +152,23 @@ function crearControlador(kind: TipoCartera) {
     }
     const data = parsed.data;
 
-    const existe = await modelo.findUnique({ where: { id } });
+    const existe = await modelo.findFirst({ where: { id, empresaId: req.empresaId } });
     if (!existe) {
       res.status(404).json({ error: "Documento no encontrado" });
       return;
     }
 
     if (data.terceroId) {
-      const tercero = await prisma.tercero.findUnique({ where: { id: data.terceroId } });
+      const tercero = await prisma.tercero.findFirst({ where: { id: data.terceroId, empresaId: req.empresaId } });
       if (!tercero || !tercero.activo) {
         res.status(400).json({ error: "El tercero no existe o está inactivo" });
         return;
       }
     }
     if (data.comprobanteId !== undefined && data.comprobanteId) {
-      const comprobante = await prisma.comprobante.findUnique({ where: { id: data.comprobanteId } });
+      const comprobante = await prisma.comprobante.findFirst({
+        where: { id: data.comprobanteId, empresaId: req.empresaId },
+      });
       if (!comprobante) {
         res.status(400).json({ error: `No existe el comprobante ${data.comprobanteId}` });
         return;
@@ -191,7 +196,10 @@ function crearControlador(kind: TipoCartera) {
 
   async function eliminar(req: Request, res: Response): Promise<void> {
     const id = Number(req.params.id);
-    const existe = await modelo.findUnique({ where: { id }, include: { _count: { select: { [abonoRel]: true } } } });
+    const existe = await modelo.findFirst({
+      where: { id, empresaId: req.empresaId },
+      include: { _count: { select: { [abonoRel]: true } } },
+    });
     if (!existe) {
       res.status(404).json({ error: "Documento no encontrado" });
       return;
@@ -213,7 +221,7 @@ function crearControlador(kind: TipoCartera) {
     }
     const data = parsed.data;
 
-    const doc = await modelo.findUnique({ where: { id } });
+    const doc = await modelo.findFirst({ where: { id, empresaId: req.empresaId } });
     if (!doc) {
       res.status(404).json({ error: "Documento no encontrado" });
       return;
@@ -224,7 +232,9 @@ function crearControlador(kind: TipoCartera) {
       return;
     }
     if (data.comprobanteId) {
-      const comprobante = await prisma.comprobante.findUnique({ where: { id: data.comprobanteId } });
+      const comprobante = await prisma.comprobante.findFirst({
+        where: { id: data.comprobanteId, empresaId: req.empresaId },
+      });
       if (!comprobante) {
         res.status(400).json({ error: `No existe el comprobante ${data.comprobanteId}` });
         return;

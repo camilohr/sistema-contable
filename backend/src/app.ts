@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import authRoutes from "./routes/auth.routes.js";
 import usuariosRoutes from "./routes/usuarios.routes.js";
+import empresasRoutes from "./routes/empresas.routes.js";
 import cuentasRoutes from "./routes/cuentas.routes.js";
 import tercerosRoutes from "./routes/terceros.routes.js";
 import periodosRoutes from "./routes/periodos.routes.js";
@@ -42,6 +43,7 @@ export function createApp(): express.Express {
 
   app.use("/api/auth", authRoutes);
   app.use("/api/usuarios", usuariosRoutes);
+  app.use("/api/empresas", empresasRoutes);
   app.use("/api/cuentas", cuentasRoutes);
   app.use("/api/terceros", tercerosRoutes);
   app.use("/api/periodos", periodosRoutes);

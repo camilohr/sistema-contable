@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
-import { prisma } from "../src/lib/prisma.js";
+import { prisma } from "./prisma-test.js";
 import bcrypt from "bcryptjs";
 
 const app = createApp();
@@ -122,6 +122,31 @@ describe("Cambio de contraseña obligatorio", () => {
   });
 });
 
+describe("Empresas: /api/empresas", () => {
+  it("no autenticado recibe 401", async () => {
+    const res = await request(app).get("/api/empresas");
+    expect(res.status).toBe(401);
+  });
+
+  it("listar devuelve las empresas del usuario autenticado", async () => {
+    const login = await request(app).post("/api/auth/login").send({ email: "admin@test.local", password: "clave123" });
+    const res = await request(app).get("/api/empresas").set("Authorization", `Bearer ${login.body.token}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    const empresas = res.body as { id: string; nombre: string; rol: string }[];
+    expect(empresas.length).toBeGreaterThan(0);
+    expect(empresas[0].id).toBeTruthy();
+    expect(empresas[0].rol).toBe("ADMIN");
+  });
+
+  it("listar no incluye empresas a las que no pertenece el usuario", async () => {
+    const login = await request(app).post("/api/auth/login").send({ email: "test@test.local", password: "clave123" });
+    const res = await request(app).get("/api/empresas").set("Authorization", `Bearer ${login.body.token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.every((e: { rol: string }) => e.rol === "AUXILIAR")).toBe(true);
+  });
+});
+
 describe("Roles en /api/usuarios", () => {
   it("ADMIN puede listar usuarios (200)", async () => {
     const login = await request(app).post("/api/auth/login").send({ email: "admin@test.local", password: "clave123" });
@@ -137,6 +162,8 @@ describe("Roles en /api/usuarios", () => {
   });
 
   it("solo ADMIN puede crear usuarios (201)", async () => {
+    await prisma.usuarioEmpresa.deleteMany({ where: { usuario: { email: "nuevo@test.local" } } });
+    await prisma.usuario.deleteMany({ where: { email: "nuevo@test.local" } });
     const login = await request(app).post("/api/auth/login").send({ email: "admin@test.local", password: "clave123" });
     const res = await request(app)
       .post("/api/usuarios")
@@ -144,6 +171,7 @@ describe("Roles en /api/usuarios", () => {
       .send({ nombre: "Contador Nuevo", email: "nuevo@test.local", password: "clave123", rol: "CONTADOR" });
     expect(res.status).toBe(201);
     expect(res.body.rol).toBe("CONTADOR");
+    await prisma.usuarioEmpresa.deleteMany({ where: { usuarioId: res.body.id } });
     await prisma.usuario.delete({ where: { email: "nuevo@test.local" } });
   });
 

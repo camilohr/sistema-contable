@@ -10,6 +10,7 @@ const EMAIL = process.env.DEMO_EMAIL || "admin@sistema.local";
 const PASSWORD = process.env.DEMO_PASSWORD || "Admin123!";
 
 let token = "";
+let empresaId = process.env.DEMO_EMPRESA_ID || "";
 
 function pad(n) {
   return String(n).padStart(3, "0");
@@ -21,6 +22,7 @@ async function api(method, path, body) {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
+      ...(empresaId ? { "X-Empresa-Id": empresaId } : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -55,6 +57,14 @@ async function login() {
     process.exit(0);
   }
   ok(`login como ${data.usuario.nombre} (${data.usuario.rol})`);
+  if (!empresaId) {
+    const empresas = await api("GET", "/api/empresas");
+    if (!empresas.length) throw new Error("El usuario no tiene empresas asociadas. Asigna una empresa al usuario o define DEMO_EMPRESA_ID.");
+    empresaId = empresas[0].id;
+    ok(`empresa activa: ${empresas[0].nombre} (${empresaId})`);
+  } else {
+    ok(`empresa activa: ${empresaId} (DEMO_EMPRESA_ID)`);
+  }
 }
 
 async function cuentas() {

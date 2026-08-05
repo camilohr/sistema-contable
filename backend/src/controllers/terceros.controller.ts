@@ -55,7 +55,7 @@ export async function listar(req: Request, res: Response): Promise<void> {
   const busqueda = req.query.busqueda ? String(req.query.busqueda).trim() : undefined;
   const soloActivos = req.query.soloActivos === "true";
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { empresaId: req.empresaId };
   if (tipo && (Object.values(TipoTercero) as string[]).includes(tipo)) where.tipo = tipo;
   if (soloActivos) where.activo = true;
   if (busqueda) {
@@ -81,8 +81,8 @@ export async function crear(req: Request, res: Response): Promise<void> {
   }
   const data = parsed.data;
 
-  const existe = await prisma.tercero.findUnique({
-    where: { tipoDocumento_documento: { tipoDocumento: data.tipoDocumento, documento: data.documento } },
+  const existe = await prisma.tercero.findFirst({
+    where: { empresaId: req.empresaId, tipoDocumento: data.tipoDocumento, documento: data.documento },
   });
   if (existe) {
     res.status(409).json({ error: `Ya existe un tercero con ${data.tipoDocumento} ${data.documento}` });
@@ -91,6 +91,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
 
   const tercero = await prisma.tercero.create({
     data: {
+      empresaId: req.empresaId,
       tipo: data.tipo ?? "CLIENTE",
       tipoDocumento: data.tipoDocumento,
       documento: data.documento,
@@ -113,7 +114,7 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
   }
   const data = parsed.data;
 
-  const existe = await prisma.tercero.findUnique({ where: { id } });
+  const existe = await prisma.tercero.findFirst({ where: { id, empresaId: req.empresaId } });
   if (!existe) {
     res.status(404).json({ error: "Tercero no encontrado" });
     return;
@@ -122,8 +123,8 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
   const tipoDoc = (data.tipoDocumento ?? existe.tipoDocumento) as TipoDocumento;
   const documento = data.documento ?? existe.documento;
   if (tipoDoc !== existe.tipoDocumento || documento !== existe.documento) {
-    const duplicado = await prisma.tercero.findUnique({
-      where: { tipoDocumento_documento: { tipoDocumento: tipoDoc, documento } },
+    const duplicado = await prisma.tercero.findFirst({
+      where: { empresaId: req.empresaId, tipoDocumento: tipoDoc, documento },
     });
     if (duplicado) {
       res.status(409).json({ error: `Ya existe un tercero con ${tipoDoc} ${documento}` });
@@ -137,7 +138,7 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
 
 export async function eliminar(req: Request, res: Response): Promise<void> {
   const id = req.params.id;
-  const existe = await prisma.tercero.findUnique({ where: { id } });
+  const existe = await prisma.tercero.findFirst({ where: { id, empresaId: req.empresaId } });
   if (!existe) {
     res.status(404).json({ error: "Tercero no encontrado" });
     return;

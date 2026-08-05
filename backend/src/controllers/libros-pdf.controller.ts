@@ -3,17 +3,17 @@ import { prisma } from "../lib/prisma.js";
 import { DocumentoPdf, Columna, Fila, DatosEmpresa, formatearMoneda, formatearFecha } from "../lib/pdf.js";
 import { datosBalanceGeneral, datosLibroDiario, datosLibroMayor, whereFiltros } from "./reportes.controller.js";
 
-async function obtenerEmpresa(): Promise<DatosEmpresa> {
-  const p = await prisma.parametro.findFirst();
-  return p
-    ? { nombreEmpresa: p.nombreEmpresa, nit: p.nit, direccion: p.direccion, telefono: p.telefono }
+async function obtenerEmpresa(empresaId: string): Promise<DatosEmpresa> {
+  const e = await prisma.empresa.findUnique({ where: { id: empresaId } });
+  return e
+    ? { nombreEmpresa: e.nombre, nit: e.nit, direccion: e.direccion ?? undefined, telefono: e.telefono ?? undefined }
     : { nombreEmpresa: "Empresa", nit: "000000000" };
 }
 
 async function textoPeriodo(req: Request): Promise<string> {
   const periodoId = req.query.periodoId ? Number(req.query.periodoId) : undefined;
   if (periodoId) {
-    const p = await prisma.periodo.findUnique({ where: { id: periodoId } });
+    const p = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId: req.empresaId } });
     if (p) return `Periodo: ${p.nombre}`;
   }
   const desde = req.query.fechaDesde ? String(req.query.fechaDesde) : undefined;
@@ -30,7 +30,7 @@ function responderPdf(res: Response, buffer: Buffer, nombreArchivo: string): voi
 }
 
 export async function libroDiarioPdf(req: Request, res: Response): Promise<void> {
-  const [empresa, datos, periodo] = await Promise.all([obtenerEmpresa(), datosLibroDiario(whereFiltros(req)), textoPeriodo(req)]);
+  const [empresa, datos, periodo] = await Promise.all([obtenerEmpresa(req.empresaId!), datosLibroDiario(whereFiltros(req)), textoPeriodo(req)]);
 
   const columnas: Columna[] = [
     { campo: "ref", titulo: "REF", ancho: 1.2, alinear: "centro" },
@@ -64,7 +64,7 @@ export async function libroDiarioPdf(req: Request, res: Response): Promise<void>
 export async function libroMayorPdf(req: Request, res: Response): Promise<void> {
   const cuentaId = req.query.cuentaId ? Number(req.query.cuentaId) : undefined;
   const [empresa, datos, periodo] = await Promise.all([
-    obtenerEmpresa(),
+    obtenerEmpresa(req.empresaId!),
     datosLibroMayor(whereFiltros(req), cuentaId),
     textoPeriodo(req),
   ]);
@@ -107,8 +107,8 @@ function filasBalance(grupos: { grupo: string; nombre: string; cuentas: { codigo
 
 export async function libroInventariosPdf(req: Request, res: Response): Promise<void> {
   const [empresa, datos, periodo] = await Promise.all([
-    obtenerEmpresa(),
-    datosBalanceGeneral(whereFiltros(req)),
+    obtenerEmpresa(req.empresaId!),
+    datosBalanceGeneral(whereFiltros(req), req.empresaId!),
     textoPeriodo(req),
   ]);
 

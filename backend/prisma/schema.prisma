@@ -13,6 +13,12 @@ enum Rol {
   AUXILIAR
 }
 
+enum RolEmpresa {
+  ADMIN
+  CONTADOR
+  AUXILIAR
+}
+
 enum Naturaleza {
   DEUDORA
   ACREEDORA
@@ -115,6 +121,54 @@ enum AccionAuditoria {
   CARGAR_PRESUPUESTO
 }
 
+model Empresa {
+  id               String   @id @default(uuid())
+  nombre           String
+  nit              String
+  direccion        String?
+  telefono         String?
+  moneda           String   @default("COP")
+  anioFiscalInicio Int      @default(1)
+  mensajeRecibo    String?
+  activa           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  usuariosEmpresa        UsuarioEmpresa[]
+  cuentas                Cuenta[]
+  terceros               Tercero[]
+  periodos               Periodo[]
+  comprobantes           Comprobante[]
+  consecutivos           Consecutivo[]
+  cuentasPorCobrar       CuentaPorCobrar[]
+  cuentasPorPagar        CuentaPorPagar[]
+  productos              Producto[]
+  activosFijos           ActivoFijo[]
+  auditorias             Auditoria[]
+  cierresAnuales         CierreAnual[]
+  parametrosProvision    ParametroProvision[]
+  parametrosNomina       ParametroNomina[]
+  parametrosCuentaNomina ParametroCuentaNomina[]
+
+  @@index([activa])
+}
+
+model UsuarioEmpresa {
+  id        String     @id @default(uuid())
+  usuarioId String
+  empresaId String
+  rol       RolEmpresa
+  activo    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+
+  @@unique([usuarioId, empresaId])
+  @@index([empresaId])
+}
+
 model Usuario {
   id                   String        @id @default(uuid())
   nombre               String
@@ -130,11 +184,13 @@ model Usuario {
   comprobantesAnulados Comprobante[] @relation("Anulador")
   auditorias           Auditoria[]
   cierresAnuales       CierreAnual[]
+  usuarioEmpresas      UsuarioEmpresa[]
 }
 
 model Cuenta {
   id                Int        @id @default(autoincrement())
-  codigo            String     @unique
+  empresaId         String?
+  codigo            String
   nombre            String
   nivel             Int
   clase             Int
@@ -149,6 +205,8 @@ model Cuenta {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
+  empresa Empresa? @relation(fields: [empresaId], references: [id])
+
   asientos Asiento[]
 
   activosActivo        ActivoFijo[] @relation("ActivoCuenta")
@@ -158,12 +216,14 @@ model Cuenta {
   parametrosCuentaNomina ParametroCuentaNomina[]
   presupuestos         Presupuesto[]
 
+  @@unique([empresaId, codigo])
   @@index([clase, grupo])
   @@index([nivel])
 }
 
 model Tercero {
   id                String        @id @default(uuid())
+  empresaId         String
   tipo              TipoTercero   @default(CLIENTE)
   tipoDocumento     TipoDocumento
   documento         String
@@ -176,6 +236,8 @@ model Tercero {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+
   comprobantes Comprobante[]
   asientos     Asiento[]
   cuentasPorCobrar CuentaPorCobrar[]
@@ -184,31 +246,21 @@ model Tercero {
   pagos            Pago[]
   empleado         Empleado?
 
-  @@unique([tipoDocumento, documento])
-  @@index([tipo])
-}
-
-model Parametro {
-  id               Int      @id @default(autoincrement())
-  nombreEmpresa    String
-  nit              String
-  direccion        String?
-  telefono         String?
-  moneda           String   @default("COP")
-  anioFiscalInicio Int      @default(1)
-  mensajeRecibo    String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  @@unique([empresaId, tipoDocumento, documento])
+  @@index([empresaId, tipo])
 }
 
 model Periodo {
   id          Int           @id @default(autoincrement())
-  nombre      String        @unique
+  empresaId   String
+  nombre      String
   fechaInicio DateTime      @db.Date
   fechaFin    DateTime      @db.Date
   estado      EstadoPeriodo @default(ABIERTO)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
 
   comprobantes Comprobante[]
 
@@ -218,11 +270,13 @@ model Periodo {
   provisionesNomina ProvisionNomina[]
   presupuestos     Presupuesto[]
 
+  @@unique([empresaId, nombre])
   @@index([estado])
 }
 
 model Comprobante {
   id             Int                @id @default(autoincrement())
+  empresaId      String
   tipo           TipoComprobante
   consecutivo    Int
   fecha          DateTime           @db.Date
@@ -238,6 +292,7 @@ model Comprobante {
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
+  empresa        Empresa     @relation(fields: [empresaId], references: [id])
   periodo        Periodo     @relation(fields: [periodoId], references: [id])
   tercero        Tercero?    @relation(fields: [terceroId], references: [id])
   usuarioCreo    Usuario     @relation("Creador", fields: [usuarioCreoId], references: [id])
@@ -254,9 +309,9 @@ model Comprobante {
   nominas          Nomina[]
   provisionesNomina ProvisionNomina[]
 
-  @@unique([tipo, consecutivo])
-  @@index([periodoId])
-  @@index([fecha])
+  @@unique([empresaId, tipo, consecutivo])
+  @@index([empresaId, periodoId])
+  @@index([empresaId, fecha])
   @@index([estado])
 }
 
@@ -278,12 +333,18 @@ model Asiento {
 }
 
 model Consecutivo {
-  tipo   TipoComprobante @id
-  ultimo Int             @default(0)
+  empresaId String
+  tipo      TipoComprobante
+  ultimo    Int             @default(0)
+
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+
+  @@id([empresaId, tipo])
 }
 
 model CuentaPorCobrar {
   id               Int          @id @default(autoincrement())
+  empresaId        String
   terceroId        String
   comprobanteId    Int?
   numeroDocumento  String
@@ -295,16 +356,18 @@ model CuentaPorCobrar {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
+  empresa     Empresa     @relation(fields: [empresaId], references: [id])
   tercero     Tercero     @relation(fields: [terceroId], references: [id])
   comprobante Comprobante? @relation(fields: [comprobanteId], references: [id])
   recibos     Recibo[]
 
-  @@index([terceroId])
-  @@index([estado])
+  @@index([empresaId, terceroId])
+  @@index([empresaId, estado])
 }
 
 model CuentaPorPagar {
   id               Int          @id @default(autoincrement())
+  empresaId        String
   terceroId        String
   comprobanteId    Int?
   numeroDocumento  String
@@ -316,12 +379,13 @@ model CuentaPorPagar {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
+  empresa     Empresa     @relation(fields: [empresaId], references: [id])
   tercero     Tercero     @relation(fields: [terceroId], references: [id])
   comprobante Comprobante? @relation(fields: [comprobanteId], references: [id])
   pagos       Pago[]
 
-  @@index([terceroId])
-  @@index([estado])
+  @@index([empresaId, terceroId])
+  @@index([empresaId, estado])
 }
 
 model Recibo {
@@ -360,7 +424,8 @@ model Pago {
 
 model Producto {
   id             Int     @id @default(autoincrement())
-  codigo         String  @unique
+  empresaId      String
+  codigo         String
   nombre         String
   categoria      String?
   unidad         String  @default("und")
@@ -370,9 +435,12 @@ model Producto {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+
   movimientos InventarioMovimiento[]
 
-  @@index([activo])
+  @@unique([empresaId, codigo])
+  @@index([empresaId, activo])
 }
 
 model InventarioMovimiento {
@@ -394,6 +462,7 @@ model InventarioMovimiento {
 
 model ActivoFijo {
   id                    Int                @id @default(autoincrement())
+  empresaId             String
   cuentaId              Int
   cuentaDepreciacionId  Int
   cuentaGastoId         Int
@@ -408,12 +477,13 @@ model ActivoFijo {
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
 
-  cuenta             Cuenta          @relation("ActivoCuenta", fields: [cuentaId], references: [id])
-  cuentaDepreciacion Cuenta          @relation("ActivoCuentaDepreciacion", fields: [cuentaDepreciacionId], references: [id])
-  cuentaGasto        Cuenta          @relation("ActivoCuentaGasto", fields: [cuentaGastoId], references: [id])
-  depreciaciones     Depreciacion[]
+  empresa          Empresa         @relation(fields: [empresaId], references: [id])
+  cuenta           Cuenta          @relation("ActivoCuenta", fields: [cuentaId], references: [id])
+  cuentaDepreciacion Cuenta        @relation("ActivoCuentaDepreciacion", fields: [cuentaDepreciacionId], references: [id])
+  cuentaGasto      Cuenta          @relation("ActivoCuentaGasto", fields: [cuentaGastoId], references: [id])
+  depreciaciones   Depreciacion[]
 
-  @@index([estado])
+  @@index([empresaId, estado])
 }
 
 model Depreciacion {
@@ -433,42 +503,51 @@ model Depreciacion {
 }
 
 model Auditoria {
-  id        Int             @id @default(autoincrement())
-  usuarioId String
-  accion    AccionAuditoria
-  entidad   String
-  entidadId String
-  detalle   Json?
-  fecha     DateTime        @default(now())
+  id         Int             @id @default(autoincrement())
+  empresaId  String?
+  usuarioId  String
+  accion     AccionAuditoria
+  entidad    String
+  entidadId  String
+  detalle    Json?
+  fecha      DateTime        @default(now())
 
+  empresa Empresa? @relation(fields: [empresaId], references: [id])
   usuario Usuario @relation(fields: [usuarioId], references: [id])
 
-  @@index([entidad, entidadId])
+  @@index([empresaId, entidad, entidadId])
   @@index([fecha])
   @@index([usuarioId])
 }
 
 model CierreAnual {
   id               Int      @id @default(autoincrement())
-  anio             Int      @unique
+  empresaId        String
+  anio             Int
   comprobanteId    Int      @unique
   cuentaUtilidadId Int
   usuarioId        String
   fecha            DateTime @default(now())
 
+  empresa        Empresa     @relation(fields: [empresaId], references: [id])
   comprobante    Comprobante @relation(fields: [comprobanteId], references: [id])
   cuentaUtilidad Cuenta      @relation("CierreCuentaUtilidad", fields: [cuentaUtilidadId], references: [id])
   usuario        Usuario     @relation(fields: [usuarioId], references: [id])
+
+  @@unique([empresaId, anio])
 }
 
 model ParametroProvision {
   id         Int      @id @default(autoincrement())
+  empresaId  String?
   diasDesde  Int
   diasHasta  Int?
   porcentaje Decimal  @db.Decimal(5, 2)
   createdAt  DateTime @default(now())
 
-  @@unique([diasDesde, diasHasta])
+  empresa Empresa? @relation(fields: [empresaId], references: [id])
+
+  @@unique([empresaId, diasDesde, diasHasta])
 }
 
 model ProvisionCartera {
@@ -571,7 +650,8 @@ model ProvisionNomina {
 
 model ParametroNomina {
   id                         Int      @id @default(autoincrement())
-  anio                       Int      @unique
+  empresaId                  String?
+  anio                       Int
   smmlv                      Decimal  @db.Decimal(15, 2)
   auxilioTransporte          Decimal  @db.Decimal(15, 2)
   topeAuxilioTransporteSalarios Decimal @db.Decimal(5, 2)
@@ -589,17 +669,24 @@ model ParametroNomina {
   interesesCesantias         Decimal  @db.Decimal(5, 2)
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
+
+  empresa Empresa? @relation(fields: [empresaId], references: [id])
+
+  @@unique([empresaId, anio])
 }
 
 model ParametroCuentaNomina {
   id        Int      @id @default(autoincrement())
-  concepto  String   @unique
+  empresaId String
+  concepto  String
   cuentaId  Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  cuenta Cuenta @relation(fields: [cuentaId], references: [id])
+  empresa Empresa @relation(fields: [empresaId], references: [id])
+  cuenta  Cuenta  @relation(fields: [cuentaId], references: [id])
 
+  @@unique([empresaId, concepto])
   @@index([cuentaId])
 }
 

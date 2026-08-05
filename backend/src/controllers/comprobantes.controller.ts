@@ -95,8 +95,8 @@ function serializarComprobante(c: ComprobanteConRel) {
   };
 }
 
-async function validarYPreparar(data: z.infer<typeof guardarSchema>) {
-  const periodo = await prisma.periodo.findUnique({ where: { id: data.periodoId } });
+async function validarYPreparar(data: z.infer<typeof guardarSchema>, empresaId: string) {
+  const periodo = await prisma.periodo.findFirst({ where: { id: data.periodoId, empresaId } });
   if (!periodo) return { error: `No existe el periodo ${data.periodoId}` as string };
   if (periodo.estado !== EstadoPeriodo.ABIERTO) return { error: "El periodo está cerrado" };
   const fecha = new Date(data.fecha);
@@ -106,16 +106,18 @@ async function validarYPreparar(data: z.infer<typeof guardarSchema>) {
   }
 
   if (data.terceroId) {
-    const tercero = await prisma.tercero.findUnique({ where: { id: data.terceroId } });
+    const tercero = await prisma.tercero.findFirst({ where: { id: data.terceroId, empresaId } });
     if (!tercero) return { error: "El tercero no existe" };
   }
 
   const idsCuenta = [...new Set(data.asientos.map((a) => a.cuentaId))];
-  const cuentas = await prisma.cuenta.findMany({ where: { id: { in: idsCuenta } } });
+  const cuentas = await prisma.cuenta.findMany({
+    where: { id: { in: idsCuenta }, OR: [{ empresaId: null }, { empresaId }] },
+  });
   const cuentaPorId = new Map(cuentas.map((c) => [c.id, c]));
 
   const anioPeriodo = Number(periodo.fechaInicio.toISOString().slice(0, 4));
-  const cierreAnio = await prisma.cierreAnual.findUnique({ where: { anio: anioPeriodo } });
+  const cierreAnio = await prisma.cierreAnual.findFirst({ where: { anio: anioPeriodo, empresaId } });
   if (cierreAnio && cuentas.some((c) => c.clase >= 4 && c.clase <= 7)) {
     return { error: `El año ${anioPeriodo} está cerrado; no se permiten movimientos en cuentas de resultado` };
   }
@@ -130,7 +132,7 @@ async function validarYPreparar(data: z.infer<typeof guardarSchema>) {
     if (!cuenta.permiteMovimiento) return { error: `La cuenta ${cuenta.codigo} (${cuenta.nombre}) no permite movimiento` };
     if (cuenta.requiereTercero) {
       if (!a.terceroId) return { error: `La cuenta ${cuenta.codigo} requiere asociar un tercero` };
-      const t = await prisma.tercero.findUnique({ where: { id: a.terceroId } });
+      const t = await prisma.tercero.findFirst({ where: { id: a.terceroId, empresaId } });
       if (!t) return { error: "El tercero asociado no existe" };
     }
     if (a.debito) totalDebito = totalDebito.plus(a.debito);
@@ -152,7 +154,7 @@ export async function listar(req: Request, res: Response): Promise<void> {
   const fechaHasta = req.query.fechaHasta ? String(req.query.fechaHasta) : undefined;
   const busqueda = req.query.busqueda ? String(req.query.busqueda).trim() : undefined;
 
-  const where: Prisma.ComprobanteWhereInput = {};
+  const where: Prisma.ComprobanteWhereInput = { empresaId: req.empresaId };
   if (tipo && (Object.values(TipoComprobante) as string[]).includes(tipo)) where.tipo = tipo as TipoComprobante;
   if (estado && (Object.values(EstadoComprobante) as string[]).includes(estado)) where.estado = estado as EstadoComprobante;
   if (periodoId) where.periodoId = periodoId;
@@ -178,8 +180,8 @@ export async function listar(req: Request, res: Response): Promise<void> {
 
 export async function detalle(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
-  const comprobante = await prisma.comprobante.findUnique({
-    where: { id },
+  const comprobante = await prisma.comprobante.findFirst({
+    where: { id, empresaId: req.empresaId },
     include: {
       periodo: true,
       tercero: { select: { nombreRazonSocial: true } },
@@ -201,7 +203,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
   }
   const data = parsed.data;
 
-  const validado = await validarYPreparar(data);
+  const validado = await validarYPreparar(data, req.empresaId!);
   if ("error" in validado) {
     res.status(400).json({ error: validado.error });
     return;
@@ -212,14 +214,22 @@ export async function crear(req: Request, res: Response): Promise<void> {
 
   const comprobante = await prisma.$transaction(async (tx) => {
     const [max, cont] = await Promise.all([
-      tx.comprobante.aggregate({ _max: { consecutivo: true }, where: { tipo: data.tipo } }),
-      tx.consecutivo.upsert({ where: { tipo: data.tipo }, create: { tipo: data.tipo, ultimo: 0 }, update: {} }),
+      tx.comprobante.aggregate({ _max: { consecutivo: true }, where: { tipo: data.tipo, empresaId: req.empresaId } }),
+      tx.consecutivo.upsert({
+        where: { empresaId_tipo: { empresaId: req.empresaId!, tipo: data.tipo } },
+        create: { empresaId: req.empresaId!, tipo: data.tipo, ultimo: 0 },
+        update: {},
+      }),
     ]);
     const base = Math.max(max._max.consecutivo ?? 0, cont.ultimo);
     const consecutivo = base + 1;
-    await tx.consecutivo.update({ where: { tipo: data.tipo }, data: { ultimo: consecutivo } });
+    await tx.consecutivo.update({
+      where: { empresaId_tipo: { empresaId: req.empresaId!, tipo: data.tipo } },
+      data: { ultimo: consecutivo },
+    });
     const creado = await tx.comprobante.create({
       data: {
+        empresaId: req.empresaId!,
         tipo: data.tipo,
         consecutivo,
         fecha,
@@ -250,7 +260,10 @@ export async function crear(req: Request, res: Response): Promise<void> {
 
 export async function actualizar(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
-  const existe = await prisma.comprobante.findUnique({ where: { id }, include: { periodo: true } });
+  const existe = await prisma.comprobante.findFirst({
+    where: { id, empresaId: req.empresaId },
+    include: { periodo: true },
+  });
   if (!existe) {
     res.status(404).json({ error: "Comprobante no encontrado" });
     return;
@@ -285,7 +298,7 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     })),
   };
 
-  const validado = await validarYPreparar(base as z.infer<typeof guardarSchema>);
+  const validado = await validarYPreparar(base as z.infer<typeof guardarSchema>, req.empresaId!);
   if ("error" in validado) {
     res.status(400).json({ error: validado.error });
     return;
@@ -322,7 +335,7 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
 
 export async function contabilizar(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
-  const existe = await prisma.comprobante.findUnique({ where: { id } });
+  const existe = await prisma.comprobante.findFirst({ where: { id, empresaId: req.empresaId } });
   if (!existe) {
     res.status(404).json({ error: "Comprobante no encontrado" });
     return;
@@ -339,6 +352,7 @@ export async function contabilizar(req: Request, res: Response): Promise<void> {
     });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.CONTABILIZAR,
       entidad: "Comprobante",
       entidadId: id,
@@ -351,7 +365,7 @@ export async function contabilizar(req: Request, res: Response): Promise<void> {
 
 export async function anular(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
-  const existe = await prisma.comprobante.findUnique({ where: { id } });
+  const existe = await prisma.comprobante.findFirst({ where: { id, empresaId: req.empresaId } });
   if (!existe) {
     res.status(404).json({ error: "Comprobante no encontrado" });
     return;
@@ -371,6 +385,7 @@ export async function anular(req: Request, res: Response): Promise<void> {
     }
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.ANULAR,
       entidad: "Comprobante",
       entidadId: id,
@@ -383,7 +398,7 @@ export async function anular(req: Request, res: Response): Promise<void> {
 
 export async function eliminar(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
-  const existe = await prisma.comprobante.findUnique({ where: { id } });
+  const existe = await prisma.comprobante.findFirst({ where: { id, empresaId: req.empresaId } });
   if (!existe) {
     res.status(404).json({ error: "Comprobante no encontrado" });
     return;
@@ -396,6 +411,7 @@ export async function eliminar(req: Request, res: Response): Promise<void> {
     await tx.comprobante.delete({ where: { id } });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.ELIMINAR_COMPROBANTE,
       entidad: "Comprobante",
       entidadId: id,

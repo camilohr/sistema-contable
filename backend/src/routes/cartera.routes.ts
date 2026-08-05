@@ -1,11 +1,12 @@
 import { Router } from "express";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireRole, requireEmpresa } from "../middleware/auth.js";
 import { cxc, cxp } from "../controllers/cartera.controller.js";
 import { provision } from "../controllers/provision-cartera.controller.js";
 
 const router = Router();
 
 router.use(requireAuth);
+router.use(requireEmpresa);
 
 router.get("/cxc", cxc.listar);
 router.post("/cxc", requireRole("ADMIN", "CONTADOR"), cxc.crear);

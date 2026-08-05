@@ -247,26 +247,35 @@ model UsuarioEmpresa {
 - ~~Inventario completo de tablas → `empresaId`~~ → resuelto en §4.4.
 - ~~Decidir si `Tercero` es por empresa~~ → resuelto en §4.4 (directo).
 - ~~Modelo `UsuarioEmpresa`~~ → resuelto en §4.5.
-- Pendiente real para antes de Fase 1: **plan de migración probado en un entorno de
-  prueba con una copia de los datos reales**, no solo diseñado en papel — correr la
-  migración de §4.7 contra un respaldo real y validar que cuadre (comparar totales de
-  balance antes/después).
-- Pendiente real: estimar el impacto en los tests existentes (se necesita un helper de
-  "empresa de prueba" que la mayoría de los tests actuales tendrán que usar) y en el
-  seed de datos demo.
+- ~~Plan de migración probado contra los datos reales~~ → resuelto: la migración de
+  §4.7 se ejecutó sobre la BD real con respaldo previo (`backups/`); la empresa actual
+  pasó a ser el cliente 1 y sus datos (antes en `Parametro`) se absorbieron en
+  `Empresa`.
+- ~~Impacto en los tests existentes y en el seed demo~~ → resuelto: helper de "empresa
+  de prueba" en `backend/tests/helpers.ts` + cliente Prisma de test que inyecta
+  `empresaId`; el seed demo (`backend/scripts/seed-demo.mjs`) envía `X-Empresa-Id`.
 - Pendiente real: definir la plantilla de actividades por defecto del proceso (lista
-  concreta de qué actividades trae un `ProcesoContable` nuevo).
+  concreta de qué actividades trae un `ProcesoContable` nuevo) → se resuelve al inicio
+  de la Fase 2.
 
-### Fase 1 — Multientidad (backend + BD)
+### Fase 1 — Multientidad (backend + BD) *(implementada el 2026-08-05)*
 
-- Modelo `Empresa`; `Parametro` se absorbe en `Empresa`.
-- `empresaId` en las tablas de negocio según el inventario de §4.4; índices y
-  `@@unique` ajustados.
-- Modelo `UsuarioEmpresa` (§4.5).
-- Endpoints `/api/empresas` (CRUD, ADMIN) y selección de empresa activa.
-- Middleware `requireEmpresa` + resolución de rol efectivo (§4.5).
-- Migración de datos: empresa actual → cliente 1 (§4.7).
-- Adaptar la suite de tests (helper de empresa de prueba) y el seed de datos demo.
+- ~~Modelo `Empresa`; `Parametro` se absorbe en `Empresa`.~~
+- ~~`empresaId` en las tablas de negocio según el inventario de §4.4; índices y
+  `@@unique` ajustados.~~
+- ~~Modelo `UsuarioEmpresa` (§4.5).~~
+- ~~Endpoints `/api/empresas` y selección de empresa activa.~~ → implementado:
+  `GET /api/empresas` (empresas del usuario autenticado con su rol efectivo) +
+  selector de empresa en el frontend (header `X-Empresa-Id`, empresa en la URL
+  `/empresa/:empresaId`). El CRUD de clientes (crear/editar/desactivar) queda en la
+  Fase 5 (gestión de clientes).
+- ~~Middleware `requireEmpresa` + resolución de rol efectivo (§4.5).~~
+- ~~Migración de datos: empresa actual → cliente 1 (§4.7).~~
+- ~~Adaptar la suite de tests (helper de empresa de prueba) y el seed de datos demo.~~
+
+Estado: suite backend en verde (318 tests, 18 archivos); typecheck y build limpios en
+backend y frontend; selector de empresa validado en navegador (aislamiento de datos
+entre empresas).
 
 ### Fase 2 — Procesos contables y seguimiento *(el corazón de la visión)*
 
@@ -396,7 +405,7 @@ Alcance de la fase:
 | Fase | Qué aporta | Prioridad |
 |---|---|---|
 | 0 | Diseño y decisiones | Cerrada por este documento |
-| 1 | Multientidad | Crítica |
+| 1 | Multientidad | Crítica | ✅ Implementada (2026-08-05) |
 | 2 | Procesos y seguimiento | Alta |
 | 3 | Navegación por proceso | Alta |
 | 4 | Conciliación, soportes, exportación de informes | Media-alta *(subió por solicitud explícita)* |

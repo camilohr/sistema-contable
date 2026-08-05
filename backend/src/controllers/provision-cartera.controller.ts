@@ -51,9 +51,17 @@ function serializarParametro(p: { id: number; diasDesde: number; diasHasta: numb
   return { id: p.id, diasDesde: p.diasDesde, diasHasta: p.diasHasta, porcentaje: num(p.porcentaje) };
 }
 
-export async function obtenerParametros(_req: Request, res: Response): Promise<void> {
-  const parametros = await prisma.parametroProvision.findMany({ orderBy: { diasDesde: "asc" } });
-  res.json(parametros.map(serializarParametro));
+export async function obtenerParametros(req: Request, res: Response): Promise<void> {
+  const filas = await prisma.parametroProvision.findMany({
+    where: { OR: [{ empresaId: null }, { empresaId: req.empresaId }] },
+    orderBy: { diasDesde: "asc" },
+  });
+  const porRango = new Map<string, (typeof filas)[number]>();
+  for (const p of filas) {
+    const key = `${p.diasDesde}-${p.diasHasta ?? ""}`;
+    if (!porRango.has(key) || p.empresaId === req.empresaId) porRango.set(key, p);
+  }
+  res.json([...porRango.values()].sort((a, b) => a.diasDesde - b.diasDesde).map(serializarParametro));
 }
 
 export async function actualizarParametros(req: Request, res: Response): Promise<void> {
@@ -69,24 +77,28 @@ export async function actualizarParametros(req: Request, res: Response): Promise
     return;
   }
   const guardados = await prisma.$transaction(async (tx) => {
-    await tx.parametroProvision.deleteMany({});
+    await tx.parametroProvision.deleteMany({ where: { empresaId: req.empresaId } });
     await tx.parametroProvision.createMany({
       data: parametros.map((p) => ({
+        empresaId: req.empresaId,
         diasDesde: p.diasDesde,
         diasHasta: p.diasHasta ?? null,
         porcentaje: new Prisma.Decimal(p.porcentaje),
       })),
     });
-    return tx.parametroProvision.findMany({ orderBy: { diasDesde: "asc" } });
+    return tx.parametroProvision.findMany({
+      where: { empresaId: req.empresaId },
+      orderBy: { diasDesde: "asc" },
+    });
   });
   res.json(guardados.map(serializarParametro));
 }
 
-async function saldoCuenta(codigo: string): Promise<number> {
+async function saldoCuenta(codigo: string, empresaId: string): Promise<number> {
   const asientos = await prisma.asiento.findMany({
     where: {
       cuenta: { codigo },
-      comprobante: { estado: EstadoComprobante.CONTABILIZADO },
+      comprobante: { estado: EstadoComprobante.CONTABILIZADO, empresaId },
     },
     select: { debito: true, credito: true },
   });
@@ -99,7 +111,7 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
     res.status(400).json({ error: "Periodo inválido" });
     return;
   }
-  const periodo = await prisma.periodo.findUnique({ where: { id: periodoId } });
+  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId: req.empresaId } });
   if (!periodo) {
     res.status(404).json({ error: `No existe el periodo ${periodoId}` });
     return;
@@ -122,7 +134,9 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
     }
   }
 
-  const cuentas = await prisma.cuenta.findMany({ where: { codigo: { in: [CUENTA_PROVISION, CUENTA_GASTO] } } });
+  const cuentas = await prisma.cuenta.findMany({
+    where: { codigo: { in: [CUENTA_PROVISION, CUENTA_GASTO] }, OR: [{ empresaId: null }, { empresaId: req.empresaId }] },
+  });
   const cuentaProvision = cuentas.find((c) => c.codigo === CUENTA_PROVISION);
   const cuentaGasto = cuentas.find((c) => c.codigo === CUENTA_GASTO);
   if (!cuentaProvision || !cuentaGasto) {
@@ -134,14 +148,23 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
     return;
   }
 
-  const parametros = await prisma.parametroProvision.findMany({ orderBy: { diasDesde: "asc" } });
+  const parametros = await prisma.parametroProvision.findMany({
+    where: { OR: [{ empresaId: null }, { empresaId: req.empresaId }] },
+    orderBy: { diasDesde: "asc" },
+  });
   if (parametros.length === 0) {
     res.status(400).json({ error: "Configure los parámetros de provisión antes de calcular" });
     return;
   }
+  const porRango = new Map<string, (typeof parametros)[number]>();
+  for (const p of parametros) {
+    const key = `${p.diasDesde}-${p.diasHasta ?? ""}`;
+    if (!porRango.has(key) || p.empresaId === req.empresaId) porRango.set(key, p);
+  }
+  const parametrosEfectivos = [...porRango.values()].sort((a, b) => a.diasDesde - b.diasDesde);
 
   const documentos = await prisma.cuentaPorCobrar.findMany({
-    where: { estado: { in: ["PENDIENTE", "VENCIDA", "ABONADA"] } },
+    where: { empresaId: req.empresaId, estado: { in: ["PENDIENTE", "VENCIDA", "ABONADA"] } },
     select: {
       id: true,
       numeroDocumento: true,
@@ -169,7 +192,7 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
     if (saldo <= 0) continue;
     const diasMora = Math.floor((refFin - doc.fechaVencimiento.getTime()) / 86400000);
     if (diasMora <= 0) continue;
-    const parametro = parametros.find((p) => p.diasDesde <= diasMora && (p.diasHasta === null || diasMora <= p.diasHasta));
+    const parametro = parametrosEfectivos.find((p) => p.diasDesde <= diasMora && (p.diasHasta === null || diasMora <= p.diasHasta));
     if (!parametro) continue;
     const porcentaje = num(parametro.porcentaje);
     const provision = redondear2(saldo * (porcentaje / 100));
@@ -187,7 +210,7 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
   }
   requerido = redondear2(requerido);
 
-  const balanceProvision = await saldoCuenta(CUENTA_PROVISION);
+  const balanceProvision = await saldoCuenta(CUENTA_PROVISION, req.empresaId!);
   const incremental = redondear2(requerido - balanceProvision);
 
   const usuarioId = req.user!.sub;
@@ -206,6 +229,7 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
     let comprobanteId: number | null = null;
     if (incremental !== 0) {
       const comprobante = await crearComprobanteDiario(tx, {
+        empresaId: req.empresaId!,
         periodoId,
         fecha: periodo.fechaFin,
         concepto: incremental > 0 ? `Provisión de cartera ${periodo.nombre}` : `Reversión de provisión de cartera ${periodo.nombre}`,
@@ -226,6 +250,7 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
     });
     await registrarAuditoria(tx, {
       usuarioId,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.CALCULAR_PROVISION,
       entidad: "ProvisionCartera",
       entidadId: provision.id,

@@ -42,13 +42,27 @@ export async function login(req: Request, res: Response): Promise<void> {
 export async function me(req: Request, res: Response): Promise<void> {
   const usuario = await prisma.usuario.findUnique({
     where: { id: req.user!.sub },
-    select: { id: true, nombre: true, email: true, rol: true, activo: true, debeCambiarPassword: true },
+    select: {
+      id: true,
+      nombre: true,
+      email: true,
+      rol: true,
+      activo: true,
+      debeCambiarPassword: true,
+      usuarioEmpresas: { include: { empresa: { select: { id: true, nombre: true, nit: true, activa: true } } } },
+    },
   });
   if (!usuario) {
     res.status(404).json({ error: "Usuario no encontrado" });
     return;
   }
-  res.json(usuario);
+  const { usuarioEmpresas, ...resto } = usuario;
+  res.json({
+    ...resto,
+    empresas: usuarioEmpresas
+      .filter((e) => e.empresa.activa)
+      .map((e) => ({ id: e.empresa.id, nombre: e.empresa.nombre, nit: e.empresa.nit, rol: e.rol })),
+  });
 }
 
 const cambiarPasswordSchema = z.object({

@@ -12,43 +12,52 @@ async function importarPuc(): Promise<void> {
   let creadas = 0;
   for (const [codigo, nombre] of PUC) {
     const derivado = derivarPuc(codigo);
-    const cuenta = await prisma.cuenta.upsert({
-      where: { codigo },
-      update: { nombre },
-      create: {
-        codigo,
-        nombre,
-        permiteMovimiento: esHoja(codigo),
-        ...derivado,
-      },
-    });
-    if (cuenta.createdAt.getTime() === cuenta.updatedAt.getTime()) creadas += 1;
+    const existente = await prisma.cuenta.findFirst({ where: { codigo, empresaId: null } });
+    if (existente) {
+      await prisma.cuenta.update({ where: { id: existente.id }, data: { nombre } });
+    } else {
+      await prisma.cuenta.create({
+        data: {
+          codigo,
+          nombre,
+          permiteMovimiento: esHoja(codigo),
+          ...derivado,
+        },
+      });
+      creadas += 1;
+    }
   }
   console.log(`PUC importado: ${PUC.length} cuentas (${creadas} nuevas).`);
 }
 
-async function seedUsuarioAdmin(): Promise<void> {
+async function seedEmpresa(): Promise<string> {
+  let empresa = await prisma.empresa.findFirst({ orderBy: { createdAt: "asc" } });
+  if (!empresa) {
+    empresa = await prisma.empresa.create({
+      data: { nombre: "Mi Empresa", nit: "000000000" },
+    });
+    console.log("Empresa por defecto creada.");
+  }
+  return empresa.id;
+}
+
+async function seedUsuarioAdmin(empresaId: string): Promise<void> {
   const adminEmail = "admin@sistema.local";
-  const admin = await prisma.usuario.findUnique({ where: { email: adminEmail } });
+  let admin = await prisma.usuario.findUnique({ where: { email: adminEmail } });
   if (!admin) {
     const passwordHash = await bcrypt.hash("Admin123!", 10);
-    await prisma.usuario.create({
+    admin = await prisma.usuario.create({
       data: { nombre: "Administrador", email: adminEmail, passwordHash, rol: "ADMIN", debeCambiarPassword: true },
     });
     console.log("Usuario administrador creado: admin@sistema.local / Admin123!  (deberá cambiar la contraseña en el primer ingreso)");
   } else {
     console.log("El usuario administrador ya existe.");
   }
-}
-
-async function seedParametros(): Promise<void> {
-  const parametros = await prisma.parametro.count();
-  if (parametros === 0) {
-    await prisma.parametro.create({
-      data: { nombreEmpresa: "Mi Empresa", nit: "000000000" },
-    });
-    console.log("Parámetros iniciales creados.");
-  }
+  await prisma.usuarioEmpresa.upsert({
+    where: { usuarioId_empresaId: { usuarioId: admin.id, empresaId } },
+    update: { rol: "ADMIN", activo: true },
+    create: { usuarioId: admin.id, empresaId, rol: "ADMIN" },
+  });
 }
 
 const PARAMETROS_PROVISION_DEFECTO = [
@@ -63,6 +72,7 @@ async function seedParametroProvision(): Promise<void> {
   if (existentes > 0) return;
   await prisma.parametroProvision.createMany({
     data: PARAMETROS_PROVISION_DEFECTO.map((p) => ({
+      empresaId: null,
       diasDesde: p.diasDesde,
       diasHasta: p.diasHasta,
       porcentaje: new Prisma.Decimal(p.porcentaje),
@@ -91,11 +101,13 @@ const PARAMETROS_NOMINA_DEFECTO_2026 = {
 };
 
 async function seedParametroNomina(): Promise<void> {
-  const existente = await prisma.parametroNomina.findUnique({ where: { anio: PARAMETROS_NOMINA_DEFECTO_2026.anio } });
+  const anio = PARAMETROS_NOMINA_DEFECTO_2026.anio;
+  const existente = await prisma.parametroNomina.findFirst({ where: { empresaId: null, anio } });
   if (existente) return;
   await prisma.parametroNomina.create({
     data: {
-      anio: PARAMETROS_NOMINA_DEFECTO_2026.anio,
+      empresaId: null,
+      anio,
       ...(Object.fromEntries(
         Object.entries(PARAMETROS_NOMINA_DEFECTO_2026)
           .filter(([k]) => k !== "anio")
@@ -141,7 +153,7 @@ const CUENTAS_NOMINA_DEFECTO: Array<[concepto: string, codigoCuenta: string]> = 
   ["VACACIONES_PASIVO", "252505"],
 ];
 
-async function seedParametroCuentaNomina(): Promise<void> {
+async function seedParametroCuentaNomina(empresaId: string): Promise<void> {
   const codigos = CUENTAS_NOMINA_DEFECTO.map(([, c]) => c);
   const cuentas = await prisma.cuenta.findMany({ where: { codigo: { in: codigos } } });
   const porCodigo = new Map(cuentas.map((c) => [c.codigo, c.id]));
@@ -153,9 +165,9 @@ async function seedParametroCuentaNomina(): Promise<void> {
       continue;
     }
     const resultado = await prisma.parametroCuentaNomina.upsert({
-      where: { concepto },
+      where: { empresaId_concepto: { empresaId, concepto } },
       update: {},
-      create: { concepto, cuentaId },
+      create: { empresaId, concepto, cuentaId },
     });
     if (resultado.createdAt.getTime() === resultado.updatedAt.getTime()) creados += 1;
   }
@@ -183,12 +195,12 @@ async function seedReglasAlerta(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  await seedUsuarioAdmin();
-  await seedParametros();
+  const empresaId = await seedEmpresa();
+  await seedUsuarioAdmin(empresaId);
   await seedParametroProvision();
   await importarPuc();
   await seedParametroNomina();
-  await seedParametroCuentaNomina();
+  await seedParametroCuentaNomina(empresaId);
   await seedReglasAlerta();
 }
 

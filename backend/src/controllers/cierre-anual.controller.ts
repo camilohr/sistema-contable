@@ -15,6 +15,7 @@ const CLASES_RESULTADO = [4, 5, 6, 7];
 
 export async function listar(req: Request, res: Response): Promise<void> {
   const cierres = await prisma.cierreAnual.findMany({
+    where: { empresaId: req.empresaId },
     orderBy: { anio: "desc" },
     include: {
       comprobante: { select: { consecutivo: true, fecha: true } },
@@ -42,8 +43,8 @@ export async function obtener(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "Año inválido" });
     return;
   }
-  const cierre = await prisma.cierreAnual.findUnique({
-    where: { anio },
+  const cierre = await prisma.cierreAnual.findFirst({
+    where: { anio, empresaId: req.empresaId },
     include: {
       comprobante: {
         include: {
@@ -99,7 +100,7 @@ export async function cerrarAnio(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const yaCerrado = await prisma.cierreAnual.findUnique({ where: { anio } });
+  const yaCerrado = await prisma.cierreAnual.findFirst({ where: { anio, empresaId: req.empresaId } });
   if (yaCerrado) {
     res.status(400).json({ error: `El año ${anio} ya fue cerrado` });
     return;
@@ -108,7 +109,7 @@ export async function cerrarAnio(req: Request, res: Response): Promise<void> {
   const inicio = new Date(`${anio}-01-01`);
   const fin = new Date(`${anio}-12-31`);
   const periodos = await prisma.periodo.findMany({
-    where: { fechaInicio: { lte: fin }, fechaFin: { gte: inicio } },
+    where: { empresaId: req.empresaId, fechaInicio: { lte: fin }, fechaFin: { gte: inicio } },
     orderBy: { fechaFin: "asc" },
   });
   if (periodos.length === 0) {
@@ -123,13 +124,17 @@ export async function cerrarAnio(req: Request, res: Response): Promise<void> {
 
   let cuentaUtilidadId = parsed.data.cuentaUtilidadId;
   if (cuentaUtilidadId) {
-    const cuenta = await prisma.cuenta.findUnique({ where: { id: cuentaUtilidadId } });
+    const cuenta = await prisma.cuenta.findFirst({
+      where: { id: cuentaUtilidadId, OR: [{ empresaId: null }, { empresaId: req.empresaId }] },
+    });
     if (!cuenta || cuenta.clase !== 3 || !cuenta.activa || !cuenta.permiteMovimiento) {
       res.status(400).json({ error: "La cuenta de utilidades debe ser una cuenta de patrimonio (clase 3), activa y con movimiento" });
       return;
     }
   } else {
-    const porDefecto = await prisma.cuenta.findUnique({ where: { codigo: "3605" } });
+    const porDefecto = await prisma.cuenta.findFirst({
+      where: { codigo: "3605", OR: [{ empresaId: null }, { empresaId: req.empresaId }] },
+    });
     if (!porDefecto || porDefecto.clase !== 3) {
       res.status(400).json({ error: "No se encontró la cuenta 3605 (Utilidad del ejercicio); indique una cuenta de utilidades" });
       return;
@@ -138,7 +143,7 @@ export async function cerrarAnio(req: Request, res: Response): Promise<void> {
   }
 
   const comprobantes = await prisma.comprobante.findMany({
-    where: { estado: EstadoComprobante.CONTABILIZADO, periodoId: { in: periodos.map((p) => p.id) } },
+    where: { empresaId: req.empresaId, estado: EstadoComprobante.CONTABILIZADO, periodoId: { in: periodos.map((p) => p.id) } },
     select: {
       asientos: {
         include: { cuenta: { select: { id: true, codigo: true, nombre: true, clase: true, naturaleza: true } } },
@@ -202,10 +207,13 @@ export async function cerrarAnio(req: Request, res: Response): Promise<void> {
   const ultimoPeriodo = periodos[periodos.length - 1];
   const fechaCierre = ultimoPeriodo.fechaFin;
 
-  const cuentaUtilidad = await prisma.cuenta.findUnique({ where: { id: cuentaUtilidadId } });
+  const cuentaUtilidad = await prisma.cuenta.findFirst({
+    where: { id: cuentaUtilidadId, OR: [{ empresaId: null }, { empresaId: req.empresaId }] },
+  });
 
   const resultadoTransaccion = await prisma.$transaction(async (tx) => {
     const comprobante = await crearComprobanteDiario(tx, {
+      empresaId: req.empresaId!,
       periodoId: ultimoPeriodo.id,
       fecha: fechaCierre,
       concepto: `Cierre de ejercicio ${anio}`,
@@ -214,6 +222,7 @@ export async function cerrarAnio(req: Request, res: Response): Promise<void> {
     });
     const cierre = await tx.cierreAnual.create({
       data: {
+        empresaId: req.empresaId,
         anio,
         comprobanteId: comprobante.id,
         cuentaUtilidadId,
@@ -223,6 +232,7 @@ export async function cerrarAnio(req: Request, res: Response): Promise<void> {
     });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.CERRAR_ANIO,
       entidad: "Anio",
       entidadId: anio,

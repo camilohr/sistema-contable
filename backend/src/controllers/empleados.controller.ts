@@ -57,7 +57,7 @@ function serializarEmpleado(e: EmpleadoConRel) {
 
 export async function listar(req: Request, res: Response): Promise<void> {
   const activo = req.query.activo ? String(req.query.activo) : undefined;
-  const where: Prisma.EmpleadoWhereInput = {};
+  const where: Prisma.EmpleadoWhereInput = { tercero: { empresaId: req.empresaId } };
   if (activo === "true") where.activo = true;
   if (activo === "false") where.activo = false;
   const empleados = await prisma.empleado.findMany({
@@ -80,7 +80,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "Fecha de ingreso inválida" });
     return;
   }
-  const tercero = await prisma.tercero.findUnique({ where: { id: data.terceroId } });
+  const tercero = await prisma.tercero.findFirst({ where: { id: data.terceroId, empresaId: req.empresaId } });
   if (!tercero) {
     res.status(400).json({ error: "El tercero no existe" });
     return;
@@ -110,6 +110,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
     });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.CREAR_EMPLEADO,
       entidad: "Empleado",
       entidadId: e.id,
@@ -122,7 +123,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
 
 export async function actualizar(req: Request, res: Response): Promise<void> {
   const id = String(req.params.id);
-  const existe = await prisma.empleado.findUnique({ where: { id } });
+  const existe = await prisma.empleado.findFirst({ where: { id, tercero: { empresaId: req.empresaId } } });
   if (!existe) {
     res.status(404).json({ error: "Empleado no encontrado" });
     return;
@@ -147,6 +148,7 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.EDITAR_EMPLEADO,
       entidad: "Empleado",
       entidadId: id,
@@ -159,7 +161,7 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
 
 export async function retirar(req: Request, res: Response): Promise<void> {
   const id = String(req.params.id);
-  const empleado = await prisma.empleado.findUnique({ where: { id } });
+  const empleado = await prisma.empleado.findFirst({ where: { id, tercero: { empresaId: req.empresaId } } });
   if (!empleado) {
     res.status(404).json({ error: "Empleado no encontrado" });
     return;
@@ -186,6 +188,7 @@ export async function retirar(req: Request, res: Response): Promise<void> {
     });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
       accion: AccionAuditoria.RETIRAR_EMPLEADO,
       entidad: "Empleado",
       entidadId: id,
@@ -198,7 +201,7 @@ export async function retirar(req: Request, res: Response): Promise<void> {
 
 export async function listarLiquidaciones(req: Request, res: Response): Promise<void> {
   const id = String(req.params.id);
-  const empleado = await prisma.empleado.findUnique({ where: { id } });
+  const empleado = await prisma.empleado.findFirst({ where: { id, tercero: { empresaId: req.empresaId } } });
   if (!empleado) {
     res.status(404).json({ error: "Empleado no encontrado" });
     return;

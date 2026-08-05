@@ -1,10 +1,11 @@
 import { Router } from "express";
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireRole, requireEmpresa } from "../middleware/auth.js";
 import { listar, listarReglas, actualizarReglas } from "../controllers/alertas.controller.js";
 
 const router = Router();
 
 router.use(requireAuth);
+router.use(requireEmpresa);
 
 router.get("/", listar);
 router.get("/reglas", listarReglas);

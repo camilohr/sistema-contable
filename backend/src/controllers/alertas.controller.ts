@@ -5,7 +5,7 @@ import { cargarReglas, evaluarAlertas } from "../lib/alertas.js";
 import { TipoAlerta } from "@prisma/client";
 
 export async function listar(req: Request, res: Response): Promise<void> {
-  const alertas = await evaluarAlertas();
+  const alertas = await evaluarAlertas(req.empresaId!);
   res.json({ alertas, fecha: new Date().toISOString() });
 }
 

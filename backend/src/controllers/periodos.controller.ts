@@ -25,7 +25,7 @@ const actualizarSchema = z.object({
 
 export async function listar(req: Request, res: Response): Promise<void> {
   const estado = req.query.estado ? String(req.query.estado) : undefined;
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { empresaId: req.empresaId };
   if (estado && (Object.values(EstadoPeriodo) as string[]).includes(estado)) where.estado = estado;
 
   const periodos = await prisma.periodo.findMany({
@@ -44,14 +44,16 @@ export async function crear(req: Request, res: Response): Promise<void> {
   }
   const { nombre, fechaInicio, fechaFin } = parsed.data;
 
-  const duplicado = await prisma.periodo.findUnique({ where: { nombre } });
+  const duplicado = await prisma.periodo.findFirst({
+    where: { empresaId: req.empresaId, nombre },
+  });
   if (duplicado) {
     res.status(409).json({ error: `Ya existe un periodo llamado ${nombre}` });
     return;
   }
 
   const periodo = await prisma.periodo.create({
-    data: { nombre, fechaInicio: new Date(fechaInicio), fechaFin: new Date(fechaFin) },
+    data: { empresaId: req.empresaId, nombre, fechaInicio: new Date(fechaInicio), fechaFin: new Date(fechaFin) },
   });
   res.status(201).json(periodo);
 }
@@ -63,7 +65,7 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
     return;
   }
-  const existe = await prisma.periodo.findUnique({ where: { id } });
+  const existe = await prisma.periodo.findFirst({ where: { id, empresaId: req.empresaId } });
   if (!existe) {
     res.status(404).json({ error: "Periodo no encontrado" });
     return;
@@ -73,6 +75,7 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     if (parsed.data.estado && parsed.data.estado !== existe.estado) {
       await registrarAuditoria(tx, {
         usuarioId: req.user!.sub,
+        empresaId: req.empresaId,
         accion: parsed.data.estado === EstadoPeriodo.CERRADO ? AccionAuditoria.CERRAR_PERIODO : AccionAuditoria.REABRIR_PERIODO,
         entidad: "Periodo",
         entidadId: id,
@@ -86,7 +89,10 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
 
 export async function eliminar(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
-  const existe = await prisma.periodo.findUnique({ where: { id }, include: { _count: { select: { comprobantes: true } } } });
+  const existe = await prisma.periodo.findFirst({
+    where: { id, empresaId: req.empresaId },
+    include: { _count: { select: { comprobantes: true } } },
+  });
   if (!existe) {
     res.status(404).json({ error: "Periodo no encontrado" });
     return;
