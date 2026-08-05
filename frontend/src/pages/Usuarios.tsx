@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
+import ConfirmModal from "../components/ConfirmModal";
 
 type Rol = "ADMIN" | "CONTADOR" | "AUXILIAR";
 
@@ -31,6 +32,7 @@ export default function Usuarios() {
   const [error, setError] = useState("");
   const [creando, setCreando] = useState(false);
   const [asignando, setAsignando] = useState(false);
+  const [retirando, setRetirando] = useState<UsuarioEmpresa | null>(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -72,7 +74,7 @@ export default function Usuarios() {
   };
 
   const retirar = async (u: UsuarioEmpresa) => {
-    if (!window.confirm(`¿Retirar a "${u.nombre}" de esta empresa? Perderá el acceso.`)) return;
+    setRetirando(null);
     setError("");
     try {
       await api.delete(`/usuarios/${u.id}`);
@@ -85,7 +87,10 @@ export default function Usuarios() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Usuarios de la empresa</h2>
+        <div>
+          <h2>Usuarios de la empresa</h2>
+          <p className="count-hint">Personas con acceso a la empresa activa y su rol.</p>
+        </div>
         <button className="btn btn-primary" onClick={() => setCreando(true)}>
           Nuevo usuario
         </button>
@@ -134,8 +139,8 @@ export default function Usuarios() {
                   </td>
                   <td>
                     <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => retirar(u)}
+                      className="btn btn-secondary btn-sm btn-danger"
+                      onClick={() => setRetirando(u)}
                       disabled={u.id === usuario.id}
                       title={u.id === usuario.id ? "No puede retirarse a sí mismo" : "Retirar de esta empresa"}
                     >
@@ -161,6 +166,16 @@ export default function Usuarios() {
           disponibles={disponibles}
           onClose={() => setAsignando(false)}
           onAsignado={() => { setAsignando(false); cargar(); }}
+        />
+      )}
+
+      {retirando && (
+        <ConfirmModal
+          titulo="Retirar usuario"
+          mensaje={`¿Retirar a "${retirando.nombre}" de esta empresa? Perderá el acceso.`}
+          textoConfirmar="Retirar"
+          onConfirmar={() => retirar(retirando)}
+          onCancelar={() => setRetirando(null)}
         />
       )}
     </div>

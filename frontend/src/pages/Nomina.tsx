@@ -298,7 +298,10 @@ export default function Nomina() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Nómina</h2>
+        <div>
+          <h2>Nómina</h2>
+          <p className="count-hint">Liquidación de nómina por periodo y empleado.</p>
+        </div>
       </div>
       {error && <p className="error-msg">{error}</p>}
       {mensaje && <p className="success-msg">{mensaje}</p>}

@@ -174,11 +174,11 @@ export default function ComprobanteForm({ inicial, titulo, onClose, onGuardado }
                 </select>
               </label>
               <label>
-                Fecha
+                Fecha<span className="req">*</span>
                 <input type="date" value={form.fecha} onChange={(e) => set("fecha", e.target.value)} required />
               </label>
               <label>
-                Periodo
+                Periodo<span className="req">*</span>
                 <select value={form.periodoId} onChange={(e) => set("periodoId", Number(e.target.value))} required>
                   <option value="">Seleccione...</option>
                   {periodos.map((p) => (
@@ -197,12 +197,12 @@ export default function ComprobanteForm({ inicial, titulo, onClose, onGuardado }
               )}
             </div>
             <label>
-              Concepto
+              Concepto<span className="req">*</span>
               <input value={form.concepto} onChange={(e) => set("concepto", e.target.value)} required placeholder="Ej: Venta de contado" />
             </label>
 
             <div className="asientos-head">
-              <span className="col-cuenta">Cuenta</span>
+              <span className="col-cuenta">Cuenta<span className="req">*</span></span>
               <span className="col-tercero">Tercero</span>
               <span className="col-debito">Débito</span>
               <span className="col-credito">Crédito</span>
@@ -276,7 +276,7 @@ export default function ComprobanteForm({ inicial, titulo, onClose, onGuardado }
             <div className="totales">
               <span>Débitos: <strong>{totales.debito.toFixed(2)}</strong></span>
               <span>Créditos: <strong>{totales.credito.toFixed(2)}</strong></span>
-              <span className={totales.cuadra ? "ok-msg" : "error-msg"}>
+              <span className={totales.cuadra ? "success-msg" : "error-msg"}>
                 {totales.cuadra ? "Cuadra ✓" : "No cuadra"}
               </span>
             </div>

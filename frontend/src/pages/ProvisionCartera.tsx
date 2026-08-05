@@ -201,7 +201,10 @@ export default function ProvisionCartera() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Provisión de cartera (deterioro)</h2>
+        <div>
+          <h2>Provisión de cartera (deterioro)</h2>
+          <p className="count-hint">Deterioro de cartera por días de mora al cierre del periodo.</p>
+        </div>
       </div>
       {error && <p className="error-msg">{error}</p>}
       {mensaje && <p className="success-msg">{mensaje}</p>}
@@ -213,7 +216,7 @@ export default function ProvisionCartera() {
           <h3>Calcular provisión</h3>
           <div className="form-row">
             <label>
-              Periodo contable (abierto)
+              Periodo contable (abierto)<span className="req">*</span>
               <select value={periodoId} onChange={(e) => setPeriodoId(e.target.value)} required>
                 <option value="">Seleccione un periodo</option>
                 {periodos
@@ -425,7 +428,7 @@ export default function ProvisionCartera() {
               )}
             </>
           ) : (
-            <form onSubmit={guardarParametros}>
+            <form onSubmit={guardarParametros} className="form-card form-card-ancho">
               <div className="table-wrap">
                 <table className="table">
                   <thead>
@@ -492,7 +495,7 @@ export default function ProvisionCartera() {
                 >
                   Agregar rango
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={enviando}>
+                <button type="submit" className="btn btn-secondary" disabled={enviando}>
                   {enviando ? "Guardando..." : "Guardar parámetros"}
                 </button>
                 <button type="button" className="btn btn-secondary" onClick={() => setEditandoParametros(false)}>

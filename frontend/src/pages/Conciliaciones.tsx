@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
+import ConfirmModal from "../components/ConfirmModal";
 import { cop } from "../lib/formato";
 
 interface Periodo {
@@ -64,6 +65,7 @@ export default function Conciliaciones() {
   const [detalle, setDetalle] = useState<Conciliacion | null>(null);
   const [importando, setImportando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoImport | null>(null);
+  const [anulando, setAnulando] = useState<Conciliacion | null>(null);
   const archivoRef = useRef<HTMLInputElement>(null);
 
   const cargar = useCallback(async () => {
@@ -157,7 +159,7 @@ export default function Conciliaciones() {
   };
 
   const anular = async (c: Conciliacion) => {
-    if (!window.confirm(`¿Anular la conciliación del periodo ${c.periodo?.nombre ?? ""}?`)) return;
+    setAnulando(null);
     setError("");
     setMsg("");
     try {
@@ -173,7 +175,10 @@ export default function Conciliaciones() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Conciliación bancaria</h2>
+        <div>
+          <h2>Conciliación bancaria</h2>
+          <p className="count-hint">Cruce del libro de bancos con el extracto por periodo.</p>
+        </div>
       </div>
 
       {puedeEditar && (
@@ -206,7 +211,7 @@ export default function Conciliaciones() {
       )}
 
       {error && <p className="error-msg">{error}</p>}
-      {msg && <p className="ok-msg">{msg}</p>}
+      {msg && <p className="success-msg">{msg}</p>}
 
       {resultado && (
         <div className="detail-grid">
@@ -229,9 +234,9 @@ export default function Conciliaciones() {
               <tr>
                 <th>Periodo</th>
                 <th>Cuenta</th>
-                <th className="mono">Saldo libros</th>
-                <th className="mono">Saldo extracto</th>
-                <th className="mono">Diferencia</th>
+                <th className="num-cell">Saldo libros</th>
+                <th className="num-cell">Saldo extracto</th>
+                <th className="num-cell">Diferencia</th>
                 <th>Mov.</th>
                 <th>Estado</th>
                 <th></th>
@@ -244,9 +249,9 @@ export default function Conciliaciones() {
                   <tr key={c.id}>
                     <td className="codigo-cell">{c.periodo?.nombre ?? c.periodoId}</td>
                     <td>{c.cuenta ? `${c.cuenta.codigo} ${c.cuenta.nombre}` : c.cuentaId}</td>
-                    <td className="mono">{cop(num(c.saldoLibros) ?? 0)}</td>
-                    <td className="mono">{c.saldoExtracto === null ? "—" : cop(num(c.saldoExtracto) ?? 0)}</td>
-                    <td className="mono">{dif === null ? "—" : cop(dif)}</td>
+                    <td className="num-cell">{cop(num(c.saldoLibros) ?? 0)}</td>
+                    <td className="num-cell">{c.saldoExtracto === null ? "—" : cop(num(c.saldoExtracto) ?? 0)}</td>
+                    <td className="num-cell">{dif === null ? "—" : cop(dif)}</td>
                     <td>{c._count?.movimientos ?? 0}</td>
                     <td>
                       <span className={`badge ${c.estado === "APROBADA" ? "badge-mov" : c.estado === "ANULADA" ? "badge-err" : "badge-warn"}`}>
@@ -262,7 +267,7 @@ export default function Conciliaciones() {
                           <button className="btn btn-secondary btn-sm" onClick={() => aprobar(c)}>
                             Aprobar
                           </button>
-                          <button className="btn btn-secondary btn-sm btn-danger" onClick={() => anular(c)}>
+                          <button className="btn btn-secondary btn-sm btn-danger" onClick={() => setAnulando(c)}>
                             Anular
                           </button>
                         </>
@@ -277,6 +282,16 @@ export default function Conciliaciones() {
       )}
 
       {detalle && <DetalleConciliacion conciliacion={detalle} onClose={() => setDetalle(null)} />}
+
+      {anulando && (
+        <ConfirmModal
+          titulo="Anular conciliación"
+          mensaje={`¿Anular la conciliación del periodo ${anulando.periodo?.nombre ?? ""}? Esta acción no se puede revertir.`}
+          textoConfirmar="Anular"
+          onConfirmar={() => anular(anulando)}
+          onCancelar={() => setAnulando(null)}
+        />
+      )}
     </div>
   );
 }
@@ -306,9 +321,9 @@ function DetalleConciliacion({ conciliacion: c, onClose }: { conciliacion: Conci
                   <th>Fecha</th>
                   <th>Ref</th>
                   <th>Descripción</th>
-                  <th className="mono">Débito</th>
-                  <th className="mono">Crédito</th>
-                  <th className="mono">Saldo</th>
+                  <th className="num-cell">Débito</th>
+                  <th className="num-cell">Crédito</th>
+                  <th className="num-cell">Saldo</th>
                   <th>Conciliado</th>
                 </tr>
               </thead>
@@ -318,9 +333,9 @@ function DetalleConciliacion({ conciliacion: c, onClose }: { conciliacion: Conci
                     <td className="mono">{m.fecha.slice(0, 10)}</td>
                     <td className="codigo-cell">{m.referencia}</td>
                     <td>{m.descripcion}</td>
-                    <td className="mono">{num(m.debito) ? cop(num(m.debito) ?? 0) : ""}</td>
-                    <td className="mono">{num(m.credito) ? cop(num(m.credito) ?? 0) : ""}</td>
-                    <td className="mono">{cop(num(m.saldo) ?? 0)}</td>
+                    <td className="num-cell">{num(m.debito) ? cop(num(m.debito) ?? 0) : ""}</td>
+                    <td className="num-cell">{num(m.credito) ? cop(num(m.credito) ?? 0) : ""}</td>
+                    <td className="num-cell">{cop(num(m.saldo) ?? 0)}</td>
                     <td>
                       <span className={`badge ${m.conciliado ? "badge-mov" : "badge-warn"}`}>
                         {m.conciliado ? "Conciliado" : "Pendiente"}

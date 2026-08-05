@@ -120,7 +120,10 @@ export default function CierreAnual() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Cierre de ejercicio anual</h2>
+        <div>
+          <h2>Cierre de ejercicio anual</h2>
+          <p className="count-hint">Asiento de cierre del ejercicio y habilitación del año siguiente.</p>
+        </div>
       </div>
 
       {esAdmin && (

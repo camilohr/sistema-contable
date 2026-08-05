@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
+import ConfirmModal from "../components/ConfirmModal";
 
 interface Cliente {
   id: string;
@@ -36,6 +37,7 @@ export default function Clientes() {
   const [creando, setCreando] = useState(false);
   const [editando, setEditando] = useState<Cliente | null>(null);
   const [baja, setBaja] = useState<Cliente | null>(null);
+  const [reactivando, setReactivando] = useState<Cliente | null>(null);
   const [descargando, setDescargando] = useState<string>("");
 
   const cargar = useCallback(async () => {
@@ -101,7 +103,7 @@ export default function Clientes() {
   };
 
   const reactivar = async (cliente: Cliente) => {
-    if (!window.confirm(`¿Reactivar al cliente "${cliente.nombre}"?`)) return;
+    setReactivando(null);
     setError("");
     try {
       await api.patch(`/empresas/${cliente.id}/estado`, { activa: true });
@@ -116,7 +118,10 @@ export default function Clientes() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Clientes</h2>
+        <div>
+          <h2>Clientes</h2>
+          <p className="count-hint">Empresas atendidas por el contador.</p>
+        </div>
         <button className="btn btn-primary" onClick={() => setCreando(true)}>
           Nuevo cliente
         </button>
@@ -167,7 +172,7 @@ export default function Clientes() {
                         </button>
                       </>
                     ) : (
-                      <button className="btn btn-secondary btn-sm" onClick={() => reactivar(c)}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => setReactivando(c)}>
                         Reactivar
                       </button>
                     )}
@@ -196,6 +201,16 @@ export default function Clientes() {
           onDescargar={(anio) => descargarPaquete(baja, anio)}
           onConfirmar={() => confirmarBaja(baja)}
           onClose={() => setBaja(null)}
+        />
+      )}
+
+      {reactivando && (
+        <ConfirmModal
+          titulo="Reactivar cliente"
+          mensaje={`¿Reactivar al cliente "${reactivando.nombre}"? Volverá a estar disponible en el sistema.`}
+          textoConfirmar="Reactivar"
+          onConfirmar={() => reactivar(reactivando)}
+          onCancelar={() => setReactivando(null)}
         />
       )}
     </div>

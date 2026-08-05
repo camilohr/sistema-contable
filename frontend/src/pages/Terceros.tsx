@@ -62,7 +62,10 @@ export default function Terceros() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Terceros</h2>
+        <div>
+          <h2>Terceros</h2>
+          <p className="count-hint">Catálogo de proveedores, clientes y otros terceros.</p>
+        </div>
         {puedeEditar && (
           <button className="btn btn-primary" onClick={() => setCreando(true)}>
             Nuevo tercero

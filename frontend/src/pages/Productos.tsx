@@ -69,7 +69,10 @@ export default function Productos() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Productos e inventario</h2>
+        <div>
+          <h2>Productos e inventario</h2>
+          <p className="count-hint">Catálogo de productos y existencias en bodega.</p>
+        </div>
         {puedeEditar && (
           <button className="btn btn-primary" onClick={() => setCreando(true)}>
             Nuevo producto

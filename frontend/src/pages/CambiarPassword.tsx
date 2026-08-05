@@ -42,10 +42,12 @@ export default function CambiarPassword() {
 
   return (
     <div className="page">
-      <h2>Cambiar contraseña</h2>
-      <p>Usuario: {usuario?.email}</p>
+      <div className="page-head">
+        <h2>Cambiar contraseña</h2>
+      </div>
+      <p className="count-hint">Actualiza la contraseña de tu cuenta de acceso al sistema.</p>
       {usuario?.debeCambiarPassword && (
-        <p className="ok-msg">Debes cambiar tu contraseña inicial antes de continuar usando el sistema.</p>
+        <p className="success-msg">Debes cambiar tu contraseña inicial antes de continuar usando el sistema.</p>
       )}
       <form onSubmit={onSubmit} className="form-card">
         <label>
@@ -81,7 +83,7 @@ export default function CambiarPassword() {
           />
         </label>
         {error && <p className="error-msg">{error}</p>}
-        {ok && <p className="ok-msg">{ok}</p>}
+        {ok && <p className="success-msg">{ok}</p>}
         <div>
           <button type="submit" className="btn btn-primary" disabled={enviando}>
             {enviando ? "Guardando..." : "Guardar contraseña"}

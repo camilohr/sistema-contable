@@ -132,7 +132,10 @@ export default function Cartera({ tipo }: { tipo: TipoCartera }) {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>{cfg.titulo}</h2>
+        <div>
+          <h2>{cfg.titulo}</h2>
+          <p className="count-hint">Saldos y movimientos por documento.</p>
+        </div>
         {puedeEditar && (
           <button className="btn btn-primary" onClick={() => setCreando(true)}>
             {cfg.nuevo}

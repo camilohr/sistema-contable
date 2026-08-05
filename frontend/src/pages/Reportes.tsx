@@ -224,7 +224,10 @@ export default function Reportes() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Libros y reportes</h2>
+        <div>
+          <h2>Libros y reportes</h2>
+          <p className="count-hint">Libros oficiales, balance general y estado de resultados.</p>
+        </div>
       </div>
 
       <div className="tabs-reportes">
@@ -317,8 +320,8 @@ export default function Reportes() {
                     <th>Cuenta</th>
                     <th>Nombre de la cuenta</th>
                     <th>Tercero</th>
-                    <th className="mono">Débito</th>
-                    <th className="mono">Crédito</th>
+                    <th className="num-cell">Débito</th>
+                    <th className="num-cell">Crédito</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -330,16 +333,16 @@ export default function Reportes() {
                       <td className="codigo-cell">{l.codigoCuenta}</td>
                       <td>{l.nombreCuenta}</td>
                       <td>{l.tercero ?? "-"}</td>
-                      <td className="mono">{l.debito ? cop(l.debito) : ""}</td>
-                      <td className="mono">{l.credito ? cop(l.credito) : ""}</td>
+                      <td className="num-cell">{l.debito ? cop(l.debito) : ""}</td>
+                      <td className="num-cell">{l.credito ? cop(l.credito) : ""}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr>
                     <td colSpan={6}>Totales</td>
-                    <td className="mono">{cop(diario.totalDebitos)}</td>
-                    <td className="mono">{cop(diario.totalCreditos)}</td>
+                    <td className="num-cell">{cop(diario.totalDebitos)}</td>
+                    <td className="num-cell">{cop(diario.totalCreditos)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -363,9 +366,9 @@ export default function Reportes() {
                     <th>Cuenta</th>
                     <th>Nombre</th>
                     <th>Naturaleza</th>
-                    <th className="mono">Débitos</th>
-                    <th className="mono">Créditos</th>
-                    <th className="mono">Saldo</th>
+                    <th className="num-cell">Débitos</th>
+                    <th className="num-cell">Créditos</th>
+                    <th className="num-cell">Saldo</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -374,17 +377,17 @@ export default function Reportes() {
                       <td className="codigo-cell">{c.codigo}</td>
                       <td>{c.nombre}</td>
                       <td>{naturaLabel[c.naturaleza] ?? c.naturaleza}</td>
-                      <td className="mono">{cop(c.debitos)}</td>
-                      <td className="mono">{cop(c.creditos)}</td>
-                      <td className="mono">{cop(c.saldo)}</td>
+                      <td className="num-cell">{cop(c.debitos)}</td>
+                      <td className="num-cell">{cop(c.creditos)}</td>
+                      <td className="num-cell">{cop(c.saldo)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr>
                     <td colSpan={3}>Totales</td>
-                    <td className="mono">{cop(mayor.totalDebitos)}</td>
-                    <td className="mono">{cop(mayor.totalCreditos)}</td>
+                    <td className="num-cell">{cop(mayor.totalDebitos)}</td>
+                    <td className="num-cell">{cop(mayor.totalCreditos)}</td>
                     <td></td>
                   </tr>
                 </tfoot>
@@ -409,10 +412,10 @@ export default function Reportes() {
                     <th>Cuenta</th>
                     <th>Nombre</th>
                     <th>Clase</th>
-                    <th className="mono">Débitos</th>
-                    <th className="mono">Créditos</th>
-                    <th className="mono">Saldo deudor</th>
-                    <th className="mono">Saldo acreedor</th>
+                    <th className="num-cell">Débitos</th>
+                    <th className="num-cell">Créditos</th>
+                    <th className="num-cell">Saldo deudor</th>
+                    <th className="num-cell">Saldo acreedor</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -421,20 +424,20 @@ export default function Reportes() {
                       <td className="codigo-cell">{c.codigo}</td>
                       <td>{c.nombre}</td>
                       <td>{c.clase}</td>
-                      <td className="mono">{cop(c.debitos)}</td>
-                      <td className="mono">{cop(c.creditos)}</td>
-                      <td className="mono">{c.saldoDeudor ? cop(c.saldoDeudor) : ""}</td>
-                      <td className="mono">{c.saldoAcreedor ? cop(c.saldoAcreedor) : ""}</td>
+                      <td className="num-cell">{cop(c.debitos)}</td>
+                      <td className="num-cell">{cop(c.creditos)}</td>
+                      <td className="num-cell">{c.saldoDeudor ? cop(c.saldoDeudor) : ""}</td>
+                      <td className="num-cell">{c.saldoAcreedor ? cop(c.saldoAcreedor) : ""}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr>
                     <td colSpan={3}>Totales</td>
-                    <td className="mono">{cop(balance.totalDebitos)}</td>
-                    <td className="mono">{cop(balance.totalCreditos)}</td>
-                    <td className="mono">{cop(balance.saldosDeudores)}</td>
-                    <td className="mono">{cop(balance.saldosAcreedores)}</td>
+                    <td className="num-cell">{cop(balance.totalDebitos)}</td>
+                    <td className="num-cell">{cop(balance.totalCreditos)}</td>
+                    <td className="num-cell">{cop(balance.saldosDeudores)}</td>
+                    <td className="num-cell">{cop(balance.saldosAcreedores)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -508,7 +511,7 @@ function SeccionTable({ seccion }: { seccion: SeccionCuentas[] }) {
           <tr>
             <th>Cuenta</th>
             <th>Nombre</th>
-            <th className="mono">Saldo</th>
+            <th className="num-cell">Saldo</th>
           </tr>
         </thead>
         <tbody>
@@ -517,13 +520,13 @@ function SeccionTable({ seccion }: { seccion: SeccionCuentas[] }) {
               <tr className="grupo-row">
                 <td className="codigo-cell">{g.grupo}</td>
                 <td>{g.nombre}</td>
-                <td className="mono">{cop(g.total)}</td>
+                <td className="num-cell">{cop(g.total)}</td>
               </tr>
               {g.cuentas.map((c) => (
                 <tr key={c.codigo}>
                   <td className="codigo-cell">{c.codigo}</td>
                   <td>{c.nombre}</td>
-                  <td className="mono">{cop(c.saldo)}</td>
+                  <td className="num-cell">{cop(c.saldo)}</td>
                 </tr>
               ))}
             </Fragment>

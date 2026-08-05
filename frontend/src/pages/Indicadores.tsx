@@ -189,7 +189,10 @@ export default function Indicadores() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Indicadores financieros</h2>
+        <div>
+          <h2>Indicadores financieros</h2>
+          <p className="count-hint">Ratios de rentabilidad, liquidez y endeudamiento.</p>
+        </div>
       </div>
 
       <div className="tabs-reportes">
@@ -272,8 +275,8 @@ export default function Indicadores() {
                     <thead>
                       <tr>
                         <th>Indicador</th>
-                        <th className="mono">{comparativo.periodos.desde.nombre}</th>
-                        <th className="mono">{comparativo.periodos.hasta.nombre}</th>
+                        <th className="num-cell">{comparativo.periodos.desde.nombre}</th>
+                        <th className="num-cell">{comparativo.periodos.hasta.nombre}</th>
                         <th>Variación</th>
                       </tr>
                     </thead>
@@ -285,9 +288,9 @@ export default function Indicadores() {
                         return (
                           <tr key={r.key}>
                             <td>{r.label}</td>
-                            <td className="mono">{fmtRazon(desde)}</td>
-                            <td className="mono">{fmtRazon(hasta)}</td>
-                            <td className="mono">{varPct === null ? "—" : `${varPct > 0 ? "+" : ""}${varPct.toFixed(1)}%`}</td>
+                            <td className="num-cell">{fmtRazon(desde)}</td>
+                            <td className="num-cell">{fmtRazon(hasta)}</td>
+                            <td className="num-cell">{varPct === null ? "—" : `${varPct > 0 ? "+" : ""}${varPct.toFixed(1)}%`}</td>
                           </tr>
                         );
                       })}
@@ -308,10 +311,10 @@ export default function Indicadores() {
                         <tr>
                           <th>Cuenta</th>
                           <th>Nombre</th>
-                          <th className="mono">{comparativo.periodos.desde.nombre}</th>
-                          <th className="mono">% desde</th>
-                          <th className="mono">{comparativo.periodos.hasta.nombre}</th>
-                          <th className="mono">% hasta</th>
+                          <th className="num-cell">{comparativo.periodos.desde.nombre}</th>
+                          <th className="num-cell">% desde</th>
+                          <th className="num-cell">{comparativo.periodos.hasta.nombre}</th>
+                          <th className="num-cell">% hasta</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -319,10 +322,10 @@ export default function Indicadores() {
                           <tr key={f.codigo}>
                             <td className="codigo-cell">{f.codigo}</td>
                             <td>{f.nombre}</td>
-                            <td className="mono">{fmtSaldo(f.saldoDesde)}</td>
-                            <td className="mono">{fmtPct(f.pctDesde)}</td>
-                            <td className="mono">{fmtSaldo(f.saldoHasta)}</td>
-                            <td className="mono">{fmtPct(f.pctHasta)}</td>
+                            <td className="num-cell">{fmtSaldo(f.saldoDesde)}</td>
+                            <td className="num-cell">{fmtPct(f.pctDesde)}</td>
+                            <td className="num-cell">{fmtSaldo(f.saldoHasta)}</td>
+                            <td className="num-cell">{fmtPct(f.pctHasta)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -341,10 +344,10 @@ export default function Indicadores() {
                         <tr>
                           <th>Sección</th>
                           <th>Concepto</th>
-                          <th className="mono">Desde</th>
-                          <th className="mono">Hasta</th>
-                          <th className="mono">Variación</th>
-                          <th className="mono">%</th>
+                          <th className="num-cell">Desde</th>
+                          <th className="num-cell">Hasta</th>
+                          <th className="num-cell">Variación</th>
+                          <th className="num-cell">%</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -352,10 +355,10 @@ export default function Indicadores() {
                           <tr key={i}>
                             <td>{f.seccion}</td>
                             <td>{f.nombre}</td>
-                            <td className="mono">{fmtSaldo(f.desde)}</td>
-                            <td className="mono">{fmtSaldo(f.hasta)}</td>
-                            <td className="mono">{fmtSaldo(f.variacion)}</td>
-                            <td className="mono">{f.variacionPct === null ? "—" : `${f.variacionPct > 0 ? "+" : ""}${f.variacionPct.toFixed(1)}%`}</td>
+                            <td className="num-cell">{fmtSaldo(f.desde)}</td>
+                            <td className="num-cell">{fmtSaldo(f.hasta)}</td>
+                            <td className="num-cell">{fmtSaldo(f.variacion)}</td>
+                            <td className="num-cell">{f.variacionPct === null ? "—" : `${f.variacionPct > 0 ? "+" : ""}${f.variacionPct.toFixed(1)}%`}</td>
                           </tr>
                         ))}
                       </tbody>

@@ -169,7 +169,10 @@ export default function Comprobantes() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Comprobantes</h2>
+        <div>
+          <h2>Comprobantes</h2>
+          <p className="count-hint">Registro de asientos contables con partida doble.</p>
+        </div>
         {puedeEditar && (
           <button className="btn btn-primary" onClick={() => setCreando(true)}>
             Nuevo comprobante
@@ -219,7 +222,7 @@ export default function Comprobantes() {
                 <th>Tipo</th>
                 <th>Concepto</th>
                 <th>Tercero</th>
-                <th>Total</th>
+                <th className="num-cell">Total</th>
                 <th>Estado</th>
                 <th></th>
               </tr>
@@ -232,7 +235,7 @@ export default function Comprobantes() {
                   <td>{tipoLabel[c.tipo]}</td>
                   <td>{c.concepto}</td>
                   <td>{c.tercero?.nombreRazonSocial ?? "—"}</td>
-                  <td className="mono">{cop(c.totalDebito)}</td>
+                  <td className="num-cell">{cop(c.totalDebito)}</td>
                   <td>
                     <span className={`badge badge-${c.estado === "CONTABILIZADO" ? "mov" : c.estado === "ANULADO" ? "err" : "terc"}`}>
                       {estadoLabel[c.estado]}
@@ -308,28 +311,30 @@ function DetalleComprobante({ comprobante: c, onClose }: { comprobante: Comproba
           <span><em>Tercero</em> {c.tercero?.nombreRazonSocial ?? "—"}</span>
           <span><em>Total</em> {cop(c.totalDebito)}</span>
         </div>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Cuenta</th>
-              <th>Tercero</th>
-              <th>Débito</th>
-              <th>Crédito</th>
-              <th>Detalle</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(c.asientos ?? []).map((a) => (
-              <tr key={a.id}>
-                <td className="codigo-cell">{a.codigoCuenta} {a.nombreCuenta}</td>
-                <td>{a.tercero ?? "—"}</td>
-                <td className="mono">{a.debito ? cop(a.debito) : ""}</td>
-                <td className="mono">{a.credito ? cop(a.credito) : ""}</td>
-                <td>{a.detalle ?? ""}</td>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Cuenta</th>
+                <th>Tercero</th>
+                <th className="num-cell">Débito</th>
+                <th className="num-cell">Crédito</th>
+                <th>Detalle</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {(c.asientos ?? []).map((a) => (
+                <tr key={a.id}>
+                  <td className="codigo-cell">{a.codigoCuenta} {a.nombreCuenta}</td>
+                  <td>{a.tercero ?? "—"}</td>
+                  <td className="num-cell">{a.debito ? cop(a.debito) : ""}</td>
+                  <td className="num-cell">{a.credito ? cop(a.credito) : ""}</td>
+                  <td>{a.detalle ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <AdjuntosLista entidad="COMPROBANTE" entidadId={String(c.id)} />
         <div className="modal-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose}>

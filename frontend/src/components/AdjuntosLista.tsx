@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
+import ConfirmModal from "./ConfirmModal";
 
 interface Adjunto {
   id: number;
@@ -28,17 +29,22 @@ export default function AdjuntosLista({ entidad, entidadId }: Props) {
   const puedeEditar = rol === "ADMIN" || rol === "CONTADOR";
 
   const [adjuntos, setAdjuntos] = useState<Adjunto[]>([]);
+  const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
   const [subiendo, setSubiendo] = useState(false);
+  const [eliminando, setEliminando] = useState<Adjunto | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const cargar = useCallback(async () => {
+    setCargando(true);
     setError("");
     try {
       const res = await api.get<Adjunto[]>("/adjuntos", { params: { entidad, entidadId } });
       setAdjuntos(res.data);
     } catch {
       setError("No se pudieron cargar los documentos.");
+    } finally {
+      setCargando(false);
     }
   }, [entidad, entidadId]);
 
@@ -85,7 +91,7 @@ export default function AdjuntosLista({ entidad, entidadId }: Props) {
   };
 
   const eliminar = async (a: Adjunto) => {
-    if (!window.confirm(`¿Eliminar el documento "${a.nombreOriginal}"?`)) return;
+    setEliminando(null);
     setError("");
     try {
       await api.delete(`/adjuntos/${a.id}`);
@@ -108,8 +114,9 @@ export default function AdjuntosLista({ entidad, entidadId }: Props) {
         )}
       </div>
       {error && <p className="error-msg">{error}</p>}
-      {adjuntos.length === 0 && !error && <p className="count-hint">Sin documentos adjuntos.</p>}
-      {adjuntos.length > 0 && (
+      {cargando && <p className="count-hint">Cargando documentos...</p>}
+      {!cargando && adjuntos.length === 0 && !error && <p className="count-hint">Sin documentos adjuntos.</p>}
+      {!cargando && adjuntos.length > 0 && (
         <div className="table-wrap">
           <table className="table">
             <thead>
@@ -133,7 +140,7 @@ export default function AdjuntosLista({ entidad, entidadId }: Props) {
                       Descargar
                     </button>
                     {puedeEditar && (
-                      <button className="btn btn-secondary btn-sm btn-danger" onClick={() => eliminar(a)}>
+                      <button className="btn btn-secondary btn-sm btn-danger" onClick={() => setEliminando(a)}>
                         Eliminar
                       </button>
                     )}
@@ -143,6 +150,16 @@ export default function AdjuntosLista({ entidad, entidadId }: Props) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {eliminando && (
+        <ConfirmModal
+          titulo="Eliminar documento"
+          mensaje={`¿Eliminar el documento "${eliminando.nombreOriginal}"? Esta acción no se puede revertir.`}
+          textoConfirmar="Eliminar"
+          onConfirmar={() => eliminar(eliminando)}
+          onCancelar={() => setEliminando(null)}
+        />
       )}
     </div>
   );

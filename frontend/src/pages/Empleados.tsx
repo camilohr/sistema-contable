@@ -69,7 +69,10 @@ export default function Empleados() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Empleados</h2>
+        <div>
+          <h2>Empleados</h2>
+          <p className="count-hint">Personal con contrato vigente y sus liquidaciones.</p>
+        </div>
         {puedeEditar && (
           <button className="btn btn-primary" onClick={() => setCreando(true)}>
             Nuevo empleado

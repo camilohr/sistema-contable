@@ -65,7 +65,10 @@ export default function Cuentas() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Catálogo de cuentas (PUC)</h2>
+        <div>
+          <h2>Catálogo de cuentas (PUC)</h2>
+          <p className="count-hint">Plan único de cuentas de la empresa activa.</p>
+        </div>
         {puedeEditar && (
           <button className="btn btn-primary" onClick={() => setCreando(true)}>
             Nueva cuenta

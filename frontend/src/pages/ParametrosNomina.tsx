@@ -159,7 +159,10 @@ export default function ParametrosNomina() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Parámetros de nómina</h2>
+        <div>
+          <h2>Parámetros de nómina</h2>
+          <p className="count-hint">Valores legales y mapeo contable por año.</p>
+        </div>
       </div>
       {error && <p className="error-msg">{error}</p>}
       {mensaje && <p className="success-msg">{mensaje}</p>}
@@ -170,14 +173,14 @@ export default function ParametrosNomina() {
           <h3>Parámetros por año</h3>
           <div className="form-row">
             <label>
-              Año
+              Año<span className="req">*</span>
               <input type="number" min="2000" max="2100" step="1" value={anio} onChange={(e) => elegirAnio(e.target.value)} required />
             </label>
           </div>
           <div className="form-row">
             {camposParametro.map((c) => (
               <label key={c.key}>
-                {c.label}
+                {c.label}<span className="req">*</span>
                 <input
                   type="number"
                   min={c.min}
@@ -242,7 +245,7 @@ export default function ParametrosNomina() {
             </table>
           </div>
           {puedeEditar && (
-            <button type="button" className="btn btn-primary" onClick={guardarMapeo} disabled={enviando}>
+            <button type="button" className="btn btn-secondary" onClick={guardarMapeo} disabled={enviando}>
               {enviando ? "Guardando..." : "Guardar mapeo"}
             </button>
           )}

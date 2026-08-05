@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
+import ConfirmModal from "../components/ConfirmModal";
 
 const ETIQUETAS_ACTIVIDAD: Record<string, string> = {
   COMPROBANTES: "Comprobantes y asientos al día",
@@ -80,6 +81,7 @@ export default function Procesos() {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState("");
+  const [confirmarEliminar, setConfirmarEliminar] = useState(false);
 
   const cargarLista = useCallback(async () => {
     try {
@@ -187,8 +189,8 @@ export default function Procesos() {
 
   const eliminar = async () => {
     if (!seleccionado) return;
+    setConfirmarEliminar(false);
     setError("");
-    if (!window.confirm(`¿Eliminar el proceso del año ${seleccionado.anio}?`)) return;
     try {
       await api.delete(`/procesos/${seleccionado.id}`);
       setSeleccionado(null);
@@ -205,7 +207,10 @@ export default function Procesos() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Seguimiento contable por proceso</h2>
+        <div>
+          <h2>Seguimiento contable por proceso</h2>
+          <p className="count-hint">Avance de las obligaciones contables por año.</p>
+        </div>
       </div>
       {error && <p className="error-msg">{error}</p>}
       {mensaje && <p className="success-msg">{mensaje}</p>}
@@ -315,7 +320,7 @@ export default function Procesos() {
                 Cambiar estado
               </button>
               {esAdmin && (
-                <button type="button" className="btn btn-danger btn-sm" onClick={eliminar}>
+                <button type="button" className="btn btn-danger btn-sm" onClick={() => setConfirmarEliminar(true)}>
                   Eliminar
                 </button>
               )}
@@ -343,6 +348,16 @@ export default function Procesos() {
             )}
           </div>
         </div>
+      )}
+
+      {confirmarEliminar && seleccionado && (
+        <ConfirmModal
+          titulo="Eliminar proceso"
+          mensaje={`¿Eliminar el proceso del año ${seleccionado.anio}? Esta acción no se puede revertir.`}
+          textoConfirmar="Eliminar"
+          onConfirmar={eliminar}
+          onCancelar={() => setConfirmarEliminar(false)}
+        />
       )}
     </div>
   );

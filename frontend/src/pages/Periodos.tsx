@@ -65,7 +65,10 @@ export default function Periodos() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Periodos contables</h2>
+        <div>
+          <h2>Periodos contables</h2>
+          <p className="count-hint">Ciclos contables abiertos y cerrados de la empresa.</p>
+        </div>
         {puedeEditar && (
           <button className="btn btn-primary" onClick={() => setCreando(true)}>
             Nuevo periodo

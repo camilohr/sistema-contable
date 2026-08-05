@@ -208,7 +208,10 @@ export default function Presupuesto() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Presupuesto y control presupuestal</h2>
+        <div>
+          <h2>Presupuesto y control presupuestal</h2>
+          <p className="count-hint">Carga del presupuesto por periodo y su ejecución.</p>
+        </div>
       </div>
       {error && <p className="error-msg">{error}</p>}
       {mensaje && <p className="success-msg">{mensaje}</p>}
@@ -216,7 +219,7 @@ export default function Presupuesto() {
       {cargando && <p className="count-hint">Cargando...</p>}
 
       {!cargando && puedeEditar && (
-        <form onSubmit={guardar} className="form-card">
+        <form onSubmit={guardar} className="form-card form-card-ancho">
           <h3>Cargar presupuesto por periodo</h3>
           <div className="form-row">
             <label>

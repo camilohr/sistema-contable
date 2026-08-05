@@ -25,11 +25,11 @@ export default function Dashboard() {
   ];
 
   return (
-    <div>
-      <h2>Menú de módulos · {empresaActiva?.nombre ?? "empresa"}</h2>
-      <p className="count-hint">
-        Empresa activa: {empresaActiva?.nombre} · Rol: {empresaActiva?.rol}
-      </p>
+    <div className="page">
+      <div className="page-head">
+        <h2>Menú de módulos</h2>
+      </div>
+      <p className="count-hint">Acceso a los módulos del sistema para la empresa activa.</p>
       <div className="modulos-grid">
         {modulos.map((m) => (
           <div key={m.nombre} className="modulo-card clickable" onClick={() => navigate(m.ruta)}>

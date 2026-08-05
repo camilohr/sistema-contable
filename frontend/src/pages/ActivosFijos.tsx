@@ -99,7 +99,10 @@ export default function ActivosFijos() {
   return (
     <div className="page">
       <div className="page-head">
-        <h2>Activos fijos</h2>
+        <div>
+          <h2>Activos fijos</h2>
+          <p className="count-hint">Registro, depreciación y baja de activos fijos.</p>
+        </div>
         <div>
           {puedeEditar && (
             <>
@@ -240,7 +243,7 @@ function FormaActivo({ activo, onClose, onGuardado }: { activo?: Activo; onClose
 
   const SelectCuenta = ({ label, campo, opciones }: { label: string; campo: "cuentaId" | "cuentaDepreciacionId" | "cuentaGastoId"; opciones: Cuenta[] }) => (
     <label>
-      {label}
+      {label}<span className="req">*</span>
       <select value={form[campo]} onChange={(e) => set(campo, e.target.value)} required>
         <option value="">Seleccione...</option>
         {opciones.map((c) => (
@@ -294,11 +297,11 @@ function FormaActivo({ activo, onClose, onGuardado }: { activo?: Activo; onClose
               </div>
               <div className="form-row">
                 <label>
-                  Valor
+                  Valor<span className="req">*</span>
                   <input type="number" min="0.01" step="0.01" value={form.valor} onChange={(e) => set("valor", e.target.value)} required />
                 </label>
                 <label>
-                  Vida útil (meses)
+                  Vida útil (meses)<span className="req">*</span>
                   <input type="number" min="1" step="1" value={form.vidaUtilMeses} onChange={(e) => set("vidaUtilMeses", e.target.value)} required />
                 </label>
                 <label>
@@ -307,13 +310,13 @@ function FormaActivo({ activo, onClose, onGuardado }: { activo?: Activo; onClose
                 </label>
               </div>
               <label>
-                Fecha de adquisición
+                Fecha de adquisición<span className="req">*</span>
                 <input type="date" value={form.fechaAdquisicion} onChange={(e) => set("fechaAdquisicion", e.target.value)} required />
               </label>
             </>
           )}
           <label>
-            Nombre
+            Nombre<span className="req">*</span>
             <input value={form.nombre} onChange={(e) => set("nombre", e.target.value)} required />
           </label>
           {error && <p className="error-msg">{error}</p>}
