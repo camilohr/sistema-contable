@@ -3,6 +3,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { EmpresaProvider, useEmpresa } from "./context/EmpresaContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import Resumen from "./pages/Resumen";
 import Cuentas from "./pages/Cuentas";
 import Terceros from "./pages/Terceros";
 import Periodos from "./pages/Periodos";
@@ -46,7 +47,8 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route path="/empresa/:empresaId" element={<Dashboard />} />
+              <Route path="/empresa/:empresaId" element={<Resumen />} />
+              <Route path="/empresa/:empresaId/menu" element={<Dashboard />} />
               <Route path="/empresa/:empresaId/cuentas" element={<Cuentas />} />
               <Route path="/empresa/:empresaId/terceros" element={<Terceros />} />
               <Route path="/empresa/:empresaId/periodos" element={<Periodos />} />

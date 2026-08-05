@@ -188,7 +188,7 @@ transacción.
   esperada (ADMIN/CONTADOR).
 - `POST /api/procesos/:id/notas` — nota de seguimiento (ADMIN/CONTADOR).
 - `GET /api/procesos/cartera` — para **todas** las empresas del usuario (no usa
-  `requireEmpresa`): semáforo del Dashboard.
+  `requireEmpresa`): semáforo de la cartera de clientes (vista Resumen).
 
 ### 9.4 Integración automática
 
@@ -202,5 +202,41 @@ seguimiento es opcional hasta que se crea el proceso.
 
 - Página "Seguimiento por procesos" (`/empresa/:empresaId/procesos`): lista por año,
   checklist con fechas, notas, cambio de estado y semáforo.
-- Dashboard: tarjeta "Cartera de clientes" con semáforo por empresa/proceso
-  (`GET /api/procesos/cartera`) y acceso directo al proceso de cada cliente.
+- Cartera de clientes con semáforo por empresa/proceso (`GET /api/procesos/cartera`),
+  integrada en la vista "Resumen del proceso" de cada empresa (componente
+  `CarteraProcesos`).
+
+## 10. Resumen por cliente y navegación por proceso (Fase 3 de V2.0)
+
+### 10.1 Endpoint `GET /api/resumen`
+
+Vista consolidada del estado de la **empresa activa** (usa `requireEmpresa`). Devuelve:
+
+- `empresa` — datos del cliente y rol efectivo del usuario.
+- `periodoObjetivo` — último periodo abierto (`periodoId`, `nombre`, `anio`).
+- `proceso` — proceso contable vigente (año del periodo objetivo) con `avance`.
+- `periodos`, `comprobantes`, `nomina`, `provision`, `presupuesto`, `cierreAnio` —
+  estado de cada área con los id necesarios para navegar.
+- `alertas` — totales por severidad (ALTA/MEDIA/BAJA), usando `evaluarAlertas`.
+
+Cada bloque es el "semáforo" de un paso del proceso; el frontend enlaza cada tarjeta a
+su módulo (`procesos`, `comprobantes`, `nomina`, `provision-cartera`, `presupuesto`,
+`cierre-anual`).
+
+### 10.2 Navegación
+
+- Landing de cada empresa: **"Resumen del proceso"** (`/empresa/:empresaId` → página
+  `Resumen`), que reemplaza al Dashboard como entrada; el grid de módulos se mantiene
+  en `/empresa/:empresaId/menu` ("Menú de módulos").
+- El menú lateral (`Layout`) se agrupa en secciones por el ciclo del proceso: **Proceso**
+  (resumen, seguimiento, periodos, cierre anual), **Ciclo del mes** (comprobantes,
+  nómina, parámetros, provisión de cartera, presupuesto), **Información** (reportes,
+  CxC, CxP, indicadores), **Catálogos** (cuentas, terceros, productos, activos fijos,
+  empleados) y **Administración** (solo ADMIN: usuarios, auditoría).
+- `Resumen` incluye el panel de alertas (`AlertasPanel`) y la cartera de clientes
+  (`CarteraProcesos`).
+
+### 10.3 Tests
+
+`backend/tests/resumen.test.ts` cubre el resumen por rol y por estado (borrador vs.
+contabilizado) de cada área. No hay cambios de esquema en esta fase.

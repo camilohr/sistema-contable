@@ -21,6 +21,7 @@ import empleadosRoutes from "./routes/empleados.routes.js";
 import nominaRoutes from "./routes/nomina.routes.js";
 import presupuestoRoutes from "./routes/presupuesto.routes.js";
 import procesosRoutes from "./routes/procesos.routes.js";
+import resumenRoutes from "./routes/resumen.routes.js";
 import alertasRoutes from "./routes/alertas.routes.js";
 import { notFound, errorHandler } from "./middleware/error.js";
 
@@ -59,6 +60,7 @@ export function createApp(): express.Express {
   app.use("/api/nomina", nominaRoutes);
   app.use("/api/presupuesto", presupuestoRoutes);
   app.use("/api/procesos", procesosRoutes);
+  app.use("/api/resumen", resumenRoutes);
   app.use("/api/alertas", alertasRoutes);
 
   if (sirveFrontend) {

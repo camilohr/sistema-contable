@@ -371,12 +371,25 @@ model NotaSeguimiento {
 Estado: suite backend en verde (338 tests, 19 archivos); typecheck y lint/build limpios
 en backend y frontend.
 
-### Fase 3 — Navegación por proceso y consolidación
+### Fase 3 — Navegación por proceso y consolidación *(implementada el 2026-08-05)*
 
-- Reestructura del menú y de las rutas: `Mis clientes → Empresa → Proceso → módulos`.
-- Vistas por cliente que agrupan su estado: comprobantes, nómina, cierre, presupuesto,
-  alertas y proceso.
-- Unificar pantallas sueltas de V1.1 como pasos del proceso.
+- ~~Reestructura del menú y de las rutas: `Mis clientes → Empresa → Proceso → módulos`.~~ →
+  implementado: el menú lateral se agrupa por pasos del proceso (Proceso, Ciclo del mes,
+  Información, Catálogos y Administración) y la landing de cada empresa es ahora la vista
+  "Resumen del proceso"; el grid de módulos queda en "Menú de módulos".
+- ~~Vistas por cliente que agrupan su estado: comprobantes, nómina, cierre, presupuesto,
+  alertas y proceso.~~ → implementado con `GET /api/resumen` (estado consolidado de la
+  empresa activa: proceso del año con semáforo, comprobantes, periodos, nómina,
+  provisión, presupuesto, cierre anual y conteo de alertas) y la página `Resumen`
+  (`/empresa/:empresaId`) con tarjetas de estado y acciones rápidas hacia cada módulo,
+  junto con el panel de alertas y la cartera de clientes (semáforo).
+- ~~Unificar pantallas sueltas de V1.1 como pasos del proceso.~~ → el menú agrupado
+  presenta los módulos como pasos del ciclo contable de cada cliente.
+- Las alertas existentes ya son por empresa y quedan conectadas al proceso desde el
+  resumen (conteo por severidad en la misma vista del proceso).
+
+Estado: suite backend en verde (346 tests, 20 archivos); typecheck y lint/build limpios
+en backend y frontend.
 
 ### Fase 4 — Herramientas del proceso: conciliación, soportes y exportación de informes
 

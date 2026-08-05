@@ -9,26 +9,45 @@ const rolLabels: Record<string, string> = {
   AUXILIAR: "Auxiliar",
 };
 
-const links = [
-  { to: "", label: "Dashboard", end: true },
-  { to: "comprobantes", label: "Comprobantes" },
-  { to: "reportes", label: "Libros y reportes" },
-  { to: "cxc", label: "Cuentas por cobrar" },
-  { to: "cxp", label: "Cuentas por pagar" },
-  { to: "provision-cartera", label: "Provisión de cartera" },
-  { to: "indicadores", label: "Indicadores financieros" },
-  { to: "procesos", label: "Seguimiento por procesos" },
-  { to: "presupuesto", label: "Presupuesto" },
-  { to: "productos", label: "Productos e inventario" },
-  { to: "activos-fijos", label: "Activos fijos" },
-  { to: "empleados", label: "Empleados" },
-  { to: "nomina", label: "Nómina" },
-  { to: "parametros-nomina", label: "Parámetros de nómina" },
-  { to: "cierre-anual", label: "Cierre anual" },
-  { to: "cuentas", label: "Catálogo de cuentas" },
-  { to: "terceros", label: "Terceros" },
-  { to: "periodos", label: "Periodos" },
-  { to: "/cambiar-password", label: "Cambiar contraseña", end: true },
+const gruposNavegacion: { titulo: string; items: { to: string; label: string; end?: boolean }[] }[] = [
+  {
+    titulo: "Proceso",
+    items: [
+      { to: "", label: "Resumen del proceso", end: true },
+      { to: "procesos", label: "Seguimiento por procesos" },
+      { to: "periodos", label: "Periodos" },
+      { to: "cierre-anual", label: "Cierre anual" },
+    ],
+  },
+  {
+    titulo: "Ciclo del mes",
+    items: [
+      { to: "comprobantes", label: "Comprobantes" },
+      { to: "nomina", label: "Nómina" },
+      { to: "parametros-nomina", label: "Parámetros de nómina" },
+      { to: "provision-cartera", label: "Provisión de cartera" },
+      { to: "presupuesto", label: "Presupuesto" },
+    ],
+  },
+  {
+    titulo: "Información",
+    items: [
+      { to: "reportes", label: "Libros y reportes" },
+      { to: "cxc", label: "Cuentas por cobrar" },
+      { to: "cxp", label: "Cuentas por pagar" },
+      { to: "indicadores", label: "Indicadores financieros" },
+    ],
+  },
+  {
+    titulo: "Catálogos",
+    items: [
+      { to: "cuentas", label: "Catálogo de cuentas" },
+      { to: "terceros", label: "Terceros" },
+      { to: "productos", label: "Productos e inventario" },
+      { to: "activos-fijos", label: "Activos fijos" },
+      { to: "empleados", label: "Empleados" },
+    ],
+  },
 ];
 
 const soloAdmin = [
@@ -56,17 +75,29 @@ export default function Layout() {
       <aside className="sidebar">
         <div className="sidebar-brand">Sistema Contable</div>
         <nav className="sidebar-nav">
-          {links.map((l) => (
-            <NavLink key={l.to} to={l.to.startsWith("/") ? l.to : `${base}/${l.to}`} end={l.end} className={({ isActive }) => (isActive ? "active" : "")}>
-              {l.label}
-            </NavLink>
+          {gruposNavegacion.map((g) => (
+            <div key={g.titulo} className="sidebar-grupo">
+              <span className="sidebar-grupo-titulo">{g.titulo}</span>
+              {g.items.map((l) => (
+                <NavLink key={l.to} to={`${base}/${l.to}`} end={l.end} className={({ isActive }) => (isActive ? "active" : "")}>
+                  {l.label}
+                </NavLink>
+              ))}
+            </div>
           ))}
-          {rol === "ADMIN" &&
-            soloAdmin.map((l) => (
-              <NavLink key={l.to} to={`${base}/${l.to}`} end={l.end} className={({ isActive }) => (isActive ? "active" : "")}>
-                {l.label}
-              </NavLink>
-            ))}
+          {rol === "ADMIN" && (
+            <div className="sidebar-grupo">
+              <span className="sidebar-grupo-titulo">Administración</span>
+              {soloAdmin.map((l) => (
+                <NavLink key={l.to} to={`${base}/${l.to}`} end={l.end} className={({ isActive }) => (isActive ? "active" : "")}>
+                  {l.label}
+                </NavLink>
+              ))}
+            </div>
+          )}
+          <NavLink to="/cambiar-password" end className={({ isActive }) => (isActive ? "active" : "")}>
+            Cambiar contraseña
+          </NavLink>
         </nav>
       </aside>
       <div className="main-area">
