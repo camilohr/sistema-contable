@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
 import { prisma } from "./prisma-test.js";
+import { empresaDePrueba } from "./helpers.js";
 import bcrypt from "bcryptjs";
 
 const app = createApp();
@@ -201,10 +202,29 @@ describe("Procesos contables: estado y cartera", () => {
   it("cartera devuelve la empresa con su proceso y avance", async () => {
     const res = await request(app).get("/api/procesos/cartera").use(auth(adminToken));
     expect(res.status).toBe(200);
-    const fila = res.body.find((f: { empresa: { id: string } }) => f.empresa.id === res.body[0].empresa.id);
+    const eid = await empresaDePrueba();
+    const fila = res.body.find((f: { empresa: { id: string } }) => f.empresa.id === eid);
     expect(fila).toBeTruthy();
     expect(fila.proceso.anio).toBe(2026);
     expect(fila.proceso.avance.total).toBe(7);
+  });
+
+  it("cartera incluye para ADMIN una empresa sin vinculo en UsuarioEmpresa", async () => {
+    const nueva = await prisma.empresa.create({ data: { nombre: "Cartera Sin Vinculo", nit: "999999999" } });
+    try {
+      const resAdmin = await request(app).get("/api/procesos/cartera").use(auth(adminToken));
+      expect(resAdmin.status).toBe(200);
+      const idsAdmin = resAdmin.body.map((f: { empresa: { id: string } }) => f.empresa.id);
+      expect(idsAdmin).toContain(nueva.id);
+      expect(resAdmin.body.find((f: { empresa: { id: string } }) => f.empresa.id === nueva.id).proceso).toBeNull();
+
+      const resCont = await request(app).get("/api/procesos/cartera").use(auth(contadorToken));
+      expect(resCont.status).toBe(200);
+      const idsCont = resCont.body.map((f: { empresa: { id: string } }) => f.empresa.id);
+      expect(idsCont).not.toContain(nueva.id);
+    } finally {
+      await prisma.empresa.delete({ where: { id: nueva.id } });
+    }
   });
 
   it("elimina el proceso (ADMIN) y desaparece del detalle", async () => {

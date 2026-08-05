@@ -305,12 +305,24 @@ export async function agregarNota(req: Request, res: Response): Promise<void> {
 }
 
 export async function cartera(req: Request, res: Response): Promise<void> {
-  const vinculos = await prisma.usuarioEmpresa.findMany({
-    where: { usuarioId: req.user!.sub, activo: true, empresa: { activa: true } },
-    orderBy: { createdAt: "asc" },
-    include: { empresa: { select: { id: true, nombre: true, nit: true } } },
-  });
-  const empresaIds = vinculos.map((v) => v.empresa.id);
+  const rolGlobal = req.user!.rol;
+  let filas: { id: string; nombre: string; nit: string; rol: string }[];
+  if (rolGlobal === "ADMIN") {
+    const todas = await prisma.empresa.findMany({
+      where: { activa: true },
+      orderBy: { nombre: "asc" },
+      select: { id: true, nombre: true, nit: true },
+    });
+    filas = todas.map((e) => ({ id: e.id, nombre: e.nombre, nit: e.nit, rol: "ADMIN" }));
+  } else {
+    const vinculos = await prisma.usuarioEmpresa.findMany({
+      where: { usuarioId: req.user!.sub, activo: true, empresa: { activa: true } },
+      orderBy: { createdAt: "asc" },
+      include: { empresa: { select: { id: true, nombre: true, nit: true } } },
+    });
+    filas = vinculos.map((v) => ({ id: v.empresa.id, nombre: v.empresa.nombre, nit: v.empresa.nit, rol: v.rol }));
+  }
+  const empresaIds = filas.map((f) => f.id);
   const procesos = await prisma.procesoContable.findMany({
     where: { empresaId: { in: empresaIds } },
     include: { actividades: { select: { estado: true } } },
@@ -321,11 +333,11 @@ export async function cartera(req: Request, res: Response): Promise<void> {
     if (!porEmpresa.has(p.empresaId)) porEmpresa.set(p.empresaId, p);
   }
   res.json(
-    vinculos.map((v) => {
-      const p = porEmpresa.get(v.empresa.id);
+    filas.map((f) => {
+      const p = porEmpresa.get(f.id);
       return {
-        empresa: { id: v.empresa.id, nombre: v.empresa.nombre, nit: v.empresa.nit },
-        rol: v.rol,
+        empresa: { id: f.id, nombre: f.nombre, nit: f.nit },
+        rol: f.rol,
         proceso: p ? serializarProceso(p) : null,
       };
     })
