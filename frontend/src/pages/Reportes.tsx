@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useEmpresa } from "../context/EmpresaContext";
 import { cop } from "../lib/formato";
+import styles from "./Reportes.module.css";
 
 type Tab = "diario" | "mayor" | "balance" | "balance-general" | "resultados";
 
@@ -264,7 +265,7 @@ export default function Reportes() {
       {error && <p className="error-msg">{error}</p>}
       {cargando && <p className="count-hint">Cargando...</p>}
 
-      <div className="filters pdf-actions">
+      <div className={`filters ${styles.pdfActions}`}>
         {tab === "diario" && (
           <button className="btn btn-secondary" onClick={() => descargarPdf("libro-diario.pdf")}>
             Descargar libro diario (PDF)
@@ -290,7 +291,7 @@ export default function Reportes() {
             Descargar estado de resultados (PDF)
           </button>
         )}
-        <span className="count-hint export-hint">Exportar como tabla:</span>
+        <span className={`count-hint ${styles.exportHint}`}>Exportar como tabla:</span>
         <button className="btn btn-secondary" onClick={() => exportar("csv")}>
           CSV
         </button>
@@ -453,20 +454,20 @@ export default function Reportes() {
               ? `Ecuación contable correcta: Activo ${cop(balanceGeneral.totalActivo)} = Pasivo ${cop(balanceGeneral.totalPasivo)} + Patrimonio ${cop(balanceGeneral.totalPatrimonio)}.`
               : "La ecuación contable no cuadra: revise los asientos."}
           </p>
-          <div className="estado-seccion">
-            <h3 className="estado-titulo">Activo</h3>
+          <div className={styles.estadoSeccion}>
+            <h3 className={styles.estadoTitulo}>Activo</h3>
             <SeccionTable seccion={balanceGeneral.activo} />
-            <p className="estado-total">Total activo: {cop(balanceGeneral.totalActivo)}</p>
+            <p className={styles.estadoTotal}>Total activo: {cop(balanceGeneral.totalActivo)}</p>
           </div>
-          <div className="estado-seccion">
-            <h3 className="estado-titulo">Pasivo</h3>
+          <div className={styles.estadoSeccion}>
+            <h3 className={styles.estadoTitulo}>Pasivo</h3>
             <SeccionTable seccion={balanceGeneral.pasivo} />
-            <p className="estado-total">Total pasivo: {cop(balanceGeneral.totalPasivo)}</p>
+            <p className={styles.estadoTotal}>Total pasivo: {cop(balanceGeneral.totalPasivo)}</p>
           </div>
-          <div className="estado-seccion">
-            <h3 className="estado-titulo">Patrimonio</h3>
+          <div className={styles.estadoSeccion}>
+            <h3 className={styles.estadoTitulo}>Patrimonio</h3>
             <SeccionTable seccion={balanceGeneral.patrimonio} />
-            <p className="estado-total">Total patrimonio: {cop(balanceGeneral.totalPatrimonio)}</p>
+            <p className={styles.estadoTotal}>Total patrimonio: {cop(balanceGeneral.totalPatrimonio)}</p>
           </div>
         </>
       )}
@@ -478,22 +479,22 @@ export default function Reportes() {
               ? `Utilidad del ejercicio: ${cop(resultados.resultado)}.`
               : `Pérdida del ejercicio: ${cop(-resultados.resultado)}.`}
           </p>
-          <div className="estado-seccion">
-            <h3 className="estado-titulo">Ingresos</h3>
+          <div className={styles.estadoSeccion}>
+            <h3 className={styles.estadoTitulo}>Ingresos</h3>
             <SeccionTable seccion={resultados.ingresos} />
-            <p className="estado-total">Total ingresos: {cop(resultados.totalIngresos)}</p>
+            <p className={styles.estadoTotal}>Total ingresos: {cop(resultados.totalIngresos)}</p>
           </div>
-          <div className="estado-seccion">
-            <h3 className="estado-titulo">Costos</h3>
+          <div className={styles.estadoSeccion}>
+            <h3 className={styles.estadoTitulo}>Costos</h3>
             <SeccionTable seccion={resultados.costos} />
-            <p className="estado-total">Total costos: {cop(resultados.totalCostos)}</p>
+            <p className={styles.estadoTotal}>Total costos: {cop(resultados.totalCostos)}</p>
           </div>
-          <div className="estado-seccion">
-            <h3 className="estado-titulo">Gastos</h3>
+          <div className={styles.estadoSeccion}>
+            <h3 className={styles.estadoTitulo}>Gastos</h3>
             <SeccionTable seccion={resultados.gastos} />
-            <p className="estado-total">Total gastos: {cop(resultados.totalGastos)}</p>
+            <p className={styles.estadoTotal}>Total gastos: {cop(resultados.totalGastos)}</p>
           </div>
-          <p className="estado-total resultado-line">
+          <p className={`${styles.estadoTotal} ${styles.resultadoLine}`}>
             Resultado del ejercicio: {resultados.resultado >= 0 ? cop(resultados.resultado) : `(${cop(-resultados.resultado)})`}
           </p>
         </>
@@ -517,7 +518,7 @@ function SeccionTable({ seccion }: { seccion: SeccionCuentas[] }) {
         <tbody>
           {seccion.map((g) => (
             <Fragment key={g.grupo}>
-              <tr className="grupo-row">
+              <tr className={styles.grupoRow}>
                 <td className="codigo-cell">{g.grupo}</td>
                 <td>{g.nombre}</td>
                 <td className="num-cell">{cop(g.total)}</td>

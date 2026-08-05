@@ -349,11 +349,6 @@ input:focus {
   margin-bottom: 0.75rem;
 }
 
-.pdf-actions {
-  padding-bottom: 0.25rem;
-  margin-top: -0.5rem;
-}
-
 .table-wrap {
   background: var(--card);
   border: 1px solid var(--border);
@@ -700,34 +695,6 @@ select {
   color: var(--text);
 }
 
-.estado-seccion {
-  margin-bottom: 1.25rem;
-}
-
-.estado-titulo {
-  font-size: 1rem;
-  margin: 0 0 0.5rem;
-  color: var(--primary-dark);
-}
-
-.estado-total {
-  font-weight: 700;
-  margin-top: 0.5rem;
-  color: var(--text);
-}
-
-.resultado-line {
-  font-size: 1.05rem;
-  border-top: 2px solid var(--border);
-  padding-top: 0.6rem;
-}
-
-.grupo-row td {
-  font-weight: 700;
-  background: #f8fafb;
-  border-top: 1px solid var(--border);
-}
-
 .alerta-list {
   list-style: none;
   margin: 0;
@@ -926,10 +893,6 @@ select {
 
 .adjuntos-subir input {
   display: none;
-}
-
-.export-hint {
-  margin: 0 0.25rem 0 auto;
 }
 
 .conciliacion-crear .filters {
