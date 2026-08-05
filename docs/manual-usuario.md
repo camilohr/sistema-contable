@@ -18,6 +18,10 @@ Sistema contable local para contadores. Guía de uso por módulo.
 
 Los botones de creación/edición solo aparecen si su rol lo permite.
 
+Los permisos de contador y auxiliar se asignan **por cliente (empresa)**: un usuario
+puede tener roles distintos en empresas distintas, y solo ve las empresas a las que
+está asignado. El **Administrador** gestiona todos los clientes y usuarios; ver §13.
+
 ## 2. Catálogo de cuentas (PUC)
 
 - Lista el Plan Único de Cuentas con su código, nombre, naturaleza (débito/crédito) y clasificación.
@@ -75,6 +79,10 @@ En la parte superior de cada pestaña hay botones para **exportar** la informaci
 
 Todo se genera y descarga localmente; nada se sube a servicios externos.
 
+En la página de **Clientes**, antes de dar de baja un cliente, el sistema ofrece
+descargar su **paquete final** (todos los informes de un año o periodo) para conservar
+el histórico del cliente fuera del sistema.
+
 ## 7. Conciliación bancaria
 
 Permite comparar el **saldo de libros** (asientos de la cuenta de bancos 1110) con el **saldo del extracto** del banco y cruzar los movimientos.
@@ -124,7 +132,39 @@ Cada **comprobante** y cada **empresa** admite **soportes adjuntos** (facturas, 
 
 En *Cambiar contraseña* ingrese la actual y la nueva (mínimo 8 caracteres).
 
-## 12. Buenas prácticas
+## 13. Usuarios y clientes (solo Administrador)
+
+### Usuarios
+
+Página **Usuarios** (módulo de administración):
+
+- Muestra los usuarios **asignados a la empresa activa** con su rol en esa empresa.
+- **Crear usuario**: nombre, correo, contraseña y rol. El nuevo usuario queda asignado
+  a la empresa activa. Su primer ingreso exige cambiar la contraseña.
+- **Cambiar rol**: selector junto a cada usuario. Un administrador no puede cambiarse
+  su propio rol en la empresa activa.
+- **Asignar un usuario existente**: el listado de *usuarios disponibles* (no asignados
+  a la empresa) permite vincularlos con un rol. Un usuario solo puede estar asignado a
+  empresas activas.
+- **Retirar**: desvincula al usuario de la empresa. Un administrador no puede retirarse
+  a sí mismo de la empresa activa. No se eliminan sus registros de auditoría.
+
+### Clientes
+
+Página **Clientes**: lista todos los clientes (activos e inactivos) con su estado y el
+número de usuarios, periodos, procesos y adjuntos de cada uno.
+
+- **Nuevo cliente**: nombre/NIT y fecha de apertura. Se crea junto con su proceso
+  contable del año en curso.
+- **Editar / Desactivar / Activar**: un cliente **inactivo** no es accesible desde el
+  selector de empresa ni se permite operar sobre él.
+- **Dar de baja (baja ordenada)**: antes de desactivar, el sistema descarga el
+  **paquete final** con todos los informes del cliente. Un cliente con procesos de años
+  sin informes generados y un periodo abierto del año en curso se bloquea y pide
+  cerrarlos primero.
+- **Descargar paquete**: empaqueta los informes del año en curso del cliente.
+
+## 14. Buenas prácticas
 
 - Registre los movimientos **dentro de su periodo** (la fecha del comprobante debe estar entre inicio y fin del periodo abierto).
 - Contabilice siempre con soporte documental (factura, recibo, egreso) y **adjúntelo** al comprobante.

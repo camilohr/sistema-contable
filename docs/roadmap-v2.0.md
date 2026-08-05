@@ -466,14 +466,48 @@ Estado: suite backend en verde (378 tests, 23 archivos); typecheck y build limpi
 backend y frontend; respaldo con adjuntos probado (creación, verificación y
 restauración del ZIP).
 
-### Fase 5 — Permisos por cliente y administración
+### Fase 5 — Permisos por cliente y administración *(implementada el 2026-08-05)*
 
-- `UsuarioEmpresa` ya definido en §4.5; se implementa la UI de administración
-  (asignar/retirar usuarios de una empresa, cambiar su rol en esa empresa).
-- AUXILIAR ve solo las empresas asignadas; menú y reportes filtrados.
-- Bitácora de auditoría extendida a empresa/proceso (acciones del proceso).
-- Gestión de clientes (activo/inactivo) y baja ordenada (exportación final usando el
-  paquete completo de Fase 4).
+- ~~`UsuarioEmpresa` UI de administración (asignar/retirar usuarios de una empresa,
+  cambiar su rol en esa empresa).~~ → implementado:
+  - Backend: `GET /api/usuarios` lista los usuarios asignados a la empresa activa con
+    su rol en esa empresa; `GET /api/usuarios/disponibles` lista los usuarios no
+    asignados (para vincular); `POST /api/usuarios/:id/vincular`,
+    `PATCH /api/usuarios/:id/rol` y `DELETE /api/usuarios/:id` (retirar, con
+    auto-retiro bloqueado). Todo con auditoría
+    (`ASIGNAR_USUARIO_EMPRESA`/`CAMBIAR_ROL_EMPRESA`/`RETIRAR_USUARIO_EMPRESA`).
+  - Frontend: la página "Usuarios" permite cambiar el rol de cada usuario en la
+    empresa (selector), retirarlo y asignar un usuario existente desde el listado de
+    disponibles; el nuevo usuario se crea ya vinculado a la empresa activa.
+- ~~Acceso implícito del ADMIN global y rol efectivo (§4.5).~~ → implementado en
+  `requireEmpresa` (backend/src/middleware/auth.ts): el ADMIN global accede a cualquier
+  empresa activa sin fila en `UsuarioEmpresa`; el rol efectivo es el más restrictivo
+  entre el rol global y el de la empresa (`rolMasRestrictivo`). AUXILIAR ve solo las
+  empresas asignadas; las rutas de administración exigen ADMIN global.
+- ~~Bitácora de auditoría extendida a empresa/proceso.~~ → implementado: el enum
+  `AccionAuditoria` se amplió con 12 acciones
+  (`CREAR_EMPRESA`, `EDITAR_EMPRESA`, `DESACTIVAR_EMPRESA`, `ACTIVAR_EMPRESA`,
+  `ASIGNAR_USUARIO_EMPRESA`, `CAMBIAR_ROL_EMPRESA`, `RETIRAR_USUARIO_EMPRESA`,
+  `CREAR_PROCESO`, `ACTUALIZAR_PROCESO`, `ELIMINAR_PROCESO`, `MARCAR_ACTIVIDAD`,
+  `AGREGAR_NOTA`), registradas dentro de las mismas transacciones de la operación.
+- ~~Gestión de clientes (activo/inactivo) y baja ordenada.~~ → implementado:
+  - `GET /api/empresas/administracion` (solo ADMIN) con todos los clientes (incluidos
+    los inactivos) y conteos de usuarios/periodos/procesos/adjuntos.
+  - `POST /api/empresas` crea el cliente y su `ProcesoContable` del año en una sola
+    transacción (auditoría `CREAR_EMPRESA`); `PATCH /api/empresas/:id` edita
+    (`EDITAR_EMPRESA`) y `PATCH /api/empresas/:id/estado` activa/desactiva
+    (`ACTIVAR_EMPRESA`/`DESACTIVAR_EMPRESA`); una empresa inactiva bloquea el acceso
+    (`requireEmpresa` → 403).
+  - Baja ordenada: `POST /api/empresas/:empresaId/informes/paquete-final` (solo ADMIN)
+    genera el ZIP con todos los informes de un año o periodo antes de desactivar,
+    reutilizando el paquete de la Fase 4 (`paqueteParaEmpresa`).
+  - Frontend: nueva página "Clientes" (listado con estado y conteos, crear/editar,
+    dar de baja con descarga del paquete final, reactivar y descarga directa del
+    paquete del año actual).
+
+Estado: suite backend en verde (400 tests, 24 archivos), incluido
+`backend/tests/administracion.test.ts` (22 tests de Fase 5); typecheck y lint/build
+limpios en backend y frontend; endpoints validados contra el backend en ejecución.
 
 ### Fase 6 — Consolidación, respaldo y manuales
 

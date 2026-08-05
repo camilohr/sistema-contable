@@ -208,24 +208,18 @@ async function periodosEnAlcance(empresaId: string, periodoId?: number, anio?: n
   return [];
 }
 
-export async function paqueteInformes(req: Request, res: Response): Promise<void> {
-  const periodoId = req.body?.periodoId ? Number(req.body.periodoId) : undefined;
-  const anio = req.body?.anio ? Number(req.body.anio) : undefined;
-  if (!periodoId && !anio) {
-    res.status(400).json({ error: "Se requiere 'periodoId' o 'anio'" });
-    return;
-  }
-
-  const empresa = await obtenerEmpresa(req.empresaId!);
-  const periodos = await periodosEnAlcance(req.empresaId!, periodoId, anio);
-  if (periodos.length === 0) {
-    res.status(404).json({ error: "No se encontraron periodos para el alcance indicado" });
-    return;
-  }
+export async function paqueteParaEmpresa(
+  empresaId: string,
+  periodoId?: number,
+  anio?: number
+): Promise<{ buffer: Buffer; nombreArchivo: string } | null> {
+  const empresa = await obtenerEmpresa(empresaId);
+  const periodos = await periodosEnAlcance(empresaId, periodoId, anio);
+  if (periodos.length === 0) return null;
 
   const archivos: { nombre: string; contenido: Buffer }[] = [];
   for (const p of periodos) {
-    const reqP = reqFiltro(req.empresaId!, p.id);
+    const reqP = reqFiltro(empresaId, p.id);
     const generadores = [
       { archivo: "libro-diario.pdf", fn: () => generarPdfLibroDiario(empresa, reqP) },
       { archivo: "libro-mayor.pdf", fn: () => generarPdfLibroMayor(empresa, reqP) },
@@ -239,9 +233,50 @@ export async function paqueteInformes(req: Request, res: Response): Promise<void
     }
   }
 
-  const buffer = crearZip(archivos);
+  return { buffer: crearZip(archivos), nombreArchivo: `informes-${anio ?? periodos[0].nombre}.zip` };
+}
+
+export async function paqueteInformes(req: Request, res: Response): Promise<void> {
+  const periodoId = req.body?.periodoId ? Number(req.body.periodoId) : undefined;
+  const anio = req.body?.anio ? Number(req.body.anio) : undefined;
+  if (!periodoId && !anio) {
+    res.status(400).json({ error: "Se requiere 'periodoId' o 'anio'" });
+    return;
+  }
+
+  const resultado = await paqueteParaEmpresa(req.empresaId!, periodoId, anio);
+  if (!resultado) {
+    res.status(404).json({ error: "No se encontraron periodos para el alcance indicado" });
+    return;
+  }
+
   res.setHeader("Content-Type", "application/zip");
-  res.setHeader("Content-Disposition", `attachment; filename="informes-${anio ?? periodos[0].nombre}.zip"`);
-  res.setHeader("Content-Length", buffer.length);
-  res.send(buffer);
+  res.setHeader("Content-Disposition", `attachment; filename="${resultado.nombreArchivo}"`);
+  res.setHeader("Content-Length", resultado.buffer.length);
+  res.send(resultado.buffer);
+}
+
+export async function paqueteFinalBaja(req: Request, res: Response): Promise<void> {
+  const periodoId = req.body?.periodoId ? Number(req.body.periodoId) : undefined;
+  const anio = req.body?.anio ? Number(req.body.anio) : undefined;
+  if (!periodoId && !anio) {
+    res.status(400).json({ error: "Se requiere 'periodoId' o 'anio'" });
+    return;
+  }
+  const empresa = await prisma.empresa.findUnique({ where: { id: req.params.empresaId } });
+  if (!empresa) {
+    res.status(404).json({ error: "Empresa no encontrada" });
+    return;
+  }
+
+  const resultado = await paqueteParaEmpresa(empresa.id, periodoId, anio);
+  if (!resultado) {
+    res.status(404).json({ error: "No se encontraron periodos para el alcance indicado" });
+    return;
+  }
+
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", `attachment; filename="${resultado.nombreArchivo}"`);
+  res.setHeader("Content-Length", resultado.buffer.length);
+  res.send(resultado.buffer);
 }

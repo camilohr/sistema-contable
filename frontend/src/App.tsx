@@ -18,6 +18,7 @@ import ProvisionCartera from "./pages/ProvisionCartera";
 import Indicadores from "./pages/Indicadores";
 import Auditoria from "./pages/Auditoria";
 import Usuarios from "./pages/Usuarios";
+import Clientes from "./pages/Clientes";
 import CambiarPassword from "./pages/CambiarPassword";
 import Empleados from "./pages/Empleados";
 import Nomina from "./pages/Nomina";
@@ -64,6 +65,7 @@ export default function App() {
               <Route path="/empresa/:empresaId/provision-cartera" element={<ProvisionCartera />} />
               <Route path="/empresa/:empresaId/indicadores" element={<Indicadores />} />
               <Route path="/empresa/:empresaId/usuarios" element={<Usuarios />} />
+              <Route path="/empresa/:empresaId/clientes" element={<Clientes />} />
               <Route path="/empresa/:empresaId/auditoria" element={<Auditoria />} />
               <Route path="/empresa/:empresaId/empleados" element={<Empleados />} />
               <Route path="/empresa/:empresaId/nomina" element={<Nomina />} />

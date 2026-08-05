@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { EstadoProceso } from "@prisma/client";
+import { AccionAuditoria, EstadoProceso } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { crearProcesoConPlantilla } from "../lib/procesos.js";
+import { registrarAuditoria } from "../lib/auditoria.js";
 
 const crearSchema = z.object({
   anio: z.number().int().min(2000).max(2100),
@@ -102,7 +103,18 @@ export async function crear(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const proceso = await crearProcesoConPlantilla(prisma, req.empresaId, anio);
+  const proceso = await prisma.$transaction(async (tx) => {
+    const p = await crearProcesoConPlantilla(tx, req.empresaId, anio);
+    await registrarAuditoria(tx, {
+      usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
+      accion: AccionAuditoria.CREAR_PROCESO,
+      entidad: "ProcesoContable",
+      entidadId: p.id,
+      detalle: { anio },
+    });
+    return p;
+  });
   res.status(201).json({
     id: proceso.id,
     anio: proceso.anio,
@@ -161,10 +173,21 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     res.status(404).json({ error: "Proceso no encontrado" });
     return;
   }
-  const proceso = await prisma.procesoContable.update({
-    where: { id: existe.id },
-    data: { estado: parsed.data.estado },
-    include: { actividades: { select: { estado: true } } },
+  const proceso = await prisma.$transaction(async (tx) => {
+    const p = await tx.procesoContable.update({
+      where: { id: existe.id },
+      data: { estado: parsed.data.estado },
+      include: { actividades: { select: { estado: true } } },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
+      accion: AccionAuditoria.ACTUALIZAR_PROCESO,
+      entidad: "ProcesoContable",
+      entidadId: existe.id,
+      detalle: { anio: existe.anio, estado: parsed.data.estado },
+    });
+    return p;
   });
   res.json(serializarProceso(proceso));
 }
@@ -177,7 +200,17 @@ export async function eliminar(req: Request, res: Response): Promise<void> {
     res.status(404).json({ error: "Proceso no encontrado" });
     return;
   }
-  await prisma.procesoContable.delete({ where: { id: existe.id } });
+  await prisma.$transaction(async (tx) => {
+    await tx.procesoContable.delete({ where: { id: existe.id } });
+    await registrarAuditoria(tx, {
+      usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
+      accion: AccionAuditoria.ELIMINAR_PROCESO,
+      entidad: "ProcesoContable",
+      entidadId: existe.id,
+      detalle: { anio: existe.anio },
+    });
+  });
   res.json({ ok: true });
 }
 
@@ -217,9 +250,20 @@ export async function marcarActividad(req: Request, res: Response): Promise<void
     }
   }
 
-  const actualizada = await prisma.actividadProceso.update({
-    where: { id: actividad.id },
-    data: { estado, fechaEsperada, fechaReal: estado ? new Date() : null },
+  const actualizada = await prisma.$transaction(async (tx) => {
+    const a = await tx.actividadProceso.update({
+      where: { id: actividad.id },
+      data: { estado, fechaEsperada, fechaReal: estado ? new Date() : null },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
+      accion: AccionAuditoria.MARCAR_ACTIVIDAD,
+      entidad: "ProcesoContable",
+      entidadId: proceso.id,
+      detalle: { actividadId: a.id, tipo: a.tipo, estado: a.estado },
+    });
+    return a;
   });
   res.json(serializarActividad(actualizada));
 }
@@ -237,9 +281,20 @@ export async function agregarNota(req: Request, res: Response): Promise<void> {
     res.status(404).json({ error: "Proceso no encontrado" });
     return;
   }
-  const nota = await prisma.notaSeguimiento.create({
-    data: { procesoId: existe.id, usuarioId: req.user!.sub, texto: parsed.data.texto },
-    include: { usuario: { select: { nombre: true } } },
+  const nota = await prisma.$transaction(async (tx) => {
+    const n = await tx.notaSeguimiento.create({
+      data: { procesoId: existe.id, usuarioId: req.user!.sub, texto: parsed.data.texto },
+      include: { usuario: { select: { nombre: true } } },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: req.user!.sub,
+      empresaId: req.empresaId,
+      accion: AccionAuditoria.AGREGAR_NOTA,
+      entidad: "ProcesoContable",
+      entidadId: existe.id,
+      detalle: { notaId: n.id },
+    });
+    return n;
   });
   res.status(201).json({
     id: nota.id,

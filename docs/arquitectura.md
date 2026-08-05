@@ -289,3 +289,70 @@ contabilizado) de cada área. No hay cambios de esquema en esta fase.
 - **Frontend:** "Libros y reportes" agrega botones CSV, XLSX, PDFs faltantes y
   "Paquete de informes (ZIP)".
 - Todo se genera y sirve localmente (local-first, roadmap §2.3).
+
+## 12. Administración de usuarios por empresa y clientes (Fase 5 de V2.0)
+
+### 12.1 Acceso del ADMIN global y rol efectivo
+
+`requireEmpresa` (§8.2) da al **ADMIN global** acceso implícito a cualquier empresa
+activa sin fila en `UsuarioEmpresa`; `req.rolEfectivo` es el rol más restrictivo entre
+`Usuario.rol` y `UsuarioEmpresa.rol`. Las rutas de administración de este módulo exigen
+ADMIN global (no dependen de `X-Empresa-Id`).
+
+### 12.2 Endpoints de usuarios por empresa
+
+- `GET /api/usuarios` — usuarios asignados a la empresa activa con su rol en esa
+  empresa y su estado global (requiere empresa activa).
+- `GET /api/usuarios/disponibles` — usuarios activos no asignados a la empresa activa
+  (para vincular).
+- `POST /api/usuarios` — crea un usuario ya vinculado a la empresa activa
+  (ADMIN/CONTADOR; el rol por defecto es AUXILIAR; la contraseña temporal exige
+  cambio en el primer ingreso).
+- `POST /api/usuarios/:id/vincular` — asigna un usuario existente a la empresa activa
+  (ADMIN global; 409 si ya está asignado o la empresa está inactiva).
+- `PATCH /api/usuarios/:id/rol` — cambia el rol de un usuario en la empresa activa
+  (ADMIN global; se bloquea el auto-cambio de rol).
+- `DELETE /api/usuarios/:id` — retira un usuario de la empresa activa (ADMIN global;
+  se bloquea el auto-retiro). No elimina el usuario global ni su auditoría.
+
+### 12.3 Endpoints de clientes (solo ADMIN global)
+
+- `GET /api/empresas/administracion` — todos los clientes (activos e inactivos) con
+  conteos de usuarios, periodos, procesos y adjuntos.
+- `POST /api/empresas` — crea el cliente y su `ProcesoContable` del año actual en una
+  sola transacción (auditoría `CREAR_EMPRESA`).
+- `PATCH /api/empresas/:id` — edición de datos (auditoría `EDITAR_EMPRESA`).
+- `PATCH /api/empresas/:id/estado` — activa/desactiva un cliente (auditorías
+  `ACTIVAR_EMPRESA`/`DESACTIVAR_EMPRESA`). Una empresa inactiva bloquea el acceso vía
+  `requireEmpresa` (403).
+- `POST /api/empresas/:empresaId/informes/paquete-final` — baja ordenada: valida que
+  no haya procesos de años sin informes y periodos abiertos del año en curso, y genera
+  el ZIP con todos los informes del cliente (reutiliza el paquete de §11.3) antes de
+  desactivarlo.
+
+### 12.4 Auditoría extendida
+
+El enum `AccionAuditoria` se amplió con 12 acciones (empresa y proceso):
+`CREAR_EMPRESA`, `EDITAR_EMPRESA`, `DESACTIVAR_EMPRESA`, `ACTIVAR_EMPRESA`,
+`ASIGNAR_USUARIO_EMPRESA`, `CAMBIAR_ROL_EMPRESA`, `RETIRAR_USUARIO_EMPRESA`,
+`CREAR_PROCESO`, `ACTUALIZAR_PROCESO`, `ELIMINAR_PROCESO`, `MARCAR_ACTIVIDAD` y
+`AGREGAR_NOTA`; se registran dentro de la misma transacción que la operación.
+
+### 12.5 Frontend
+
+- Página **Usuarios** (`/empresa/:empresaId/usuarios`): lista de la empresa, cambio de
+  rol por selector, retiro con confirmación, creación de usuario y modal de asignación
+  de usuarios disponibles.
+- Página **Clientes** (`/empresa/:empresaId/clientes`, enlace del grupo
+  "Administración" del menú lateral): listado con estado y conteos, crear/editar, dar
+  de baja ordenada (descarga previa del paquete final), reactivar y descarga del
+  paquete del año actual.
+
+### 12.6 Tests
+
+`backend/tests/administracion.test.ts` (22 tests) cubre: listado y disponibilidad de
+usuarios, vínculo con duplicados, cambio de rol y retiro (incluidos los bloqueos de
+auto-operación), creación de empresa con proceso del año, edición, activación/
+desactivación y baja ordenada con restricciones. Nota: `tests/setup.ts` vincula a
+**todos** los usuarios activos antes de cada test (`beforeEach`) y los desvincula
+después; los tests de disponibilidad gestionan el enlace explícitamente.

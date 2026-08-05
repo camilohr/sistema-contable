@@ -481,3 +481,31 @@ Fuente de verdad: `backend/prisma/schema.prisma`.
 No hay tablas nuevas: CSV, XLSX y ZIP se generan en memoria a partir de las consultas
 existentes (`exportacion.controller.ts` + `libros-pdf.controller.ts`). El paquete ZIP
 usa el módulo sin dependencias `backend/scripts/zip-lite.mjs` (método STORE).
+
+## 9. Administración de usuarios por empresa y clientes (Fase 5 de V2.0)
+
+Fase 5 no agrega tablas: reutiliza `Empresa` (campo `activa`, §6.1), `UsuarioEmpresa`
+(§6.2) y `ProcesoContable` (§7.1). Los únicos cambios de esquema fueron al enum
+`AccionAuditoria` (§9.1).
+
+### 9.1 `AccionAuditoria` (ampliado)
+
+El enum añadió 12 acciones para empresa y proceso (registradas dentro de la misma
+transacción que la operación):
+
+| Acción | Se registra al |
+|---|---|
+| `CREAR_EMPRESA` | crear un cliente (crea también su `ProcesoContable` del año) |
+| `EDITAR_EMPRESA` | editar datos del cliente |
+| `DESACTIVAR_EMPRESA` | dar de baja (baja ordenada) |
+| `ACTIVAR_EMPRESA` | reactivar un cliente |
+| `ASIGNAR_USUARIO_EMPRESA` | vincular un usuario a una empresa |
+| `CAMBIAR_ROL_EMPRESA` | cambiar el rol de un usuario en una empresa |
+| `RETIRAR_USUARIO_EMPRESA` | retirar un usuario de una empresa |
+| `CREAR_PROCESO` | crear un proceso contable |
+| `ACTUALIZAR_PROCESO` | cambiar el estado de un proceso |
+| `ELIMINAR_PROCESO` | eliminar un proceso |
+| `MARCAR_ACTIVIDAD` | marcar/desmarcar una actividad del checklist |
+| `AGREGAR_NOTA` | añadir una nota de seguimiento |
+
+`Auditoria` conserva `empresaId` opcional para poder filtrar la bitácora por cliente.

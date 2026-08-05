@@ -52,6 +52,7 @@ const gruposNavegacion: { titulo: string; items: { to: string; label: string; en
 ];
 
 const soloAdmin = [
+  { to: "clientes", label: "Clientes", end: true },
   { to: "usuarios", label: "Usuarios", end: true },
   { to: "auditoria", label: "Bitácora de auditoría", end: true },
 ];

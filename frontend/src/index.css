@@ -377,6 +377,10 @@ input:focus {
   opacity: 0.55;
 }
 
+.muted {
+  color: var(--muted);
+}
+
 .codigo-cell {
   font-variant-numeric: tabular-nums;
   font-weight: 600;

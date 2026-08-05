@@ -71,29 +71,53 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
 const EMPRESA_HEADER = "x-empresa-id";
 
+const RANGO_ROL: Record<string, number> = { AUXILIAR: 1, CONTADOR: 2, ADMIN: 3 };
+
+export function rolMasRestrictivo(a: string, b: string): string {
+  return RANGO_ROL[a] <= RANGO_ROL[b] ? a : b;
+}
+
 export async function requireEmpresa(req: Request, res: Response, next: NextFunction): Promise<void> {
   const empresaId = (req.headers[EMPRESA_HEADER] as string | undefined)?.trim();
   if (!empresaId) {
     res.status(400).json({ error: "Debe indicar la empresa activa en la cabecera X-Empresa-Id" });
     return;
   }
+  let empresa;
+  try {
+    empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
+  } catch (err) {
+    next(err);
+    return;
+  }
+  if (!empresa || !empresa.activa) {
+    res.status(403).json({ error: "Acceso denegado a esta empresa" });
+    return;
+  }
+  const rolGlobal = req.user!.rol;
+  if (rolGlobal === "ADMIN") {
+    req.empresaId = empresa.id;
+    req.rolEfectivo = "ADMIN";
+    req.empresa = { id: empresa.id, nombre: empresa.nombre, nit: empresa.nit };
+    next();
+    return;
+  }
   let vinculo;
   try {
     vinculo = await prisma.usuarioEmpresa.findUnique({
       where: { usuarioId_empresaId: { usuarioId: req.user!.sub, empresaId } },
-      include: { empresa: true },
     });
   } catch (err) {
     next(err);
     return;
   }
-  if (!vinculo || !vinculo.activo || !vinculo.empresa.activa) {
+  if (!vinculo || !vinculo.activo) {
     res.status(403).json({ error: "Acceso denegado a esta empresa" });
     return;
   }
   req.empresaId = vinculo.empresaId;
-  req.rolEfectivo = vinculo.rol;
-  req.empresa = { id: vinculo.empresa.id, nombre: vinculo.empresa.nombre, nit: vinculo.empresa.nit };
+  req.rolEfectivo = rolMasRestrictivo(rolGlobal, vinculo.rol);
+  req.empresa = { id: empresa.id, nombre: empresa.nombre, nit: empresa.nit };
   next();
 }
 
