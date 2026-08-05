@@ -21,6 +21,7 @@ import Empleados from "./pages/Empleados";
 import Nomina from "./pages/Nomina";
 import ParametrosNomina from "./pages/ParametrosNomina";
 import Presupuesto from "./pages/Presupuesto";
+import Procesos from "./pages/Procesos";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 
@@ -64,6 +65,7 @@ export default function App() {
               <Route path="/empresa/:empresaId/nomina" element={<Nomina />} />
               <Route path="/empresa/:empresaId/parametros-nomina" element={<ParametrosNomina />} />
               <Route path="/empresa/:empresaId/presupuesto" element={<Presupuesto />} />
+              <Route path="/empresa/:empresaId/procesos" element={<Procesos />} />
               <Route path="/cambiar-password" element={<CambiarPassword />} />
             </Route>
             <Route path="/" element={<Inicio />} />

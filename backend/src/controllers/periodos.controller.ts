@@ -2,7 +2,8 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
-import { EstadoPeriodo, AccionAuditoria } from "@prisma/client";
+import { marcarActividadProceso } from "../lib/procesos.js";
+import { EstadoPeriodo, AccionAuditoria, TipoActividadProceso } from "@prisma/client";
 
 const crearSchema = z.object({
   nombre: z.string().min(1),
@@ -81,6 +82,11 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
         entidadId: id,
         detalle: { nombre: p.nombre },
       });
+      if (parsed.data.estado === EstadoPeriodo.CERRADO) {
+        const anio = p.fechaFin.getFullYear();
+        await marcarActividadProceso(tx, req.empresaId, anio, TipoActividadProceso.CIERRE_PERIODO);
+        await marcarActividadProceso(tx, req.empresaId, anio, TipoActividadProceso.COMPROBANTES);
+      }
     }
     return p;
   });

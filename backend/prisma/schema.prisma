@@ -19,6 +19,24 @@ enum RolEmpresa {
   AUXILIAR
 }
 
+enum EstadoProceso {
+  SIN_INICIAR
+  EN_PROCESO
+  PENDIENTE
+  AL_DIA
+  CERRADO
+}
+
+enum TipoActividadProceso {
+  COMPROBANTES
+  CONCILIACION
+  NOMINA
+  PROVISION_CARTERA
+  PRESUPUESTO
+  CIERRE_PERIODO
+  CIERRE_ANIO
+}
+
 enum Naturaleza {
   DEUDORA
   ACREEDORA
@@ -149,6 +167,7 @@ model Empresa {
   parametrosProvision    ParametroProvision[]
   parametrosNomina       ParametroNomina[]
   parametrosCuentaNomina ParametroCuentaNomina[]
+  procesosContables      ProcesoContable[]
 
   @@index([activa])
 }
@@ -185,6 +204,52 @@ model Usuario {
   auditorias           Auditoria[]
   cierresAnuales       CierreAnual[]
   usuarioEmpresas      UsuarioEmpresa[]
+  notasSeguimiento     NotaSeguimiento[]
+}
+
+model ProcesoContable {
+  id        String        @id @default(uuid())
+  empresaId String
+  anio      Int
+  estado    EstadoProceso @default(SIN_INICIAR)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  empresa     Empresa            @relation(fields: [empresaId], references: [id])
+  actividades ActividadProceso[]
+  notas       NotaSeguimiento[]
+
+  @@unique([empresaId, anio])
+  @@index([empresaId])
+}
+
+model ActividadProceso {
+  id            Int                   @id @default(autoincrement())
+  procesoId     String
+  tipo          TipoActividadProceso
+  orden         Int
+  estado        Boolean               @default(false)
+  fechaEsperada DateTime?             @db.Date
+  fechaReal     DateTime?             @db.Date
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  proceso ProcesoContable @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+
+  @@index([procesoId])
+}
+
+model NotaSeguimiento {
+  id        String   @id @default(uuid())
+  procesoId String
+  usuarioId String
+  texto     String
+  createdAt DateTime @default(now())
+
+  proceso ProcesoContable @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+  usuario Usuario         @relation(fields: [usuarioId], references: [id])
+
+  @@index([procesoId])
 }
 
 model Cuenta {

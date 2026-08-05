@@ -365,3 +365,50 @@ Absorbió la tabla `parametros` (§3.15).
 - Backend: el middleware `requireEmpresa` valida el header y el acceso del usuario
   (§6.2) y puebla `req.empresaId`, `req.empresa` y `req.rolEfectivo`; todo filtrado de
   negocio pasa por `req.empresaId`. Detalle en `docs/arquitectura.md` (§8).
+
+## 7. Procesos contables y seguimiento (Fase 2 de V2.0)
+
+El seguimiento por cliente/año se modela con tres tablas (scoping directo heredado de
+`Empresa`). Fuente de verdad: `backend/prisma/schema.prisma`.
+
+### 7.1 `ProcesoContable`
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | PK (uuid) | |
+| empresaId | FK → empresas | scoping directo |
+| anio | int | año fiscal del proceso |
+| estado | enum | `SIN_INICIAR`, `EN_PROCESO`, `PENDIENTE`, `AL_DIA`, `CERRADO` |
+| createdAt / updatedAt | datetime | |
+
+- `@@unique([empresaId, anio])` (un solo proceso por cliente y año) y `@@index([empresaId])`.
+- Al crearse recibe su plantilla de actividades (§7.2); la integración automática marca
+  actividades existentes pero no crea procesos (ver arquitectura §9.4).
+
+### 7.2 `ActividadProceso` (checklist)
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | PK (autoincrement) | |
+| procesoId | FK → procesos | `onDelete: Cascade` |
+| tipo | enum | `COMPROBANTES`, `CONCILIACION`, `NOMINA`, `PROVISION_CARTERA`, `PRESUPUESTO`, `CIERRE_PERIODO`, `CIERRE_ANIO` |
+| orden | int | posición en la plantilla (1..7) |
+| estado | bool | completada o no |
+| fechaEsperada / fechaReal | date? | |
+
+Plantilla por defecto (en código, `backend/src/lib/procesos.ts`): comprobantes,
+conciliación, nómina, provisión de cartera, presupuesto, cierre de periodo y cierre de
+año.
+
+### 7.3 `NotaSeguimiento`
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | PK (uuid) | |
+| procesoId | FK → procesos | `onDelete: Cascade` |
+| usuarioId | FK → usuarios | autor de la nota |
+| texto | string | |
+| createdAt | datetime | |
+
+Las notas quedan ligadas al proceso y a su autor, y se incluyen en el respaldo como
+parte de la base de datos.

@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Prisma, EstadoComprobante, EstadoPeriodo, AccionAuditoria } from "@prisma/client";
+import { Prisma, EstadoComprobante, EstadoPeriodo, TipoActividadProceso, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
 import { crearComprobanteDiario } from "../lib/comprobantes.js";
+import { marcarActividadProceso } from "../lib/procesos.js";
 
 const CUENTA_PROVISION = "1399";
 const CUENTA_GASTO = "5199";
@@ -262,6 +263,7 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
         comprobanteId,
       },
     });
+    await marcarActividadProceso(tx, req.empresaId, periodo.fechaFin.getFullYear(), TipoActividadProceso.PROVISION_CARTERA);
     return provision;
   });
 

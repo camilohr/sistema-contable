@@ -160,3 +160,47 @@ códigos y periodos colisionen entre empresas.
 `GET /api/empresas` devuelve las empresas del usuario autenticado — todas para un
 ADMIN global; solo las asignadas (`UsuarioEmpresa` activa) para CONTADOR/AUXILIAR —
 con el rol efectivo en cada una.
+
+## 9. Procesos contables y seguimiento (Fase 2 de V2.0)
+
+### 9.1 Modelo
+
+`ProcesoContable` (uno por empresa y año, `@@unique([empresaId, anio])`) con su
+checklist de `ActividadProceso` (orden, estado, fechas esperada/real) y sus
+`NotaSeguimiento`. Detalle completo de campos en `docs/modelo-datos.md` (§6) y
+decisiones en `docs/roadmap-v2.0.md` (Fase 2).
+
+### 9.2 Plantilla por defecto
+
+Al crear un proceso se genera en código (`backend/src/lib/procesos.ts`) la plantilla de
+7 actividades: comprobantes, conciliación, nómina, provisión de cartera, presupuesto,
+cierre de periodo y cierre de año. La lib expone `marcarActividadProceso(db, empresaId,
+anio, tipo, fecha?)`, que acepta tanto el `PrismaClient` global como un cliente de
+transacción.
+
+### 9.3 Endpoints `/api/procesos`
+
+- `GET /api/procesos` — procesos de la empresa activa con avance y conteo de notas.
+- `POST /api/procesos` `{ anio }` — crea el proceso con su plantilla (ADMIN/CONTADOR).
+- `GET/PATCH/DELETE /api/procesos/:id` — detalle (actividades + notas), cambio de
+  estado, eliminación (solo ADMIN).
+- `PATCH /api/procesos/:id/actividades/:actividadId` — marcar/desmarcar y fecha
+  esperada (ADMIN/CONTADOR).
+- `POST /api/procesos/:id/notas` — nota de seguimiento (ADMIN/CONTADOR).
+- `GET /api/procesos/cartera` — para **todas** las empresas del usuario (no usa
+  `requireEmpresa`): semáforo del Dashboard.
+
+### 9.4 Integración automática
+
+Cierre de periodo y de año, contabilización de nómina, provisión de cartera, carga de
+presupuesto y contabilización de comprobantes marcan su actividad como completada
+**dentro de la misma transacción** que genera la operación (la marca se revierte si la
+operación revierte). Si no existe proceso para la empresa/año no se crea: el
+seguimiento es opcional hasta que se crea el proceso.
+
+### 9.5 Frontend
+
+- Página "Seguimiento por procesos" (`/empresa/:empresaId/procesos`): lista por año,
+  checklist con fechas, notas, cambio de estado y semáforo.
+- Dashboard: tarjeta "Cartera de clientes" con semáforo por empresa/proceso
+  (`GET /api/procesos/cartera`) y acceso directo al proceso de cada cliente.

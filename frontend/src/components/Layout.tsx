@@ -17,6 +17,7 @@ const links = [
   { to: "cxp", label: "Cuentas por pagar" },
   { to: "provision-cartera", label: "Provisión de cartera" },
   { to: "indicadores", label: "Indicadores financieros" },
+  { to: "procesos", label: "Seguimiento por procesos" },
   { to: "presupuesto", label: "Presupuesto" },
   { to: "productos", label: "Productos e inventario" },
   { to: "activos-fijos", label: "Activos fijos" },

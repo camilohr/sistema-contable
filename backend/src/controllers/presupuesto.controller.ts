@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Prisma, AccionAuditoria, EstadoComprobante } from "@prisma/client";
+import { Prisma, AccionAuditoria, EstadoComprobante, TipoActividadProceso } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
+import { marcarActividadProceso } from "../lib/procesos.js";
 import { saldosPorCuenta } from "./reportes.controller.js";
 
 const cargarSchema = z.object({
@@ -119,6 +120,7 @@ export async function cargar(req: Request, res: Response): Promise<void> {
         totalPresupuestado,
       },
     });
+    await marcarActividadProceso(tx, req.empresaId, periodo.fechaFin.getFullYear(), TipoActividadProceso.PRESUPUESTO);
     return tx.presupuesto.findMany({
       where: { periodoId },
       include: { cuenta: { select: { codigo: true, nombre: true } } },

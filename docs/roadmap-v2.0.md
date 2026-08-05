@@ -254,9 +254,11 @@ model UsuarioEmpresa {
 - ~~Impacto en los tests existentes y en el seed demo~~ → resuelto: helper de "empresa
   de prueba" en `backend/tests/helpers.ts` + cliente Prisma de test que inyecta
   `empresaId`; el seed demo (`backend/scripts/seed-demo.mjs`) envía `X-Empresa-Id`.
-- Pendiente real: definir la plantilla de actividades por defecto del proceso (lista
-  concreta de qué actividades trae un `ProcesoContable` nuevo) → se resuelve al inicio
-  de la Fase 2.
+- ~~Pendiente real: definir la plantilla de actividades por defecto del proceso (lista
+  concreta de qué actividades trae un `ProcesoContable` nuevo)~~ → resuelto al inicio de
+  la Fase 2: plantilla de 7 actividades ordenadas generada en código
+  (`backend/src/lib/procesos.ts`): comprobantes, conciliación, nómina, provisión de
+  cartera, presupuesto, cierre de periodo y cierre de año.
 
 ### Fase 1 — Multientidad (backend + BD) *(implementada el 2026-08-05)*
 
@@ -277,7 +279,7 @@ Estado: suite backend en verde (318 tests, 18 archivos); typecheck y build limpi
 backend y frontend; selector de empresa validado en navegador (aislamiento de datos
 entre empresas).
 
-### Fase 2 — Procesos contables y seguimiento *(el corazón de la visión)*
+### Fase 2 — Procesos contables y seguimiento *(implementada el 2026-08-05)*
 
 Modelos:
 
@@ -288,6 +290,16 @@ enum EstadoProceso {
   PENDIENTE
   AL_DIA
   CERRADO
+}
+
+enum TipoActividadProceso {
+  COMPROBANTES
+  CONCILIACION
+  NOMINA
+  PROVISION_CARTERA
+  PRESUPUESTO
+  CIERRE_PERIODO
+  CIERRE_ANIO
 }
 
 model ProcesoContable {
@@ -303,18 +315,23 @@ model ProcesoContable {
   notas       NotaSeguimiento[]
 
   @@unique([empresaId, anio])
+  @@index([empresaId])
 }
 
 model ActividadProceso {
-  id            Int       @id @default(autoincrement())
+  id            Int                  @id @default(autoincrement())
   procesoId     String
-  tipo          String    // COMPROBANTES, CONCILIACION, NOMINA, PROVISION, PRESUPUESTO, CIERRE_PERIODO, CIERRE_ANIO
+  tipo          TipoActividadProceso
   orden         Int
-  estado        Boolean   @default(false)
-  fechaEsperada DateTime? @db.Date
-  fechaReal     DateTime? @db.Date
+  estado        Boolean              @default(false)
+  fechaEsperada DateTime?            @db.Date
+  fechaReal     DateTime?            @db.Date
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
 
-  proceso ProcesoContable @relation(fields: [procesoId], references: [id])
+  proceso ProcesoContable @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+
+  @@index([procesoId])
 }
 
 model NotaSeguimiento {
@@ -324,20 +341,35 @@ model NotaSeguimiento {
   texto     String
   createdAt DateTime @default(now())
 
-  proceso ProcesoContable @relation(fields: [procesoId], references: [id])
-  usuario Usuario         @relation(fields: [usuarioId], references: [id])
+  proceso ProcesoContable @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+  usuario Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([procesoId])
 }
 ```
 
-- Plantilla de actividades por defecto: comprobantes al día, conciliaciones, nómina
-  liquidada y provisionada, provisión de cartera, presupuesto cargado, cierre de
-  periodo, cierre de año.
-- Endpoints: GET/POST/PUT de procesos, checklist de actividades y notas.
-- Panel **"Cartera de clientes"** en el Dashboard: semáforo por proceso (verde al día,
-  ámbar pendiente, rojo atrasado), antigüedad y acciones rápidas.
-- Las alertas existentes se conectan al proceso (cada alerta indica cliente y proceso).
-- Integración: cierre de periodo/año, nómina, provisión y presupuesto **marcan
-  automáticamente** su actividad como completada.
+- ~~Plantilla de actividades por defecto~~ → implementada en `backend/src/lib/procesos.ts`:
+  comprobantes al día, conciliaciones, nómina liquidada y provisionada, provisión de
+  cartera, presupuesto cargado, cierre de periodo y cierre de año (orden 1 a 7). El
+  `ProcesoContable` se crea siempre con su plantilla; las actividades llevan
+  `fechaEsperada`/`fechaReal` opcionales.
+- ~~Endpoints de procesos, checklist y notas~~ → implementados bajo `/api/procesos`:
+  `GET/POST /api/procesos`, `GET/PATCH/DELETE /api/procesos/:id`,
+  `PATCH /api/procesos/:id/actividades/:actividadId` (marcar/desmarcar y fecha
+  esperada), `POST /api/procesos/:id/notas` y `GET /api/procesos/cartera` (todas las
+  empresas del usuario con su semáforo). Roles: crear/editar/marcar/notas
+  ADMIN+CONTADOR, eliminar ADMIN, lectura AUXILIAR.
+- ~~Panel "Cartera de clientes" en el Dashboard~~ → implementado: semáforo por proceso
+  (verde al día, ámbar en proceso, rojo pendiente) y página "Seguimiento por procesos"
+  con la lista por año, el checklist de actividades, las notas de seguimiento y el
+  cambio de estado.
+- Integración automática: cierre de periodo y de año, nómina, provisión de cartera,
+  presupuesto y contabilización de comprobantes **marcan** su actividad como completada
+  dentro de la misma transacción (si el proceso del año existe; si no, no se crea).
+- Las alertas existentes se conectan al proceso en la Fase 3 (navegación por proceso).
+
+Estado: suite backend en verde (338 tests, 19 archivos); typecheck y lint/build limpios
+en backend y frontend.
 
 ### Fase 3 — Navegación por proceso y consolidación
 
@@ -406,7 +438,7 @@ Alcance de la fase:
 |---|---|---|
 | 0 | Diseño y decisiones | Cerrada por este documento |
 | 1 | Multientidad | Crítica | ✅ Implementada (2026-08-05) |
-| 2 | Procesos y seguimiento | Alta |
+| 2 | Procesos y seguimiento | Alta | ✅ Implementada (2026-08-05) |
 | 3 | Navegación por proceso | Alta |
 | 4 | Conciliación, soportes, exportación de informes | Media-alta *(subió por solicitud explícita)* |
 | 5 | Permisos por cliente | Media |

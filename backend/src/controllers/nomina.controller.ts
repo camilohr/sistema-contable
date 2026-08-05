@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Prisma, EstadoPeriodo, EstadoNomina, AccionAuditoria } from "@prisma/client";
+import { Prisma, EstadoPeriodo, EstadoNomina, TipoActividadProceso, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
 import { crearComprobanteDiario } from "../lib/comprobantes.js";
+import { marcarActividadProceso } from "../lib/procesos.js";
 import {
   liquidarEmpleado,
   provisionarEmpleado,
@@ -581,6 +582,7 @@ export async function contabilizar(req: Request, res: Response): Promise<void> {
       entidadId: periodoId,
       detalle: { periodo: periodo.nombre, consecutivo: comprobante.consecutivo, comprobanteId: comprobante.id },
     });
+    await marcarActividadProceso(tx, req.empresaId, periodo.fechaFin.getFullYear(), TipoActividadProceso.NOMINA);
     return comprobante;
   });
 

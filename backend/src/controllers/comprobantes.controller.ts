@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Prisma, EstadoComprobante, TipoComprobante, EstadoPeriodo, EstadoNomina, AccionAuditoria } from "@prisma/client";
+import { Prisma, EstadoComprobante, TipoComprobante, EstadoPeriodo, EstadoNomina, TipoActividadProceso, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
+import { marcarActividadProceso } from "../lib/procesos.js";
 
 const asientoSchema = z.object({
   cuentaId: z.number().int().positive(),
@@ -358,6 +359,7 @@ export async function contabilizar(req: Request, res: Response): Promise<void> {
       entidadId: id,
       detalle: { consecutivo: c.consecutivo, tipo: c.tipo, concepto: c.concepto },
     });
+    await marcarActividadProceso(tx, req.empresaId, c.periodo.fechaFin.getFullYear(), TipoActividadProceso.COMPROBANTES);
     return c;
   });
   res.json(serializarComprobante(actualizado));

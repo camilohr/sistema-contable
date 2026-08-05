@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { EstadoComprobante, EstadoPeriodo, AccionAuditoria } from "@prisma/client";
+import { EstadoComprobante, EstadoPeriodo, EstadoProceso, TipoActividadProceso, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
 import { crearComprobanteDiario, AsientoGenerado } from "../lib/comprobantes.js";
+import { marcarActividadProceso } from "../lib/procesos.js";
 
 const cerrarSchema = z.object({
   cuentaUtilidadId: z.number().int().positive().optional(),
@@ -243,6 +244,11 @@ export async function cerrarAnio(req: Request, res: Response): Promise<void> {
         resultado,
         cuentaUtilidad: cuentaUtilidad!.codigo,
       },
+    });
+    await marcarActividadProceso(tx, req.empresaId, anio, TipoActividadProceso.CIERRE_ANIO, fechaCierre);
+    await tx.procesoContable.updateMany({
+      where: { empresaId: req.empresaId, anio },
+      data: { estado: EstadoProceso.CERRADO },
     });
     return { comprobante, cierre };
   });
