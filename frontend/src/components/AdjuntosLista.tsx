@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import ConfirmModal from "./ConfirmModal";
+import styles from "./AdjuntosLista.module.css";
 
 interface Adjunto {
   id: number;
@@ -103,11 +104,11 @@ export default function AdjuntosLista({ entidad, entidadId }: Props) {
   };
 
   return (
-    <div className="adjuntos">
-      <div className="adjuntos-head">
+    <div className={styles.adjuntos}>
+      <div className={styles.adjuntosHead}>
         <span className="section-title">Documentos adjuntos ({adjuntos.length})</span>
         {puedeEditar && (
-          <label className="btn btn-secondary btn-sm adjuntos-subir">
+          <label className={`btn btn-secondary btn-sm ${styles.adjuntosSubir}`}>
             {subiendo ? "Subiendo..." : "Adjuntar archivo"}
             <input ref={inputRef} type="file" disabled={subiendo} onChange={subir} />
           </label>

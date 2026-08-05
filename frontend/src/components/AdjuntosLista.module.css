@@ -1,0 +1,22 @@
+.adjuntos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.adjuntosHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.adjuntosSubir {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.adjuntosSubir input {
+  display: none;
+}
