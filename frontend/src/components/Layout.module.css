@@ -207,3 +207,82 @@
   color: var(--muted);
   margin-bottom: 1.5rem;
 }
+
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 200px;
+  }
+
+  .content {
+    padding: 1rem;
+  }
+
+  .sidebarGrupoTitulo {
+    font-size: 0.62rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 0.5rem;
+    overflow: visible;
+  }
+
+  .sidebarBrand {
+    border-bottom: none;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .sidebarNav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 0;
+    gap: 0.25rem;
+  }
+
+  .sidebarGrupo {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 0;
+    border: none;
+    gap: 0.25rem;
+  }
+
+  .sidebarGrupoTitulo {
+    display: none;
+  }
+
+  .navLink {
+    border-left: none;
+    padding: 0.4rem 0.6rem;
+  }
+
+  .navLinkActive {
+    border-bottom: 2px solid var(--accent);
+  }
+
+  .sidebarFooter {
+    display: none;
+  }
+
+  .topbar {
+    flex-wrap: wrap;
+    padding: 0.5rem 1rem;
+  }
+
+  .empresaSelector {
+    min-width: 0;
+    width: 100%;
+  }
+}

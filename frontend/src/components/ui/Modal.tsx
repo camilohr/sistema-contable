@@ -16,6 +16,8 @@ export default function Modal({ open, title, onClose, children, wide }: Props) {
 
   useEffect(() => {
     if (!open) return;
+    const prevFocused = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -24,6 +26,7 @@ export default function Modal({ open, title, onClose, children, wide }: Props) {
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
+      prevFocused?.focus();
     };
   }, [open, onClose]);
 
@@ -40,6 +43,7 @@ export default function Modal({ open, title, onClose, children, wide }: Props) {
         ref={panelRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         aria-label={typeof title === "string" ? title : "Diálogo"}
         className={`${styles.modal} ${wide ? styles.wide : ""}`}
       >
