@@ -1,7 +1,34 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate, useParams } from "react-router";
+import {
+  Activity,
+  ArrowDownRight,
+  ArrowUpRight,
+  BookOpen,
+  Briefcase,
+  Building2,
+  CalendarRange,
+  FileText,
+  Flag,
+  History,
+  KeyRound,
+  Landmark,
+  LayoutDashboard,
+  LineChart,
+  ListTree,
+  LogOut,
+  Package,
+  ShieldCheck,
+  SlidersHorizontal,
+  Target,
+  UserCog,
+  Users,
+  Wallet,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useEmpresa } from "../context/EmpresaContext";
+import { Button } from "./ui";
 import styles from "./Layout.module.css";
 
 const rolLabels: Record<string, string> = {
@@ -10,53 +37,69 @@ const rolLabels: Record<string, string> = {
   AUXILIAR: "Auxiliar",
 };
 
-const gruposNavegacion: { titulo: string; items: { to: string; label: string; end?: boolean }[] }[] = [
+type ItemNav = { to: string; label: string; icon: LucideIcon; end?: boolean };
+
+const gruposNavegacion: { titulo: string; items: ItemNav[] }[] = [
   {
     titulo: "Proceso",
     items: [
-      { to: "", label: "Resumen del proceso", end: true },
-      { to: "procesos", label: "Seguimiento por procesos" },
-      { to: "periodos", label: "Periodos" },
-      { to: "cierre-anual", label: "Cierre anual" },
+      { to: "", label: "Resumen del proceso", icon: LayoutDashboard, end: true },
+      { to: "procesos", label: "Seguimiento por procesos", icon: Activity },
+      { to: "periodos", label: "Periodos", icon: CalendarRange },
+      { to: "cierre-anual", label: "Cierre anual", icon: Flag },
     ],
   },
   {
     titulo: "Ciclo del mes",
     items: [
-      { to: "comprobantes", label: "Comprobantes" },
-      { to: "conciliaciones", label: "Conciliación bancaria" },
-      { to: "nomina", label: "Nómina" },
-      { to: "parametros-nomina", label: "Parámetros de nómina" },
-      { to: "provision-cartera", label: "Provisión de cartera" },
-      { to: "presupuesto", label: "Presupuesto" },
+      { to: "comprobantes", label: "Comprobantes", icon: FileText },
+      { to: "conciliaciones", label: "Conciliación bancaria", icon: Landmark },
+      { to: "nomina", label: "Nómina", icon: Wallet },
+      { to: "parametros-nomina", label: "Parámetros de nómina", icon: SlidersHorizontal },
+      { to: "provision-cartera", label: "Provisión de cartera", icon: ShieldCheck },
+      { to: "presupuesto", label: "Presupuesto", icon: Target },
     ],
   },
   {
     titulo: "Información",
     items: [
-      { to: "reportes", label: "Libros y reportes" },
-      { to: "cxc", label: "Cuentas por cobrar" },
-      { to: "cxp", label: "Cuentas por pagar" },
-      { to: "indicadores", label: "Indicadores financieros" },
+      { to: "reportes", label: "Libros y reportes", icon: BookOpen },
+      { to: "cxc", label: "Cuentas por cobrar", icon: ArrowUpRight },
+      { to: "cxp", label: "Cuentas por pagar", icon: ArrowDownRight },
+      { to: "indicadores", label: "Indicadores financieros", icon: LineChart },
     ],
   },
   {
     titulo: "Catálogos",
     items: [
-      { to: "cuentas", label: "Catálogo de cuentas" },
-      { to: "terceros", label: "Terceros" },
-      { to: "productos", label: "Productos e inventario" },
-      { to: "activos-fijos", label: "Activos fijos" },
-      { to: "empleados", label: "Empleados" },
+      { to: "cuentas", label: "Catálogo de cuentas", icon: ListTree },
+      { to: "terceros", label: "Terceros", icon: Users },
+      { to: "productos", label: "Productos e inventario", icon: Package },
+      { to: "activos-fijos", label: "Activos fijos", icon: Building2 },
+      { to: "empleados", label: "Empleados", icon: Briefcase },
     ],
   },
 ];
 
-const soloAdmin = [
-  { to: "clientes", label: "Clientes", end: true },
-  { to: "usuarios", label: "Usuarios", end: true },
-  { to: "auditoria", label: "Bitácora de auditoría", end: true },
+const soloAdmin: ItemNav[] = [
+  { to: "clientes", label: "Clientes", icon: Users, end: true },
+  { to: "usuarios", label: "Usuarios", icon: UserCog, end: true },
+  { to: "auditoria", label: "Bitácora de auditoría", icon: History, end: true },
 ];
+
+function Enlace({ item, base }: { item: ItemNav; base: string }) {
+  const Icon = item.icon;
+  return (
+    <NavLink
+      to={`${base}/${item.to}`}
+      end={item.end}
+      className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ""}`}
+    >
+      <Icon size={17} strokeWidth={2} className={styles.navIcon} />
+      <span>{item.label}</span>
+    </NavLink>
+  );
+}
 
 export default function Layout() {
   const { usuario, logout } = useAuth();
@@ -76,15 +119,18 @@ export default function Layout() {
   return (
     <div className={styles.layout}>
       <aside className={styles.sidebar}>
-        <div className={styles.sidebarBrand}>Sistema Contable</div>
+        <div className={styles.sidebarBrand}>
+          <span className={styles.brandIcon}>
+            <Landmark size={20} strokeWidth={2.2} />
+          </span>
+          <span>Sistema Contable</span>
+        </div>
         <nav className={styles.sidebarNav}>
           {gruposNavegacion.map((g) => (
             <div key={g.titulo} className={styles.sidebarGrupo}>
               <span className={styles.sidebarGrupoTitulo}>{g.titulo}</span>
               {g.items.map((l) => (
-                <NavLink key={l.to} to={`${base}/${l.to}`} end={l.end} className={({ isActive }) => (isActive ? "active" : "")}>
-                  {l.label}
-                </NavLink>
+                <Enlace key={l.to} item={l} base={base} />
               ))}
             </div>
           ))}
@@ -92,51 +138,62 @@ export default function Layout() {
             <div className={styles.sidebarGrupo}>
               <span className={styles.sidebarGrupoTitulo}>Administración</span>
               {soloAdmin.map((l) => (
-                <NavLink key={l.to} to={`${base}/${l.to}`} end={l.end} className={({ isActive }) => (isActive ? "active" : "")}>
-                  {l.label}
-                </NavLink>
+                <Enlace key={l.to} item={l} base={base} />
               ))}
             </div>
           )}
-          <NavLink to="/cambiar-password" end className={({ isActive }) => (isActive ? "active" : "")}>
-            Cambiar contraseña
-          </NavLink>
+          <div className={styles.sidebarGrupo}>
+            <span className={styles.sidebarGrupoTitulo}>Sesión</span>
+            <NavLink to="/cambiar-password" end className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ""}`}>
+              <KeyRound size={17} strokeWidth={2} className={styles.navIcon} />
+              <span>Cambiar contraseña</span>
+            </NavLink>
+          </div>
         </nav>
+        <div className={styles.sidebarFooter}>
+          <span className={styles.sidebarRol}>{rolLabels[rol ?? ""] ?? ""}</span>
+        </div>
       </aside>
       <div className={styles.mainArea}>
         <header className={styles.topbar}>
-          {cargando ? (
-            <span className={styles.topbarEmpresa}>Cargando empresas...</span>
-          ) : (
-            <select
-              className={styles.empresaSelector}
-              value={empresaActiva?.id ?? ""}
-              onChange={(e) => {
-                seleccionarEmpresa(e.target.value);
-                navigate(`/empresa/${e.target.value}`);
-              }}
-            >
-              {empresas.length === 0 && <option value="">Sin empresas</option>}
-              {empresas.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.nombre}
-                </option>
-              ))}
-            </select>
-          )}
+          <div className={styles.topbarLeft}>
+            {cargando ? (
+              <span className={styles.topbarEmpresa}>Cargando empresas...</span>
+            ) : (
+              <select
+                className={styles.empresaSelector}
+                value={empresaActiva?.id ?? ""}
+                onChange={(e) => {
+                  seleccionarEmpresa(e.target.value);
+                  navigate(`/empresa/${e.target.value}`);
+                }}
+                aria-label="Empresa activa"
+              >
+                {empresas.length === 0 && <option value="">Sin empresas</option>}
+                {empresas.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.nombre}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
           <div className={styles.topbarUser}>
-            <span>
-              {usuario?.nombre} <em>({rolLabels[rol ?? ""]})</em>
-            </span>
-            <button
-              className="btn btn-secondary"
+            <div className={styles.userChip}>
+              <span className={styles.userName}>{usuario?.nombre}</span>
+              <span className={styles.roleBadge}>{rolLabels[rol ?? ""] ?? ""}</span>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => {
                 logout();
                 navigate("/login");
               }}
             >
+              <LogOut size={15} />
               Salir
-            </button>
+            </Button>
           </div>
         </header>
         <main className={styles.content}>

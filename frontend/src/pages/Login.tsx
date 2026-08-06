@@ -1,7 +1,9 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router";
+import { Landmark } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { Button, Field, TextInput } from "../components/ui";
 import styles from "./Login.module.css";
 
 export default function Login() {
@@ -30,12 +32,19 @@ export default function Login() {
   return (
     <div className={styles.loginPage}>
       <div className={styles.loginCard}>
-        <h1 className={styles.loginTitle}>Sistema Contable</h1>
+        <div className={styles.brand}>
+          <span className={styles.brandIcon}>
+            <Landmark size={26} strokeWidth={2.2} />
+          </span>
+          <div>
+            <h1 className={styles.loginTitle}>Sistema Contable</h1>
+          </div>
+        </div>
         <p className={styles.loginSubtitle}>Inicie sesión para continuar</p>
         <form onSubmit={onSubmit} className={styles.loginForm}>
-          <label>
-            Correo electrónico
-            <input
+          <Field label="Correo electrónico" htmlFor="login-email">
+            <TextInput
+              id="login-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -43,21 +52,21 @@ export default function Login() {
               required
               autoFocus
             />
-          </label>
-          <label>
-            Contraseña
-            <input
+          </Field>
+          <Field label="Contraseña" htmlFor="login-password">
+            <TextInput
+              id="login-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
             />
-          </label>
+          </Field>
           {error && <p className="error-msg">{error}</p>}
-          <button type="submit" className="btn btn-primary" disabled={enviando}>
+          <Button type="submit" loading={enviando}>
             {enviando ? "Ingresando..." : "Ingresar"}
-          </button>
+          </Button>
         </form>
       </div>
     </div>
