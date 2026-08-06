@@ -20,12 +20,14 @@ Referencia: `instrucciones-opencode-v2.2.md`. Se actualiza al terminar cada **pa
 
 Resultado: `backend` `npm run build` OK y `npm test` 531/531 en 25 archivos; `frontend` `npm run lint` (0 errores) y `npm run build` OK. Commit `test(contable): endurecimiento de casos limite y aislamiento entre empresas`.
 
-## Parte 3 — Diseño profesional de la interfaz (V2.2) ⏳ PENDIENTE
+## Parte 3 — Diseño profesional de la interfaz (V2.2) ✅ COMPLETA
 
-- [ ] Fase A — Sistema de diseño (tokens en `:root`, tipografía local, espaciado, elevación, `lucide-react`).
-- [ ] Fase B — UI kit `frontend/src/components/ui/` (Button, Input, Select, Textarea, Badge/StatusPill, Card, Modal, Table, Toast).
-- [ ] Fase C — Login, Layout, navegación.
-- [ ] Fase D — Pantallas de datos densos (Comprobantes, Reportes, Indicadores).
-- [ ] Fase E — Resto de pantallas + cierre de CSS Modules.
-- [ ] Fase F — Accesibilidad y responsividad (~1024px).
-- [ ] Fase G — QA visual Playwright + `docs/qa-v2.2.md`.
+- [x] **Fase A — Sistema de diseño (design tokens)**: en `frontend/src/index.css` dentro de `:root` se definieron tokens de color (azul institucional `#1f4e79` serio no saturado, escala de grises, semánticos y semáforo formalizado `--semaforo-verde/ambar/rojo`), escala tipográfica (12/14/16/20/24/32px), escala de espaciado (4/8/12/16/24/32px), radios y elevación (reposo/hover/modal, 3 niveles). Fuente **Inter local** vía `@fontsource/inter` (sin CDN, se empaqueta en el build) e iconografía con `lucide-react`. Se migraron los componentes base (`.btn*`, badges, tablas, modales, semáforo) a tokens. Commit `f874baa`.
+- [x] **Fase B — UI kit**: `frontend/src/components/ui/` con `Button` (primary/secondary/danger/ghost, sm/md, loading), `Field` + `TextInput`/`Textarea`/`Select` (label, requerido, hint, error), `Badge` (tonos semánticos y de estado), `Card`, `Modal` (accesible: ESC, backdrop, `aria-modal`, foco), `Table` (alineación, mono, zebra, estado vacío, footer). **Toast**: no se implementó porque no queda ningún `alert()`/`window.confirm` en el frontend (los confirm en Modales ya los cubre `Modal`) y el patrón establecido de mensajes inline (`error-msg`/`success-msg`) se mantiene. Commit `a87e2bf`.
+- [x] **Fase C — Login, Layout y navegación**: Login rediseñado con marca/ícono y card sobre degradado; sidebar con grupos por ciclo del proceso, ícono por módulo, estado activo con acento y rol del usuario visible; topbar claro sticky con selector de empresa y chip de usuario/rol. Commits `ccc40e2`.
+- [x] **Fase D — Pantallas de datos densos**: zebra + hover en tablas globales (`.table`), Comprobantes con UI Table/badges/botones con íconos y totales en detalle, Reportes (libro diario/mayor/balance con UI Table y totales destacados), Indicadores (tablas comparativas con UI kit). Commit `d1cd1a9`.
+- [x] **Fase E — Resto de pantallas**: Dashboard con íconos por módulo, Resumen con tarjetas mejoradas, títulos/filtros con tokens, migración de colores sueltos a tokens en módulos CSS restantes. Commit `2ecd410`.
+- [x] **Fase F — Accesibilidad y responsividad**: `:focus-visible` global, foco gestionado en Modal, contraste AA de `--muted`, breakpoints 1024px (sidebar 200px) y 768px (sidebar horizontal). Commit `c1ea1b0`.
+- [x] **Fase G — QA visual Playwright**: capturas de las 24 pantallas en `docs/qa-v2.2-screenshots/*.png`, recorrido funcional de flujos clave sin regresiones y sin errores de consola/HTTP. Documentado en `docs/qa-v2.2.md`. Commit `docs(qa): ...`.
+
+Resultado de cierre: `backend` `npm run build` OK y `npm test` 531/531 en 25 archivos; `frontend` `npm run lint` (0 errores) y `npm run build` OK. 8 commits de la Parte 3.
