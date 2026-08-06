@@ -179,6 +179,36 @@ describe("Activos fijos: depreciación", () => {
     expect(res.status).toBe(400);
   });
 
+  it("mantiene el asiento balanceado con cuotas que dejan fracciones de centavo", async () => {
+    const periodo = await prisma.periodo.create({
+      data: {
+        nombre: `AF-${suf}-redondeo`,
+        fechaInicio: new Date("2026-09-01"),
+        fechaFin: new Date("2026-09-30"),
+      },
+    });
+    const creado = await crearActivo({ valor: 1000000, vidaUtilMeses: 3 });
+    await dejarSoloActivo(creado.body.id);
+
+    const res = await request(app)
+      .post(`/api/activos-fijos/depreciar/${periodo.id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(201);
+    expect(res.body.comprobante.totalDebito).toBe(res.body.comprobante.totalCredito);
+    expect(res.body.comprobante.totalDebito).toBe(333333.33);
+
+    const dep = await prisma.depreciacion.findUnique({
+      where: { activoId_periodoId: { activoId: creado.body.id, periodoId: periodo.id } },
+    });
+    expect(dep).toBeTruthy();
+    expect(Number(dep!.valor)).toBe(333333.33);
+
+    await prisma.activoFijo.update({ where: { id: creado.body.id }, data: { estado: "DADO_DE_BAJA" } });
+    await prisma.depreciacion.deleteMany({ where: { periodoId: periodo.id } });
+    await prisma.comprobante.deleteMany({ where: { periodoId: periodo.id } });
+    await prisma.periodo.delete({ where: { id: periodo.id } });
+  });
+
   it("bloquea depreciación en periodo cerrado (400)", async () => {
     const creado = await crearActivo();
     await dejarSoloActivo(creado.body.id);

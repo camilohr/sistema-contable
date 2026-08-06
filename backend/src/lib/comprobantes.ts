@@ -1,4 +1,5 @@
 import { Prisma, EstadoComprobante, PrismaClient } from "@prisma/client";
+import { obtenerSiguienteConsecutivo } from "./consecutivo.js";
 
 type DbEjecutor = Prisma.TransactionClient | PrismaClient;
 
@@ -30,20 +31,7 @@ export async function crearComprobanteDiario(db: DbEjecutor, data: CrearComproba
     throw new Error(`La partida doble no cuadra: débitos ${totalDebito.toFixed(2)} vs créditos ${totalCredito.toFixed(2)}`);
   }
 
-  const [max, cont] = await Promise.all([
-    db.comprobante.aggregate({ _max: { consecutivo: true }, where: { tipo: "DIARIO", empresaId: data.empresaId } }),
-    db.consecutivo.upsert({
-      where: { empresaId_tipo: { empresaId: data.empresaId, tipo: "DIARIO" } },
-      create: { empresaId: data.empresaId, tipo: "DIARIO", ultimo: 0 },
-      update: {},
-    }),
-  ]);
-  const base = Math.max(max._max.consecutivo ?? 0, cont.ultimo);
-  const consecutivo = base + 1;
-  await db.consecutivo.update({
-    where: { empresaId_tipo: { empresaId: data.empresaId, tipo: "DIARIO" } },
-    data: { ultimo: consecutivo },
-  });
+  const consecutivo = await obtenerSiguienteConsecutivo(db, data.empresaId, "DIARIO");
 
   return db.comprobante.create({
     data: {

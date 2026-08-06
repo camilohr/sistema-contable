@@ -2,17 +2,21 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app.js";
 import { prisma } from "./prisma-test.js";
+import { empresaDePrueba } from "./helpers.js";
+import { EstadoComprobante } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const app = createApp();
 
-const emails = ["cierre-admin@test.local", "cierre-cont@test.local"];
+const emails = ["cierre-admin@test.local", "cierre-cont@test.local", "cierre-aux@test.local"];
 const suf = Date.now();
 
 let adminId = "";
 let contadorId = "";
+let auxiliarId = "";
 let adminToken = "";
 let contadorToken = "";
+let auxiliarToken = "";
 
 let cajaId = 0;
 let bancosId = 0;
@@ -63,10 +67,13 @@ beforeAll(async () => {
 
   const admin = await prisma.usuario.create({ data: { nombre: "Cierre Admin", email: emails[0], passwordHash: await bcrypt.hash("clave123", 10), rol: "ADMIN" } });
   const contador = await prisma.usuario.create({ data: { nombre: "Cierre Contador", email: emails[1], passwordHash: await bcrypt.hash("clave123", 10), rol: "CONTADOR" } });
+  const auxiliar = await prisma.usuario.create({ data: { nombre: "Cierre Auxiliar", email: emails[2], passwordHash: await bcrypt.hash("clave123", 10), rol: "AUXILIAR" } });
   adminId = admin.id;
   contadorId = contador.id;
+  auxiliarId = auxiliar.id;
   adminToken = await login(emails[0], "clave123");
   contadorToken = await login(emails[1], "clave123");
+  auxiliarToken = await login(emails[2], "clave123");
 
   const cuentas = await prisma.cuenta.findMany({ where: { codigo: { in: ["110505", "111005", "4120", "516020", "3605"] } } });
   const porCodigo = new Map(cuentas.map((c) => [c.codigo, c.id]));
@@ -120,7 +127,7 @@ afterAll(async () => {
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "CIERRE-" } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Cierre de ejercicio" } } });
   await prisma.periodo.deleteMany({ where: { nombre: { startsWith: `CIERRE-${suf}` } } });
-  await prisma.auditoria.deleteMany({ where: { usuarioId: { in: [adminId, contadorId] } } });
+  await prisma.auditoria.deleteMany({ where: { usuarioId: { in: [adminId, contadorId, auxiliarId] } } });
   await prisma.usuario.deleteMany({ where: { email: { in: emails } } });
   await prisma.$disconnect();
 });
@@ -133,6 +140,11 @@ describe("Cierre de ejercicio anual: validaciones", () => {
 
   it("solo ADMIN puede ejecutar el cierre (CONTADOR recibe 403)", async () => {
     const res = await request(app).post("/api/cierre-anual/2025").set("Authorization", `Bearer ${contadorToken}`);
+    expect(res.status).toBe(403);
+  });
+
+  it("AUXILIAR no puede ejecutar el cierre (403)", async () => {
+    const res = await request(app).post("/api/cierre-anual/2025").set("Authorization", `Bearer ${auxiliarToken}`);
     expect(res.status).toBe(403);
   });
 
@@ -179,6 +191,31 @@ describe("Cierre de ejercicio anual: ejecución", () => {
     expect(debitos.reduce((s: number, a: { debito: number }) => s + a.debito, 0)).toBe(
       creditos.reduce((s: number, a: { credito: number }) => s + a.credito, 0)
     );
+  });
+
+  it("deja las cuentas de resultado (clases 4-7) en cero después del cierre", async () => {
+    const eid = await empresaDePrueba();
+    const asientos = await prisma.asiento.findMany({
+      where: {
+        comprobante: {
+          empresaId: eid,
+          estado: EstadoComprobante.CONTABILIZADO,
+          periodoId: { in: periodos2025.map((p) => p.id) },
+        },
+      },
+      include: { cuenta: { select: { clase: true, codigo: true } } },
+    });
+
+    const netoPorCuenta = new Map<number, number>();
+    for (const a of asientos) {
+      if (a.cuenta.clase >= 4 && a.cuenta.clase <= 7) {
+        netoPorCuenta.set(a.cuentaId, (netoPorCuenta.get(a.cuentaId) ?? 0) + a.debito.toNumber() - a.credito.toNumber());
+      }
+    }
+    expect(netoPorCuenta.size).toBeGreaterThan(0);
+    for (const [cuentaId, neto] of netoPorCuenta) {
+      expect(neto, `cuenta de resultado ${cuentaId} debería quedar en cero`).toBe(0);
+    }
   });
 
   it("no permite cerrar dos veces el mismo año", async () => {

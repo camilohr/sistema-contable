@@ -9,14 +9,16 @@ Referencia: `instrucciones-opencode-v2.2.md`. Se actualiza al terminar cada **pa
 - [x] **Convención camelCase**: se encontró que `Reportes.module.css` y `Resumen.module.css` definían clases en kebab-case mientras el TSX accede con camelCase (mismo bug del hallazgo #3 del QA V2.1) — esas clases no se aplicaban en runtime. Renombradas a camelCase en commits `a3b5258` y `24b8955`. Los 9 módulos quedan consistentes en camelCase.
 - [x] **index.css**: contiene solo el sistema de diseño compartido (variables `:root`, `.btn*`, `.table`, `.modal*`, badges, semáforo, etc.). Verificado: ninguna clase es específica de una sola pantalla.
 
-## Parte 2 — Endurecimiento funcional contable ⏳ PENDIENTE
+## Parte 2 — Endurecimiento funcional contable ✅ COMPLETA
 
-- [ ] 2.1 Partida doble: rechazar 1 solo asiento, rechazar montos negativos, test de consecutivo concurrente (`Promise.all`).
-- [ ] 2.2 Cierre anual: año ya cerrado rechazado, periodos no cerrados rechazados, asiento de cierre cuadra y cuentas 4-7 en cero.
-- [ ] 2.3 Provisión/depreciación: test de duplicado bloqueado (`@@unique`) y test de redondeo sin desbalance.
-- [ ] 2.4 Inventario: salida > existencia rechazada (no quedar negativo).
-- [ ] 2.5 `backend/tests/aislamiento-empresas.test.ts`: todas las rutas `requireEmpresa` → 403 sin vínculo `UsuarioEmpresa`.
-- [ ] 2.6 Roles: AUXILIAR no puede escribir en activos fijos, cierre anual, provisión, nómina, presupuesto, alertas, conciliación, procesos.
+- [x] **2.1 Partida doble**: se agregaron tests de rechazo de comprobante con 1 solo asiento (mensaje "al menos 2 asientos"), rechazo de montos negativos en débito y crédito, y test de creación concurrente (`Promise.all`). **Se corrigió la asignación del consecutivo para que sea atómica**: el test reveló que el modelo leer-luego-escribir podía duplicar/fallar; se creó `backend/src/lib/consecutivo.ts` (`obtenerSiguienteConsecutivo`) que bloquea la fila con `SELECT ... FOR UPDATE` dentro de la transacción, y se refactorizó `comprobantes.controller.ts` y `lib/comprobantes.ts` (depreciación, baja, cierre anual, provisión, nómina) para usarlo. Con el fix, ambas creaciones concurrentes obtienen consecutivos distintos.
+- [x] **2.2 Cierre anual**: ya existían tests de "año ya cerrado" y "periodos abiertos". Se agregó test de que las cuentas de resultado (clases 4-7) quedan en cero después del cierre, y test de rol AUXILIAR (403) sobre el cierre.
+- [x] **2.3 Provisión/depreciación**: el duplicado por periodo ya estaba cubierto en `provision.test.ts` y `activos-fijos.test.ts`. Se agregó test de redondeo: cuota de depreciación con fracción de centavo (valor 1.000.000 / 3 meses → 333.333,33) mantiene el asiento cuadrado y el valor registrado redondeado a 2 decimales.
+- [x] **2.4 Inventario**: ya cubierto ("rechaza salida mayor que el stock (400)" en `productos.test.ts`).
+- [x] **2.5 Aislamiento entre empresas**: nuevo `backend/tests/aislamiento-empresas.test.ts` con la lista completa de rutas protegidas por `requireEmpresa` (117 casos parametrizados). Con un usuario CONTADOR sin vínculo `UsuarioEmpresa` a la empresa B y cabecera `X-Empresa-Id` de B, **todas** responden 403. Nota: las rutas ADMIN-only (auditoría, usuarios, cierre anual POST, procesos DELETE, empresas de administración) devuelven 403 igualmente; `/api/procesos/cartera` es intencionalmente global (no usa `requireEmpresa` y solo lista las empresas vinculadas del usuario, sin fuga).
+- [x] **2.6 Roles**: se verificó cobertura AUXILIAR-no-escribe en activos fijos (crear/depreciar/baja), provisión (parámetros), cierre anual (agregado), nómina (empleados/parámetros/liquidar), presupuesto, alertas (reglas), conciliación (crear/importar/aprobar), procesos (crear/marcar/notas/estado), adjuntos (eliminar). Sin huecos pendientes.
+
+Resultado: `backend` `npm run build` OK y `npm test` 531/531 en 25 archivos; `frontend` `npm run lint` (0 errores) y `npm run build` OK. Commit `test(contable): endurecimiento de casos limite y aislamiento entre empresas`.
 
 ## Parte 3 — Diseño profesional de la interfaz (V2.2) ⏳ PENDIENTE
 

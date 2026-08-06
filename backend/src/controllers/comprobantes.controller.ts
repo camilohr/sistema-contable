@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { Prisma, EstadoComprobante, TipoComprobante, EstadoPeriodo, EstadoNomina, TipoActividadProceso, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
+import { obtenerSiguienteConsecutivo } from "../lib/consecutivo.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
 import { marcarActividadProceso } from "../lib/procesos.js";
 
@@ -214,20 +215,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
   const estado = data.estado ?? EstadoComprobante.BORRADOR;
 
   const comprobante = await prisma.$transaction(async (tx) => {
-    const [max, cont] = await Promise.all([
-      tx.comprobante.aggregate({ _max: { consecutivo: true }, where: { tipo: data.tipo, empresaId: req.empresaId } }),
-      tx.consecutivo.upsert({
-        where: { empresaId_tipo: { empresaId: req.empresaId!, tipo: data.tipo } },
-        create: { empresaId: req.empresaId!, tipo: data.tipo, ultimo: 0 },
-        update: {},
-      }),
-    ]);
-    const base = Math.max(max._max.consecutivo ?? 0, cont.ultimo);
-    const consecutivo = base + 1;
-    await tx.consecutivo.update({
-      where: { empresaId_tipo: { empresaId: req.empresaId!, tipo: data.tipo } },
-      data: { ultimo: consecutivo },
-    });
+    const consecutivo = await obtenerSiguienteConsecutivo(tx, req.empresaId!, data.tipo);
     const creado = await tx.comprobante.create({
       data: {
         empresaId: req.empresaId!,

@@ -213,6 +213,77 @@ describe("Creación de comprobantes", () => {
     expect(res.status).toBe(400);
   });
 
+  it("rechaza un comprobante con un solo asiento (sin contrapartida) con mensaje claro", async () => {
+    const res = await request(app)
+      .post("/api/comprobantes")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        tipo: "DIARIO",
+        fecha: "2026-08-05",
+        periodoId,
+        concepto: "Sin contrapartida",
+        asientos: [asiento(cajaId, { debito: 1000000 })],
+      });
+    expect(res.status).toBe(400);
+    const mensajes = JSON.stringify(res.body.detalle ?? {});
+    expect(mensajes).toContain("al menos 2 asientos");
+  });
+
+  it("rechaza montos negativos en débito (400)", async () => {
+    const res = await request(app)
+      .post("/api/comprobantes")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        tipo: "DIARIO",
+        fecha: "2026-08-05",
+        periodoId,
+        concepto: "Débito negativo",
+        asientos: [
+          asiento(cajaId, { debito: -1000000 }),
+          asiento(ingresosId, { credito: 1000000 }),
+        ],
+      });
+    expect(res.status).toBe(400);
+  });
+
+  it("rechaza montos negativos en crédito (400)", async () => {
+    const res = await request(app)
+      .post("/api/comprobantes")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        tipo: "DIARIO",
+        fecha: "2026-08-05",
+        periodoId,
+        concepto: "Crédito negativo",
+        asientos: [
+          asiento(cajaId, { debito: 1000000 }),
+          asiento(ingresosId, { credito: -1000000 }),
+        ],
+      });
+    expect(res.status).toBe(400);
+  });
+
+  it("asigna consecutivos distintos a dos creaciones concurrentes del mismo tipo", async () => {
+    const cuerpo = {
+      tipo: "DIARIO",
+      fecha: "2026-08-19",
+      periodoId,
+      concepto: "Carrera de consecutivo",
+      asientos: [
+        asiento(cajaId, { debito: 1000 }),
+        asiento(ingresosId, { credito: 1000 }),
+      ],
+    };
+    const [a, b] = await Promise.all([
+      request(app).post("/api/comprobantes").set("Authorization", `Bearer ${adminToken}`).send(cuerpo),
+      request(app).post("/api/comprobantes").set("Authorization", `Bearer ${adminToken}`).send(cuerpo),
+    ]);
+    expect(a.status).toBe(201);
+    expect(b.status).toBe(201);
+    const consecutivos = [a.body.consecutivo, b.body.consecutivo].sort((x: number, y: number) => x - y);
+    expect(consecutivos[1]).toBe(consecutivos[0] + 1);
+  });
+
   it("rechaza cuenta que no existe (400)", async () => {
     const res = await request(app)
       .post("/api/comprobantes")
