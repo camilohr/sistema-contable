@@ -1,5 +1,37 @@
 # Historial de cambios
 
+## [2.1.0] - 2026-08-06
+
+Estabilización de la fase de transición a CSS Modules, correcciones de QA y
+preparación para el endurecimiento contable y rediseño de interfaz (V2.2).
+Alcance definido en el plan de cierre V2.1; sin reglas contables nuevas.
+
+### Correcciones de QA (validadas con Playwright)
+- Panel de cartera de clientes ahora incluye todas las empresas para un ADMIN global
+  (antes solo mostraba la empresa activa).
+- Corrección de la colisión CSS `.estado-titulo` y de columnas sin estilo en
+  `ComprobanteForm` (Fase 2 de estabilización).
+- Migración parcial a CSS Modules (9 pantallas): Comprobantes, Reportes, Resumen,
+  Login, AdjuntosLista, AlertasPanel, Procesos, Layout y Conciliaciones. `index.css`
+  reducido de 1006 a 520 líneas.
+
+### Hallazgos corregidos durante el QA (3/3)
+1. **Eliminar un periodo con presupuesto no funcionaba:** `periodos.controller.ts`
+   ahora cuenta las dependencias del periodo (comprobantes, presupuestos,
+   conciliaciones, nóminas, provisiones, depreciaciones) y `eliminar` responde `400`
+   con mensaje claro en lugar de lanzar un error no controlado. `Periodos.tsx`
+   deshabilita el botón Eliminar con tooltip cuando hay dependencias. Tests nuevos en
+   `backend/tests/presupuesto.test.ts`.
+2. **CSS Modules en kebab-case:** `ComprobanteForm.module.css` usaba kebab-case y
+   `styles.asientosHead` era `undefined`; renombrado a camelCase, consistente con el
+   resto de módulos.
+3. **`cuentaId` como string:** el formulario enviaba `cuentaId` como string y el
+   backend espera número; corregido con `Number(e.target.value)` en `ComprobanteForm.tsx`.
+
+### Otras mejoras
+- Distinción de persona natural (CC/CE/pasaporte) vs persona jurídica (NIT) en
+  terceros y clientes, con sus respectivos flujos y tablas.
+
 ## [2.0.0] - 2026-08-05
 
 Estudio contable multicliente, seguimiento por proceso y exportación de informes.
