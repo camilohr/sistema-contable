@@ -32,7 +32,19 @@ export async function listar(req: Request, res: Response): Promise<void> {
   const periodos = await prisma.periodo.findMany({
     where,
     orderBy: [{ fechaInicio: "desc" }],
-    include: { _count: { select: { comprobantes: true } } },
+    include: {
+      _count: {
+        select: {
+          comprobantes: true,
+          presupuestos: true,
+          conciliaciones: true,
+          nominas: true,
+          provisionesNomina: true,
+          depreciaciones: true,
+          provisionesCartera: true,
+        },
+      },
+    },
   });
   res.json(periodos);
 }
@@ -97,14 +109,29 @@ export async function eliminar(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
   const existe = await prisma.periodo.findFirst({
     where: { id, empresaId: req.empresaId },
-    include: { _count: { select: { comprobantes: true } } },
+    include: {
+      _count: {
+        select: {
+          comprobantes: true,
+          presupuestos: true,
+          conciliaciones: true,
+          nominas: true,
+          provisionesNomina: true,
+          depreciaciones: true,
+          provisionesCartera: true,
+        },
+      },
+    },
   });
   if (!existe) {
     res.status(404).json({ error: "Periodo no encontrado" });
     return;
   }
-  if (existe._count.comprobantes > 0) {
-    res.status(400).json({ error: "No se puede eliminar: el periodo tiene comprobantes." });
+  const dependencias = Object.entries(existe._count)
+    .filter(([, n]) => n > 0)
+    .map(([k]) => k);
+  if (dependencias.length > 0) {
+    res.status(400).json({ error: `No se puede eliminar: el periodo tiene ${dependencias.join(", ")}.` });
     return;
   }
   await prisma.periodo.delete({ where: { id } });

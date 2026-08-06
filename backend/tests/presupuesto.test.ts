@@ -258,3 +258,39 @@ describe("Presupuesto: ejecución contra lo contabilizado", () => {
     }
   });
 });
+
+describe("Presupuesto: bloquea eliminar el periodo", () => {
+  it("rechaza eliminar un periodo que tiene presupuesto (400 con mensaje claro)", async () => {
+    const p = await prisma.periodo.create({
+      data: { nombre: `${prefijo}-2026-05`, fechaInicio: new Date("2026-05-01"), fechaFin: new Date("2026-05-31") },
+    });
+    try {
+      await cargarPresupuesto(p.id, [{ cuentaId: cajaId, valor: 1000000 }]);
+
+      const res = await request(app).delete(`/api/periodos/${p.id}`).set("Authorization", `Bearer ${adminToken}`);
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("presupuesto");
+
+      const sigue = await prisma.periodo.findUnique({ where: { id: p.id } });
+      expect(sigue).not.toBeNull();
+    } finally {
+      await prisma.presupuesto.deleteMany({ where: { periodoId: p.id } });
+      await prisma.periodo.delete({ where: { id: p.id } });
+    }
+  });
+
+  it("elimina un periodo limpio", async () => {
+    const p = await prisma.periodo.create({
+      data: { nombre: `${prefijo}-2026-06`, fechaInicio: new Date("2026-06-01"), fechaFin: new Date("2026-06-30") },
+    });
+    try {
+      const res = await request(app).delete(`/api/periodos/${p.id}`).set("Authorization", `Bearer ${adminToken}`);
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      const existe = await prisma.periodo.findUnique({ where: { id: p.id } });
+      expect(existe).toBeNull();
+    } finally {
+      await prisma.periodo.deleteMany({ where: { id: p.id } });
+    }
+  });
+});

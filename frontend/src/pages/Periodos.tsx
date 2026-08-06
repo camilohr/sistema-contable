@@ -9,10 +9,28 @@ interface Periodo {
   fechaInicio: string;
   fechaFin: string;
   estado: "ABIERTO" | "CERRADO";
-  _count?: { comprobantes: number };
+  _count?: {
+    comprobantes: number;
+    presupuestos: number;
+    conciliaciones: number;
+    nominas: number;
+    provisionesNomina: number;
+    depreciaciones: number;
+    provisionesCartera: number;
+  };
 }
 
 const d = (iso: string) => iso.slice(0, 10);
+
+const NOMBRE_DEPENDENCIAS: Record<string, string> = {
+  comprobantes: "comprobantes",
+  presupuestos: "presupuesto",
+  conciliaciones: "conciliaciones",
+  nominas: "nóminas",
+  provisionesNomina: "provisiones de nómina",
+  depreciaciones: "depreciaciones",
+  provisionesCartera: "provisión de cartera",
+};
 
 export default function Periodos() {
   const { usuario } = useAuth();
@@ -91,6 +109,7 @@ export default function Periodos() {
                 <th>Hasta</th>
                 <th>Estado</th>
                 <th>Comprobantes</th>
+                <th>Presupuesto</th>
                 <th></th>
               </tr>
             </thead>
@@ -108,6 +127,7 @@ export default function Periodos() {
                     )}
                   </td>
                   <td>{p._count?.comprobantes ?? 0}</td>
+                  <td>{p._count?.presupuestos ?? 0}</td>
                   <td className="acciones">
                     {puedeEditar && (
                       <>
@@ -120,14 +140,25 @@ export default function Periodos() {
                             Abrir
                           </button>
                         )}
-                        <button
-                          className="btn btn-secondary btn-sm btn-danger"
-                          onClick={() => eliminar(p)}
-                          disabled={!!p._count?.comprobantes}
-                          title={p._count?.comprobantes ? "Tiene comprobantes, no se puede eliminar" : ""}
-                        >
-                          Eliminar
-                        </button>
+                        {(() => {
+                          const bloqueados = Object.entries(p._count ?? {})
+                            .filter(([, n]) => n > 0)
+                            .map(([k]) => NOMBRE_DEPENDENCIAS[k] ?? k);
+                          return (
+                            <button
+                              className="btn btn-secondary btn-sm btn-danger"
+                              onClick={() => eliminar(p)}
+                              disabled={bloqueados.length > 0}
+                              title={
+                                bloqueados.length
+                                  ? `Tiene ${bloqueados.join(", ")}; no se puede eliminar`
+                                  : "Eliminar periodo"
+                              }
+                            >
+                              Eliminar
+                            </button>
+                          );
+                        })()}
                       </>
                     )}
                   </td>

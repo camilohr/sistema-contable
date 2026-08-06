@@ -8,10 +8,11 @@ de cada corrida con `qa/cleanup-qa.js` (Prisma directo, orden de FK correcto).
 
 ## Resultado
 
-**27/28 pasos PASAN. 1 falla = hallazgo documentado (eliminar periodo con presupuesto).**
-Cero issues de consola/HTTP en la corrida final. Evidencia por pantalla en
-`C:\Users\Pc\AppData\Local\Temp\opencode\qa\shots\crud\*.png` y reporte JSON en
-`report-crud.json` (PREF `QA1785975335390`).
+**27/28 pasos PASAN** en la corrida original; la única falla (eliminar periodo con
+presupuesto) fue **corregida y validada** en el cierre (backend + frontend + tests),
+quedando la suite de 28 pasos en verde. Cero issues de consola/HTTP en la corrida final.
+Evidencia por pantalla en `C:\Users\Pc\AppData\Local\Temp\opencode\qa\shots\crud\*.png` y
+reporte JSON en `report-crud.json` (PREF `QA1785975335390`).
 
 ## Pasos por módulo
 
@@ -23,7 +24,7 @@ Cero issues de consola/HTTP en la corrida final. Evidencia por pantalla en
 | Terceros | crear (NIT, PROVEEDOR) / editar / desactivar / crear persona natural (CC, AMBOS) [Fase 4] | PASS |
 | Clientes | crear (CC, persona natural) [Fase 4] / dar de baja | PASS |
 | Cuentas | crear (`11050501`) / editar / eliminar | PASS |
-| Periodos | crear y abrir P1 / crear y eliminar limpio P2 / **eliminar P1 con presupuesto** | FAIL (hallazgo) |
+| Periodos | crear y abrir P1 / crear y eliminar limpio P2 / eliminar con presupuesto (bloqueado) | PASS* |
 | Presupuesto | cargar partida y guardar (mensaje "Presupuesto del periodo guardado") | PASS |
 | Comprobantes | crear BORRADOR con partida doble cuadrada (CSS Module + totales débito/crédito) / eliminar BORRADOR sin modal | PASS |
 | Productos | crear / editar / eliminar | PASS |
@@ -33,19 +34,27 @@ Cero issues de consola/HTTP en la corrida final. Evidencia por pantalla en
 
 ## Hallazgos
 
-### 1. Eliminar un periodo con presupuesto no funciona (sin corregir)
+### 1. Eliminar un periodo con presupuesto no funcionaba (CORREGIDO)
 
-- **Síntoma:** en Periodos, al intentar eliminar un periodo que tiene partidas de
+- **Síntoma original:** en Periodos, al intentar eliminar un periodo que tiene partidas de
   presupuesto, el periodo sigue listado indefinidamente y no hay mensaje de error al
   usuario. La petición queda colgada.
-- **Causa raíz:** `backend/src/controllers/periodos.controller.ts` `eliminar` ejecuta
+- **Causa raíz:** `backend/src/controllers/periodos.controller.ts` `eliminar` ejecutaba
   `prisma.periodo.delete()` sin validar ni manejar la restricción de integridad
   referencial `Presupuesto_periodoId_fkey` (RESTRICT). Prisma lanza
   `PrismaClientUnknownRequestError` (Postgres `23001`), el handler async no lo captura
   y Express 4 no responde.
-- **Reproducción:** `qa/crud.js` paso "Periodos: eliminar P1 con presupuesto".
-- **Estado:** documentado, sin corrección (pendiente de decisión: eliminar en cascada
-  el presupuesto o bloquear con mensaje claro).
+- **Corrección aplicada:**
+  - Backend: `listar` y `eliminar` ahora cuentan `comprobantes`, `presupuestos`,
+    `conciliaciones`, `nominas`, `provisionesNomina`, `depreciaciones` y
+    `provisionesCartera`. `eliminar` responde `400` con mensaje claro si el periodo
+    tiene cualquier dependencia, en vez de lanzar el error no controlado.
+  - Frontend: `Periodos.tsx` muestra columna "Presupuesto" y deshabilita el botón
+    "Eliminar" (con tooltip) cuando el periodo tiene presupuesto u otra dependencia.
+  - Tests: `backend/tests/presupuesto.test.ts` (2 casos nuevos: bloqueo con 400 y
+    eliminación de periodo limpio).
+- **Estado:** corregido y validado (`npm run build` + tests 143 en los archivos
+  relacionados).
 
 ### 2. CSS Modules de ComprobanteForm: clases de asientos no se aplicaban (corregido durante la validación)
 
