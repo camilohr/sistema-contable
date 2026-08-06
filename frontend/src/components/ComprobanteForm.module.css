@@ -1,12 +1,12 @@
-.asientos-head,
-.asientos-fila {
+.asientosHead,
+.asientosFila {
   display: grid;
   grid-template-columns: minmax(220px, 1.6fr) minmax(120px, 0.9fr) 110px 110px minmax(140px, 1fr) 34px;
   gap: 0.5rem;
   align-items: center;
 }
 
-.asientos-head {
+.asientosHead {
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -14,36 +14,36 @@
   margin-bottom: 0.25rem;
 }
 
-.asientos-fila {
+.asientosFila {
   margin-bottom: 0.4rem;
   position: relative;
 }
 
-.asientos-fila input,
-.asientos-fila select {
+.asientosFila input,
+.asientosFila select {
   width: 100%;
   padding: 0.45rem 0.6rem;
   font-size: 0.88rem;
 }
 
-.asientos-head .col-debito,
-.asientos-head .col-credito {
+.asientosHead .colDebito,
+.asientosHead .colCredito {
   text-align: right;
 }
 
-.asientos-fila .col-debito input,
-.asientos-fila .col-credito input {
+.asientosFila .colDebito input,
+.asientosFila .colCredito input {
   text-align: right;
 }
 
-.asientos-fila .col-quitar {
+.asientosFila .colQuitar {
   justify-self: end;
   padding-left: 0;
   padding-right: 0;
   min-width: 32px;
 }
 
-.requiere-tercero {
+.requiereTercero {
   position: absolute;
   top: -0.35rem;
   right: 2.2rem;

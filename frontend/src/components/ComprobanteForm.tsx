@@ -91,7 +91,7 @@ export default function ComprobanteForm({ inicial, titulo, onClose, onGuardado }
 
   const set = (campo: keyof ComprobanteFormData, valor: unknown) => setForm((f) => ({ ...f, [campo]: valor }));
 
-  const setAsiento = (i: number, campo: keyof AsientoLinea, valor: string) =>
+  const setAsiento = (i: number, campo: keyof AsientoLinea, valor: unknown) =>
     setForm((f) => ({
       ...f,
       asientos: f.asientos.map((a, idx) => (idx === i ? { ...a, [campo]: valor } : a)),
@@ -217,7 +217,7 @@ export default function ComprobanteForm({ inicial, titulo, onClose, onGuardado }
                   <select
                     className={styles.colCuenta}
                     value={a.cuentaId}
-                    onChange={(e) => setAsiento(i, "cuentaId", e.target.value)}
+                    onChange={(e) => setAsiento(i, "cuentaId", e.target.value ? Number(e.target.value) : "")}
                     required
                   >
                     <option value="">—</option>
