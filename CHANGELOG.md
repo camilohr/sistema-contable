@@ -1,5 +1,44 @@
 # Historial de cambios
 
+## [2.2.0] - 2026-08-06
+
+Cierre de pendientes de V2.1, endurecimiento de la lógica contable y rediseño
+profesional de la interfaz. Alcance definido en el plan V2.2 (Partes 1-3); sin reglas
+contables nuevas más allá de los casos límite endurecidos y sin dependencias externas.
+
+### Parte 1 — Cierre de V2.1
+- CSS Modules completado: las 18 pantallas restantes usan el sistema compartido de
+  `index.css`; se corrigió la convención camelCase en `Reportes.module.css` y
+  `Resumen.module.css` (clases que no se aplicaban en runtime).
+
+### Parte 2 — Endurecimiento contable
+- **Consecutivo de comprobantes atómico**: nueva `backend/src/lib/consecutivo.ts`
+  (`SELECT ... FOR UPDATE` dentro de la transacción) que elimina la carrera en la
+  asignación del consecutivo bajo creación concurrente (test con `Promise.all`).
+- Tests de partida doble: rechazo de comprobante con un solo asiento y de montos
+  negativos en débito/crédito.
+- Cierre anual: cuentas de resultado (clases 4-7) en cero tras el cierre y control de
+  rol AUXILIAR (403).
+- Redondeo de depreciación con fracción de centavo mantiene el asiento cuadrado.
+- **Aislamiento entre empresas**: `backend/tests/aislamiento-empresas.test.ts` con 117
+  casos parametrizados sobre todas las rutas protegidas por `requireEmpresa` (403 sin
+  vínculo a la empresa).
+
+### Parte 3 — Diseño profesional de la interfaz (UI V2.2)
+- Sistema de diseño en `frontend/src/index.css` (design tokens en `:root`): paleta azul
+  institucional, escala tipográfica y de espaciado, radios, elevación y semáforo
+  formalizado. Tipografía **Inter local** (`@fontsource/inter`, sin CDN) e iconografía
+  `lucide-react`.
+- UI kit reutilizable en `frontend/src/components/ui/` (Button, Input/Select/Textarea,
+  Badge, Card, Modal accesible, Table).
+- Login y Layout rediseñados (sidebar oscura agrupada por pasos del proceso, topbar con
+  selector de empresa y chip de usuario/rol, responsivo a 1024px y 768px).
+- Pantallas de datos densos (Comprobantes, Reportes, Indicadores), Dashboard con
+  módulos e iconos, y aplicación del sistema al resto de pantallas.
+- Accesibilidad: `:focus-visible`, foco gestionado en modales y contraste AA.
+- QA visual Playwright de las 24 pantallas en `docs/qa-v2.2-screenshots/` y recorrido
+  funcional sin regresiones, documentado en `docs/qa-v2.2.md`.
+
 ## [2.1.0] - 2026-08-06
 
 Estabilización de la fase de transición a CSS Modules, correcciones de QA y
