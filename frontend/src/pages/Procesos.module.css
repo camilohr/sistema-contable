@@ -19,7 +19,7 @@
   width: 1.6rem;
   height: 1.6rem;
   border-radius: 50%;
-  background: #eef1f4;
+  background: var(--bg);
   color: var(--muted);
   display: inline-flex;
   align-items: center;
@@ -29,8 +29,8 @@
 }
 
 .checkItem:global(.hecho) .checkNum {
-  background: #e8f6ef;
-  color: #1e8449;
+  background: var(--success-bg);
+  color: var(--success);
 }
 
 .checkItem .checkNombre {
@@ -44,7 +44,7 @@
 }
 
 .filaActiva {
-  background: #f0f6ff;
+  background: var(--primary-100);
 }
 
 .notasSeguimiento {

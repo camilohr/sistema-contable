@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { ArrowRight } from "lucide-react";
 import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import AlertasPanel from "../components/AlertasPanel";
 import CarteraProcesos from "../components/CarteraProcesos";
 import AdjuntosLista from "../components/AdjuntosLista";
+import { Button } from "../components/ui";
 import styles from "./Resumen.module.css";
 
 interface ProcesoResumen {
@@ -174,9 +176,10 @@ export default function Resumen() {
               <div className="proceso-bar-fill" style={{ width: `${proceso.avance.porcentaje}%` }} />
             </div>
           </div>
-          <button type="button" className="btn btn-secondary" onClick={() => ir("procesos")}>
+          <Button variant="secondary" onClick={() => ir("procesos")}>
             Abrir seguimiento
-          </button>
+            <ArrowRight size={15} />
+          </Button>
         </div>
       )}
 

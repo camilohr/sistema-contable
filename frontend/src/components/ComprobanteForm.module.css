@@ -47,12 +47,12 @@
   position: absolute;
   top: -0.35rem;
   right: 2.2rem;
-  background: #fdecea;
-  color: #c0392b;
+  background: var(--danger-bg);
+  color: var(--danger);
   font-size: 0.65rem;
   font-weight: 600;
   padding: 0.05rem 0.4rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   z-index: 2;
 }
 
@@ -60,8 +60,8 @@
   display: flex;
   gap: 1.5rem;
   font-size: 0.9rem;
-  background: #f8fafb;
+  background: var(--surface-muted);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 0.6rem 0.9rem;
 }
