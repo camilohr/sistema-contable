@@ -1,4 +1,4 @@
-.resumen-head {
+.resumenHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -7,19 +7,19 @@
   margin-bottom: 1rem;
 }
 
-.resumen-head :global(.badge) {
+.resumenHead :global(.badge) {
   font-size: 0.85rem;
   padding: 0.35rem 0.9rem;
 }
 
-.estado-grid {
+.estadoGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
 
-.estado-card {
+.estadoCard {
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -29,7 +29,7 @@
   gap: 0.35rem;
 }
 
-.resumen-card-titulo {
+.resumenCardTitulo {
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -37,30 +37,30 @@
   color: var(--muted);
 }
 
-.estado-valor {
+.estadoValor {
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text);
 }
 
-.estado-sub {
+.estadoSub {
   font-size: 0.8rem;
   color: var(--muted);
 }
 
-.estado-ok {
+.estadoOk {
   color: #1e8449;
 }
 
-.estado-pend {
+.estadoPend {
   color: #b9770e;
 }
 
-.estado-err {
+.estadoErr {
   color: #c0392b;
 }
 
-.estado-ir {
+.estadoIr {
   margin-top: auto;
   font-size: 0.8rem;
   color: var(--primary-dark);
