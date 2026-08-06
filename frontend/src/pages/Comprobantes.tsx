@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
+import { Ban, BookCheck, Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import ComprobanteForm, { type ComprobanteFormData } from "../components/ComprobanteForm";
 import AdjuntosLista from "../components/AdjuntosLista";
+import { Badge, Button, Modal, Table } from "../components/ui";
+import type { Column } from "../components/ui";
 import { cop } from "../lib/formato";
 
 interface AsientoDet {
@@ -45,6 +48,12 @@ const estadoLabel: Record<string, string> = { BORRADOR: "Borrador", CONTABILIZAD
 const tipoLabel: Record<string, string> = { DIARIO: "Diario", INGRESO: "Ingreso", EGRESO: "Egreso" };
 
 const ref = (c: Comprobante) => `${c.tipo[0]}-${String(c.consecutivo).padStart(4, "0")}`;
+
+const estadoTone: Record<string, "mov" | "err" | "terc"> = {
+  CONTABILIZADO: "mov",
+  ANULADO: "err",
+  BORRADOR: "terc",
+};
 
 export default function Comprobantes() {
   const { usuario } = useAuth();
@@ -166,6 +175,55 @@ export default function Comprobantes() {
     }
   };
 
+  const columnas: Column<Comprobante>[] = [
+    { key: "ref", header: "No.", mono: true, render: (c) => ref(c) },
+    { key: "fecha", header: "Fecha", mono: true, render: (c) => c.fecha.slice(0, 10) },
+    { key: "tipo", header: "Tipo", render: (c) => tipoLabel[c.tipo] },
+    { key: "concepto", header: "Concepto", render: (c) => c.concepto },
+    { key: "tercero", header: "Tercero", render: (c) => c.tercero?.nombreRazonSocial ?? "—" },
+    { key: "total", header: "Total", align: "right", mono: true, render: (c) => cop(c.totalDebito) },
+    {
+      key: "estado",
+      header: "Estado",
+      render: (c) => <Badge tone={estadoTone[c.estado]}>{estadoLabel[c.estado]}</Badge>,
+    },
+    {
+      key: "acciones",
+      header: "",
+      align: "right",
+      render: (c) => (
+        <div className="acciones">
+          <Button size="sm" variant="secondary" onClick={() => verDetalle(c)}>
+            <Eye size={14} />
+            Ver
+          </Button>
+          {puedeEditar && c.estado === "BORRADOR" && (
+            <>
+              <Button size="sm" variant="secondary" onClick={() => editar(c)}>
+                <Pencil size={14} />
+                Editar
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => contabilizar(c)}>
+                <BookCheck size={14} />
+                Contabilizar
+              </Button>
+              <Button size="sm" variant="danger" onClick={() => eliminar(c)}>
+                <Trash2 size={14} />
+                Eliminar
+              </Button>
+            </>
+          )}
+          {puedeEditar && c.estado === "CONTABILIZADO" && (
+            <Button size="sm" variant="danger" onClick={() => setAnulando(c)}>
+              <Ban size={14} />
+              Anular
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="page">
       <div className="page-head">
@@ -174,9 +232,10 @@ export default function Comprobantes() {
           <p className="count-hint">Registro de asientos contables con partida doble.</p>
         </div>
         {puedeEditar && (
-          <button className="btn btn-primary" onClick={() => setCreando(true)}>
+          <Button onClick={() => setCreando(true)}>
+            <Plus size={16} />
             Nuevo comprobante
-          </button>
+          </Button>
         )}
       </div>
 
@@ -213,135 +272,93 @@ export default function Comprobantes() {
       {!cargando && comprobantes.length === 0 && <p className="count-hint">Sin resultados.</p>}
 
       {!cargando && comprobantes.length > 0 && (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>No.</th>
-                <th>Fecha</th>
-                <th>Tipo</th>
-                <th>Concepto</th>
-                <th>Tercero</th>
-                <th className="num-cell">Total</th>
-                <th>Estado</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {comprobantes.map((c) => (
-                <tr key={c.id} className={c.estado === "ANULADO" ? "inactiva" : ""}>
-                  <td className="codigo-cell">{ref(c)}</td>
-                  <td>{c.fecha.slice(0, 10)}</td>
-                  <td>{tipoLabel[c.tipo]}</td>
-                  <td>{c.concepto}</td>
-                  <td>{c.tercero?.nombreRazonSocial ?? "—"}</td>
-                  <td className="num-cell">{cop(c.totalDebito)}</td>
-                  <td>
-                    <span className={`badge badge-${c.estado === "CONTABILIZADO" ? "mov" : c.estado === "ANULADO" ? "err" : "terc"}`}>
-                      {estadoLabel[c.estado]}
-                    </span>
-                  </td>
-                  <td className="acciones">
-                    <button className="btn btn-secondary btn-sm" onClick={() => verDetalle(c)}>
-                      Ver
-                    </button>
-                    {puedeEditar && c.estado === "BORRADOR" && (
-                      <>
-                        <button className="btn btn-secondary btn-sm" onClick={() => editar(c)}>
-                          Editar
-                        </button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => contabilizar(c)}>
-                          Contabilizar
-                        </button>
-                        <button className="btn btn-secondary btn-sm btn-danger" onClick={() => eliminar(c)}>
-                          Eliminar
-                        </button>
-                      </>
-                    )}
-                    {puedeEditar && c.estado === "CONTABILIZADO" && (
-                      <button className="btn btn-secondary btn-sm btn-danger" onClick={() => setAnulando(c)}>
-                        Anular
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          columns={columnas}
+          rows={comprobantes}
+          keyOf={(c) => String(c.id)}
+          empty="Sin resultados."
+        />
       )}
 
       {creando && <ComprobanteForm titulo="Nuevo comprobante" onClose={() => setCreando(false)} onGuardado={recargar} />}
       {editando && <ComprobanteForm inicial={editando} titulo="Editar comprobante" onClose={() => setEditando(null)} onGuardado={recargar} />}
       {detalle && <DetalleComprobante comprobante={detalle} onClose={() => setDetalle(null)} />}
-      {anulando && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h3>Anular comprobante</h3>
+      <Modal open={!!anulando} title="Anular comprobante" onClose={() => setAnulando(null)}>
+        {anulando && (
+          <>
             <p>
-              ¿Anular <strong>{ref(anulando)}</strong> ({anulando.concepto})? El comprobante queda anulado y no se contabiliza.
+              ¿Anular <strong>{ref(anulando)}</strong> ({anulando.concepto})? El comprobante queda anulado y no se
+              contabiliza.
             </p>
             <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setAnulando(null)}>
+              <Button variant="secondary" onClick={() => setAnulando(null)}>
                 Cancelar
-              </button>
-              <button type="button" className="btn btn-primary btn-danger" onClick={anular}>
+              </Button>
+              <Button variant="danger" onClick={anular}>
                 Anular
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }
 
 function DetalleComprobante({ comprobante: c, onClose }: { comprobante: Comprobante; onClose: () => void }) {
+  const asientos = c.asientos ?? [];
+  const totDeb = asientos.reduce((s, a) => s + (a.debito || 0), 0);
+  const totCred = asientos.reduce((s, a) => s + (a.credito || 0), 0);
+
+  const columnasDet: Column<AsientoDet>[] = [
+    {
+      key: "cuenta",
+      header: "Cuenta",
+      mono: true,
+      render: (a) => (
+        <span>
+          <strong>{a.codigoCuenta}</strong> {a.nombreCuenta}
+        </span>
+      ),
+    },
+    { key: "tercero", header: "Tercero", render: (a) => a.tercero ?? "—" },
+    { key: "debito", header: "Débito", align: "right", mono: true, render: (a) => (a.debito ? cop(a.debito) : "") },
+    { key: "credito", header: "Crédito", align: "right", mono: true, render: (a) => (a.credito ? cop(a.credito) : "") },
+    { key: "detalle", header: "Detalle", render: (a) => a.detalle ?? "" },
+  ];
+
   return (
-    <div className="modal-backdrop">
-      <div className="modal modal-wide">
-        <h3>
-          {ref(c)} — {c.concepto}
-        </h3>
-        <div className="detalle-grid">
-          <span><em>Fecha</em> {c.fecha.slice(0, 10)}</span>
-          <span><em>Tipo</em> {tipoLabel[c.tipo]}</span>
-          <span><em>Periodo</em> {c.periodo?.nombre}</span>
-          <span><em>Estado</em> {estadoLabel[c.estado]}</span>
-          <span><em>Tercero</em> {c.tercero?.nombreRazonSocial ?? "—"}</span>
-          <span><em>Total</em> {cop(c.totalDebito)}</span>
-        </div>
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Cuenta</th>
-                <th>Tercero</th>
-                <th className="num-cell">Débito</th>
-                <th className="num-cell">Crédito</th>
-                <th>Detalle</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(c.asientos ?? []).map((a) => (
-                <tr key={a.id}>
-                  <td className="codigo-cell">{a.codigoCuenta} {a.nombreCuenta}</td>
-                  <td>{a.tercero ?? "—"}</td>
-                  <td className="num-cell">{a.debito ? cop(a.debito) : ""}</td>
-                  <td className="num-cell">{a.credito ? cop(a.credito) : ""}</td>
-                  <td>{a.detalle ?? ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <AdjuntosLista entidad="COMPROBANTE" entidadId={String(c.id)} />
-        <div className="modal-actions">
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
-            Cerrar
-          </button>
-        </div>
+    <Modal open title={`${ref(c)} — ${c.concepto}`} onClose={onClose} wide>
+      <div className="detalle-grid">
+        <span><em>Fecha</em> {c.fecha.slice(0, 10)}</span>
+        <span><em>Tipo</em> {tipoLabel[c.tipo]}</span>
+        <span><em>Periodo</em> {c.periodo?.nombre}</span>
+        <span><em>Estado</em> {estadoLabel[c.estado]}</span>
+        <span><em>Tercero</em> {c.tercero?.nombreRazonSocial ?? "—"}</span>
+        <span><em>Total</em> {cop(c.totalDebito)}</span>
       </div>
-    </div>
+      <Table
+        columns={columnasDet}
+        rows={asientos}
+        keyOf={(a) => String(a.id)}
+        empty="Sin asientos"
+        footer={
+          <tr>
+            <td colSpan={2}>Totales</td>
+            <td className="num-cell">{cop(totDeb)}</td>
+            <td className="num-cell">{cop(totCred)}</td>
+            <td></td>
+          </tr>
+        }
+      />
+      <div style={{ marginTop: "1rem" }}>
+        <AdjuntosLista entidad="COMPROBANTE" entidadId={String(c.id)} />
+      </div>
+      <div className="modal-actions">
+        <Button variant="secondary" onClick={onClose}>
+          Cerrar
+        </Button>
+      </div>
+    </Modal>
   );
 }

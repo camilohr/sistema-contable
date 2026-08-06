@@ -319,8 +319,12 @@ input:focus {
   border-bottom: 1px solid var(--surface-muted);
 }
 
-.table tbody tr:hover {
+.table tbody tr:nth-child(even) td {
   background: var(--surface-muted);
+}
+
+.table tbody tr:hover td {
+  background: var(--primary-100);
 }
 
 .table tbody tr.inactiva td {

@@ -13,7 +13,7 @@ export interface Column<T> {
 interface Props<T> {
   columns: Column<T>[];
   rows: T[];
-  keyOf: (row: T) => string;
+  keyOf: (row: T, index: number) => string;
   empty?: ReactNode;
   footer?: ReactNode;
   zebra?: boolean;
@@ -37,8 +37,8 @@ export default function Table<T>({ columns, rows, keyOf, empty, footer, zebra = 
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={keyOf(row)} className={zebra ? undefined : undefined}>
+          {rows.map((row, i) => (
+            <tr key={keyOf(row, i)} className={zebra ? undefined : undefined}>
               {columns.map((c) => (
                 <td
                   key={c.key}

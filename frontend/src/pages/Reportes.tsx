@@ -1,6 +1,9 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
+import { FileArchive, FileSpreadsheet, FileText } from "lucide-react";
 import { api } from "../api/client";
 import { useEmpresa } from "../context/EmpresaContext";
+import { Button, Table } from "../components/ui";
+import type { Column } from "../components/ui";
 import { cop } from "../lib/formato";
 import styles from "./Reportes.module.css";
 
@@ -86,6 +89,36 @@ const tabs: { id: Tab; label: string }[] = [
 ];
 
 const naturaLabel: Record<string, string> = { DEUDORA: "Deudora", ACREEDORA: "Acreedora" };
+
+const columnasDiario: Column<Linea>[] = [
+  { key: "fecha", header: "Fecha", mono: true, render: (l) => l.fecha },
+  { key: "ref", header: "No", mono: true, render: (l) => l.ref },
+  { key: "concepto", header: "Concepto", render: (l) => l.concepto },
+  { key: "cuenta", header: "Cuenta", mono: true, render: (l) => l.codigoCuenta },
+  { key: "nombre", header: "Nombre de la cuenta", render: (l) => l.nombreCuenta },
+  { key: "tercero", header: "Tercero", render: (l) => l.tercero ?? "-" },
+  { key: "debito", header: "Débito", align: "right", mono: true, render: (l) => (l.debito ? cop(l.debito) : "") },
+  { key: "credito", header: "Crédito", align: "right", mono: true, render: (l) => (l.credito ? cop(l.credito) : "") },
+];
+
+const columnasMayor: Column<CuentaMayor>[] = [
+  { key: "codigo", header: "Cuenta", mono: true, render: (c) => c.codigo },
+  { key: "nombre", header: "Nombre", render: (c) => c.nombre },
+  { key: "naturaleza", header: "Naturaleza", render: (c) => naturaLabel[c.naturaleza] ?? c.naturaleza },
+  { key: "debitos", header: "Débitos", align: "right", mono: true, render: (c) => cop(c.debitos) },
+  { key: "creditos", header: "Créditos", align: "right", mono: true, render: (c) => cop(c.creditos) },
+  { key: "saldo", header: "Saldo", align: "right", mono: true, render: (c) => cop(c.saldo) },
+];
+
+const columnasBalance: Column<CuentaBalance>[] = [
+  { key: "codigo", header: "Cuenta", mono: true, render: (c) => c.codigo },
+  { key: "nombre", header: "Nombre", render: (c) => c.nombre },
+  { key: "clase", header: "Clase", render: (c) => c.clase },
+  { key: "debitos", header: "Débitos", align: "right", mono: true, render: (c) => cop(c.debitos) },
+  { key: "creditos", header: "Créditos", align: "right", mono: true, render: (c) => cop(c.creditos) },
+  { key: "saldoDeudor", header: "Saldo deudor", align: "right", mono: true, render: (c) => (c.saldoDeudor ? cop(c.saldoDeudor) : "") },
+  { key: "saldoAcreedor", header: "Saldo acreedor", align: "right", mono: true, render: (c) => (c.saldoAcreedor ? cop(c.saldoAcreedor) : "") },
+];
 
 export default function Reportes() {
   const { empresaActiva } = useEmpresa();
@@ -233,9 +266,9 @@ export default function Reportes() {
 
       <div className="tabs-reportes">
         {tabs.map((t) => (
-          <button key={t.id} className={`btn ${tab === t.id ? "btn-primary" : "btn-secondary"}`} onClick={() => setTab(t.id)}>
+          <Button key={t.id} variant={tab === t.id ? "primary" : "secondary"} size="sm" onClick={() => setTab(t.id)}>
             {t.label}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -267,40 +300,48 @@ export default function Reportes() {
 
       <div className={`filters ${styles.pdfActions}`}>
         {tab === "diario" && (
-          <button className="btn btn-secondary" onClick={() => descargarPdf("libro-diario.pdf")}>
-            Descargar libro diario (PDF)
-          </button>
+          <Button variant="secondary" onClick={() => descargarPdf("libro-diario.pdf")}>
+            <FileText size={15} />
+            Libro diario (PDF)
+          </Button>
         )}
         {tab === "mayor" && (
-          <button className="btn btn-secondary" onClick={() => descargarPdf("libro-mayor.pdf")}>
-            Descargar libro mayor (PDF)
-          </button>
+          <Button variant="secondary" onClick={() => descargarPdf("libro-mayor.pdf")}>
+            <FileText size={15} />
+            Libro mayor (PDF)
+          </Button>
         )}
         {tab === "balance-general" && (
           <>
-            <button className="btn btn-secondary" onClick={() => descargarPdf("libro-inventarios.pdf")}>
-              Descargar libro de inventarios (PDF)
-            </button>
-            <button className="btn btn-secondary" onClick={() => descargar("/reportes/balance-general.pdf" + paramsActuales(), "balance-general.pdf")}>
-              Descargar balance general (PDF)
-            </button>
+            <Button variant="secondary" onClick={() => descargarPdf("libro-inventarios.pdf")}>
+              <FileText size={15} />
+              Libro de inventarios (PDF)
+            </Button>
+            <Button variant="secondary" onClick={() => descargar("/reportes/balance-general.pdf" + paramsActuales(), "balance-general.pdf")}>
+              <FileText size={15} />
+              Balance general (PDF)
+            </Button>
           </>
         )}
         {tab === "resultados" && (
-          <button className="btn btn-secondary" onClick={() => descargar("/reportes/estado-resultados.pdf" + paramsActuales(), "estado-resultados.pdf")}>
-            Descargar estado de resultados (PDF)
-          </button>
+          <Button variant="secondary" onClick={() => descargar("/reportes/estado-resultados.pdf" + paramsActuales(), "estado-resultados.pdf")}>
+            <FileText size={15} />
+            Estado de resultados (PDF)
+          </Button>
         )}
         <span className={`count-hint ${styles.exportHint}`}>Exportar como tabla:</span>
-        <button className="btn btn-secondary" onClick={() => exportar("csv")}>
+        <Button variant="secondary" onClick={() => exportar("csv")}>
+          <FileSpreadsheet size={15} />
           CSV
-        </button>
-        <button className="btn btn-secondary" onClick={() => exportar("xlsx")}>
+        </Button>
+        <Button variant="secondary" onClick={() => exportar("xlsx")}>
+          <FileSpreadsheet size={15} />
           XLSX
-        </button>
-        <button className="btn btn-secondary" onClick={descargarPaquete}>
+        </Button>
+        <Button variant="secondary" onClick={descargarPaquete}>
+          <FileArchive size={15} />
           Paquete de informes (ZIP)
-        </button>
+        </Button>
       </div>
 
       {tab === "diario" && diario && (
@@ -311,43 +352,19 @@ export default function Reportes() {
               : `${diario.lineas.length} movimientos. Total débitos ${cop(diario.totalDebitos)} · total créditos ${cop(diario.totalCreditos)}.`}
           </p>
           {diario.lineas.length > 0 && (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>No</th>
-                    <th>Concepto</th>
-                    <th>Cuenta</th>
-                    <th>Nombre de la cuenta</th>
-                    <th>Tercero</th>
-                    <th className="num-cell">Débito</th>
-                    <th className="num-cell">Crédito</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {diario.lineas.map((l, i) => (
-                    <tr key={i}>
-                      <td className="mono">{l.fecha}</td>
-                      <td className="codigo-cell">{l.ref}</td>
-                      <td>{l.concepto}</td>
-                      <td className="codigo-cell">{l.codigoCuenta}</td>
-                      <td>{l.nombreCuenta}</td>
-                      <td>{l.tercero ?? "-"}</td>
-                      <td className="num-cell">{l.debito ? cop(l.debito) : ""}</td>
-                      <td className="num-cell">{l.credito ? cop(l.credito) : ""}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td colSpan={6}>Totales</td>
-                    <td className="num-cell">{cop(diario.totalDebitos)}</td>
-                    <td className="num-cell">{cop(diario.totalCreditos)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            <Table
+              columns={columnasDiario}
+              rows={diario.lineas}
+              keyOf={(_, i) => String(i)}
+              empty="Sin movimientos."
+              footer={
+                <tr>
+                  <td colSpan={6}>Totales</td>
+                  <td className="num-cell">{cop(diario.totalDebitos)}</td>
+                  <td className="num-cell">{cop(diario.totalCreditos)}</td>
+                </tr>
+              }
+            />
           )}
         </>
       )}
@@ -360,40 +377,20 @@ export default function Reportes() {
               : `${mayor.cuentas.length} cuentas. Total débitos ${cop(mayor.totalDebitos)} · total créditos ${cop(mayor.totalCreditos)}.`}
           </p>
           {mayor.cuentas.length > 0 && (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Cuenta</th>
-                    <th>Nombre</th>
-                    <th>Naturaleza</th>
-                    <th className="num-cell">Débitos</th>
-                    <th className="num-cell">Créditos</th>
-                    <th className="num-cell">Saldo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mayor.cuentas.map((c) => (
-                    <tr key={c.codigo}>
-                      <td className="codigo-cell">{c.codigo}</td>
-                      <td>{c.nombre}</td>
-                      <td>{naturaLabel[c.naturaleza] ?? c.naturaleza}</td>
-                      <td className="num-cell">{cop(c.debitos)}</td>
-                      <td className="num-cell">{cop(c.creditos)}</td>
-                      <td className="num-cell">{cop(c.saldo)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td colSpan={3}>Totales</td>
-                    <td className="num-cell">{cop(mayor.totalDebitos)}</td>
-                    <td className="num-cell">{cop(mayor.totalCreditos)}</td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            <Table
+              columns={columnasMayor}
+              rows={mayor.cuentas}
+              keyOf={(c) => c.codigo}
+              empty="Sin movimientos."
+              footer={
+                <tr>
+                  <td colSpan={3}>Totales</td>
+                  <td className="num-cell">{cop(mayor.totalDebitos)}</td>
+                  <td className="num-cell">{cop(mayor.totalCreditos)}</td>
+                  <td></td>
+                </tr>
+              }
+            />
           )}
         </>
       )}
@@ -406,43 +403,21 @@ export default function Reportes() {
               : `Sumas cuadran: débitos ${cop(balance.totalDebitos)} = créditos ${cop(balance.totalCreditos)}. Saldos deudores ${cop(balance.saldosDeudores)} = acreedores ${cop(balance.saldosAcreedores)}.`}
           </p>
           {balance.cuentas.length > 0 && (
-            <div className="table-wrap">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Cuenta</th>
-                    <th>Nombre</th>
-                    <th>Clase</th>
-                    <th className="num-cell">Débitos</th>
-                    <th className="num-cell">Créditos</th>
-                    <th className="num-cell">Saldo deudor</th>
-                    <th className="num-cell">Saldo acreedor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {balance.cuentas.map((c) => (
-                    <tr key={c.codigo}>
-                      <td className="codigo-cell">{c.codigo}</td>
-                      <td>{c.nombre}</td>
-                      <td>{c.clase}</td>
-                      <td className="num-cell">{cop(c.debitos)}</td>
-                      <td className="num-cell">{cop(c.creditos)}</td>
-                      <td className="num-cell">{c.saldoDeudor ? cop(c.saldoDeudor) : ""}</td>
-                      <td className="num-cell">{c.saldoAcreedor ? cop(c.saldoAcreedor) : ""}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td colSpan={3}>Totales</td>
-                    <td className="num-cell">{cop(balance.totalDebitos)}</td>
-                    <td className="num-cell">{cop(balance.totalCreditos)}</td>
-                    <td className="num-cell">{cop(balance.saldosDeudores)}</td>
-                    <td className="num-cell">{cop(balance.saldosAcreedores)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            <Table
+              columns={columnasBalance}
+              rows={balance.cuentas}
+              keyOf={(c) => c.codigo}
+              empty="Sin movimientos."
+              footer={
+                <tr>
+                  <td colSpan={3}>Totales</td>
+                  <td className="num-cell">{cop(balance.totalDebitos)}</td>
+                  <td className="num-cell">{cop(balance.totalCreditos)}</td>
+                  <td className="num-cell">{cop(balance.saldosDeudores)}</td>
+                  <td className="num-cell">{cop(balance.saldosAcreedores)}</td>
+                </tr>
+              }
+            />
           )}
         </>
       )}

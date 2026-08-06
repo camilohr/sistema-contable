@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { Calculator, GitCompare } from "lucide-react";
 import { api } from "../api/client";
+import { Button, Table } from "../components/ui";
 import { cop } from "../lib/formato";
 
 interface Periodo {
@@ -197,9 +199,10 @@ export default function Indicadores() {
 
       <div className="tabs-reportes">
         {tabs.map((t) => (
-          <button key={t.id} className={`btn ${tab === t.id ? "btn-primary" : "btn-secondary"}`} onClick={() => setTab(t.id)}>
+          <Button key={t.id} variant={tab === t.id ? "primary" : "secondary"} size="sm" onClick={() => setTab(t.id)}>
+            {t.id === "individual" ? <Calculator size={14} /> : <GitCompare size={14} />}
             {t.label}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -214,9 +217,10 @@ export default function Indicadores() {
                 </option>
               ))}
             </select>
-            <button className="btn btn-primary" onClick={cargarIndividual} disabled={cargando}>
+            <Button onClick={cargarIndividual} disabled={cargando}>
+              <Calculator size={15} />
               Calcular
-            </button>
+            </Button>
           </div>
 
           {error && <p className="error-msg">{error}</p>}
@@ -254,9 +258,10 @@ export default function Indicadores() {
                 </option>
               ))}
             </select>
-            <button className="btn btn-primary" onClick={cargarComparativo} disabled={cargando}>
+            <Button onClick={cargarComparativo} disabled={cargando}>
+              <GitCompare size={15} />
               Comparar
-            </button>
+            </Button>
           </div>
 
           {error && <p className="error-msg">{error}</p>}
@@ -270,33 +275,28 @@ export default function Indicadores() {
 
               <div className="section-card">
                 <h3>Razones por periodo</h3>
-                <div className="table-wrap">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Indicador</th>
-                        <th className="num-cell">{comparativo.periodos.desde.nombre}</th>
-                        <th className="num-cell">{comparativo.periodos.hasta.nombre}</th>
-                        <th>Variación</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {razonesDef.map((r) => {
+                <Table
+                  columns={[
+                    { key: "label", header: "Indicador", render: (r) => r.label },
+                    { key: "desde", header: comparativo.periodos.desde.nombre, align: "right", mono: true, render: (r) => fmtRazon(comparativo.razones.desde[r.key]) },
+                    { key: "hasta", header: comparativo.periodos.hasta.nombre, align: "right", mono: true, render: (r) => fmtRazon(comparativo.razones.hasta[r.key]) },
+                    {
+                      key: "variacion",
+                      header: "Variación",
+                      align: "right",
+                      mono: true,
+                      render: (r) => {
                         const desde = comparativo.razones.desde[r.key];
                         const hasta = comparativo.razones.hasta[r.key];
                         const varPct = desde !== null && hasta !== null ? ((hasta - desde) / Math.abs(desde)) * 100 : null;
-                        return (
-                          <tr key={r.key}>
-                            <td>{r.label}</td>
-                            <td className="num-cell">{fmtRazon(desde)}</td>
-                            <td className="num-cell">{fmtRazon(hasta)}</td>
-                            <td className="num-cell">{varPct === null ? "—" : `${varPct > 0 ? "+" : ""}${varPct.toFixed(1)}%`}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                        return varPct === null ? "—" : `${varPct > 0 ? "+" : ""}${varPct.toFixed(1)}%`;
+                      },
+                    },
+                  ]}
+                  rows={razonesDef}
+                  keyOf={(r) => r.key}
+                  empty="Sin datos."
+                />
               </div>
 
               {comparativo.vertical.map((s) => (
@@ -306,30 +306,19 @@ export default function Indicadores() {
                     Participación de cada cuenta sobre el total de la sección. Totales: {cop(s.totalDesde)} → {cop(s.totalHasta)}.
                   </p>
                   <div className="table-wrap">
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>Cuenta</th>
-                          <th>Nombre</th>
-                          <th className="num-cell">{comparativo.periodos.desde.nombre}</th>
-                          <th className="num-cell">% desde</th>
-                          <th className="num-cell">{comparativo.periodos.hasta.nombre}</th>
-                          <th className="num-cell">% hasta</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {s.filas.map((f) => (
-                          <tr key={f.codigo}>
-                            <td className="codigo-cell">{f.codigo}</td>
-                            <td>{f.nombre}</td>
-                            <td className="num-cell">{fmtSaldo(f.saldoDesde)}</td>
-                            <td className="num-cell">{fmtPct(f.pctDesde)}</td>
-                            <td className="num-cell">{fmtSaldo(f.saldoHasta)}</td>
-                            <td className="num-cell">{fmtPct(f.pctHasta)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <Table
+                      columns={[
+                        { key: "codigo", header: "Cuenta", mono: true, render: (f) => f.codigo },
+                        { key: "nombre", header: "Nombre", render: (f) => f.nombre },
+                        { key: "desde", header: comparativo.periodos.desde.nombre, align: "right", mono: true, render: (f) => fmtSaldo(f.saldoDesde) },
+                        { key: "pctDesde", header: "% desde", align: "right", mono: true, render: (f) => fmtPct(f.pctDesde) },
+                        { key: "hasta", header: comparativo.periodos.hasta.nombre, align: "right", mono: true, render: (f) => fmtSaldo(f.saldoHasta) },
+                        { key: "pctHasta", header: "% hasta", align: "right", mono: true, render: (f) => fmtPct(f.pctHasta) },
+                      ]}
+                      rows={s.filas}
+                      keyOf={(f) => f.codigo}
+                      empty="Sin movimientos."
+                    />
                   </div>
                 </div>
               ))}
@@ -339,30 +328,25 @@ export default function Indicadores() {
                   <h3>Análisis horizontal</h3>
                   <p className="count-hint">Variación absoluta y porcentual entre periodos.</p>
                   <div className="table-wrap">
-                    <table className="table">
-                      <thead>
-                        <tr>
-                          <th>Sección</th>
-                          <th>Concepto</th>
-                          <th className="num-cell">Desde</th>
-                          <th className="num-cell">Hasta</th>
-                          <th className="num-cell">Variación</th>
-                          <th className="num-cell">%</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {comparativo.horizontal.map((f, i) => (
-                          <tr key={i}>
-                            <td>{f.seccion}</td>
-                            <td>{f.nombre}</td>
-                            <td className="num-cell">{fmtSaldo(f.desde)}</td>
-                            <td className="num-cell">{fmtSaldo(f.hasta)}</td>
-                            <td className="num-cell">{fmtSaldo(f.variacion)}</td>
-                            <td className="num-cell">{f.variacionPct === null ? "—" : `${f.variacionPct > 0 ? "+" : ""}${f.variacionPct.toFixed(1)}%`}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <Table
+                      columns={[
+                        { key: "seccion", header: "Sección", render: (f) => f.seccion },
+                        { key: "nombre", header: "Concepto", render: (f) => f.nombre },
+                        { key: "desde", header: "Desde", align: "right", mono: true, render: (f) => fmtSaldo(f.desde) },
+                        { key: "hasta", header: "Hasta", align: "right", mono: true, render: (f) => fmtSaldo(f.hasta) },
+                        { key: "variacion", header: "Variación", align: "right", mono: true, render: (f) => fmtSaldo(f.variacion) },
+                        {
+                          key: "pct",
+                          header: "%",
+                          align: "right",
+                          mono: true,
+                          render: (f) => (f.variacionPct === null ? "—" : `${f.variacionPct > 0 ? "+" : ""}${f.variacionPct.toFixed(1)}%`),
+                        },
+                      ]}
+                      rows={comparativo.horizontal}
+                      keyOf={(_, i) => String(i)}
+                      empty="Sin datos."
+                    />
                   </div>
                 </div>
               )}
