@@ -96,3 +96,34 @@ pm2 stop contabilidad-backend    # detener
 En desarrollo se usa Vite con proxy: `cd frontend && npm run dev`
 (Vite en el puerto 5173 y reenvía `/api` a `http://localhost:3000`, donde debe estar
 corriendo `cd backend && npm run dev`).
+
+## Validación realizada
+
+Última verificación en vivo del despliegue en red local.
+
+| Campo | Valor / estado |
+|---|---|
+| **Fecha** | 2026-08-07 |
+| **Servidor** | Equipo local (este repositorio), perfil de red **Privado** |
+| **IP del servidor** | `192.168.18.219` (adaptador Ethernet) |
+| **URL de acceso** | `http://192.168.18.219:3000` |
+| **Proceso** | PM2 `contabilidad-backend` (2.2.0) ✓ `online` |
+| **Health** | `GET /api/health` → `{"status":"ok"}` ✓ |
+| **Carga de la UI** | `GET /` → `200` con el contenedor de React de la SPA ✓ |
+| **Firewall LAN (puerto 3000)** | Pendiente de confirmar: ejecutar `scripts\abrir-puerto.ps1` como **administrador** (perfil Privado) |
+| **Acceso desde un segundo equipo** | Pendiente de probar en vivo |
+
+Pasos que faltan para cerrar la validación (prueba real desde otro
+computador de la LAN, preferiblemente con un rol distinto, p. ej. AUXILIAR, y un
+navegador/equipo diferente):
+
+1. Desde el otro equipo abrir `http://192.168.18.219:3000` y confirmar que carga el
+   inicio de sesión.
+2. Iniciar sesión con un usuario real y confirmar dashboard, selector de empresa y al
+   menos una consulta (Resumen o Cartera).
+3. Revisar con un usuario de rol AUXILIAR que los permisos también se respetan por red.
+4. Confirmar la **IP fija** (reserva DHCP por MAC o IP estática) para que la URL no
+   cambie; anotar aquí cuál se usó y con qué IP quedó el servidor.
+
+Al cerrar la lista, anotar aquí qué IP fija se usó, desde qué equipos y navegadores se
+probó y el resultado, para dejar el registro en el histórico del despliegue.
