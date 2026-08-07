@@ -169,7 +169,7 @@ export default function ParametrosNomina() {
       {cargando && <p className="count-hint">Cargando...</p>}
 
       {!cargando && (
-        <form onSubmit={guardarParametros} className="form-card">
+        <form onSubmit={guardarParametros} className="form-card form-card-ancho">
           <h3>Parámetros por año</h3>
           <div className="form-row">
             <label>

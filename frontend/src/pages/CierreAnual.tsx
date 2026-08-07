@@ -127,7 +127,7 @@ export default function CierreAnual() {
       </div>
 
       {esAdmin && (
-        <form onSubmit={ejecutarCierre} className="form-card">
+        <form onSubmit={ejecutarCierre} className="form-card form-card-ancho">
           <h3>Ejecutar cierre</h3>
           <div className="form-row">
             <label>
