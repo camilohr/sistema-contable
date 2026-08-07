@@ -1,5 +1,38 @@
 # Historial de cambios
 
+## [2.2.1] - 2026-08-07
+
+Cierre de la etapa V1: ajustes finales de interfaz y robustecimiento del respaldo,
+después del rediseño de V2.2. Sin reglas contables nuevas.
+
+### Interfaz — formularios en pantallas angostas
+- `.form-row` reescrito de flex a **grid con ajuste automático**
+  (`repeat(auto-fit, minmax(160px, 1fr))`): los campos se acomodan al ancho disponible
+  y desaparece el desbordamiento horizontal que se presentaba en pantallas angostas
+  con formularios de muchos campos (14 pantallas de la aplicación).
+- Tarjetas de formulario anchas (`form-card-ancho`, usadas en **Cierre anual** y
+  **Parámetros de nómina**) ahora respetan el ancho completo de su contenedor; antes
+  el selector de periodo y los campos podían salirse del área visible.
+- QA visual Playwright sobre Cierre anual, Parámetros de nómina, Terceros, Clientes,
+  Activos fijos y el modal de Comprobantes: sin desborde horizontal ni recortes.
+
+### Respaldo
+- **Frecuencia diaria**: `programar-respaldo.ps1` acepta `-Day Daily` (la tarea de
+  Windows se programa con disparador diario en lugar de semanal; sigue siendo el valor
+  por defecto junto con `-Time "22:00"`).
+- **Copia externa opcional**: nueva variable `BACKUP_COPIA_EXTERNA_DIR` en
+  `backend/.env`; si apunta a una carpeta disponible (p. ej. un disco USB), tras
+  verificar cada respaldo se copian allí el `.dump` y su `.adjuntos.zip`. Si la ruta
+  no está disponible, el respaldo local se genera igual y la omisión queda registrada
+  en `backups/backup.log` (`AVISO`/`ERROR copia-externa`).
+- **Alerta de respaldo desactualizado**: nuevo tipo de alerta
+  `RESPALDO_DESACTUALIZADO` (regla por defecto con umbral de 2 días, configurable y
+  desactivabable). Compara la fecha del último respaldo exitoso registrado en
+  `backup.log`; si supera el umbral o nunca ha habido respaldo, el panel muestra una
+  alerta de severidad ALTA. Migración Prisma `alerta_respaldo_desactualizado`.
+- 4 pruebas unitarias nuevas para el parsing de `backup.log` y 1 de integración para
+  la regla (536 casos en total).
+
 ## [2.2.0] - 2026-08-06
 
 Cierre de pendientes de V2.1, endurecimiento de la lógica contable y rediseño

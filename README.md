@@ -2,6 +2,15 @@
 
 Sistema contable local con normatividad colombiana (PUC), base de datos PostgreSQL y acceso desde la red local. Incluye comprobantes/asientos con partida doble, catálogo de cuentas, terceros, periodos, inventario, CxC/CxP, libros y estados financieros, con control de acceso por roles.
 
+## Estado del proyecto
+
+**V1 completa y estable — sistema contable multicliente listo para producción** en red
+local. La aplicación cubre el ciclo contable completo para un estudio (comprobantes con
+partida doble, cierre anual, nómina, activos fijos, provisión de cartera, presupuesto,
+libros oficiales e informes) en un modelo multicliente con seguimiento por proceso y
+respaldo automático verificado con copia externa opcional. Detalle versión por versión
+en [CHANGELOG](CHANGELOG.md).
+
 ## Stack
 
 - **Backend:** Node.js 20+ + TypeScript + Express + Prisma ORM
@@ -92,19 +101,17 @@ En el primer ingreso, el sistema exige cambiar la contraseña inicial.
 
 ## Estado del proyecto
 
-Versión **1.0.0** — todas las fases completadas.
+Sistema contable **completo y estable para uso en producción** en red local (estudio
+multicliente), resultado de la evolución encadenada:
 
-| Fase | Estado |
+| Etapa | Alcance |
 |---|---|
-| 0. Diseño y planificación | Completada |
-| 1. Base del proyecto (backend + frontend + BD) | Completada |
-| 2. Catálogo de cuentas PUC | Completada |
-| 3. Terceros | Completada |
-| 4. Comprobantes y asientos | Completada |
-| 5. Libros y reportes | Completada |
-| 6. Estados financieros | Completada |
-| 7. CxC / CxP e inventario | Completada |
-| 8. Respaldo, red local y manuales | Completada |
-| 9. Gestión de usuarios y contraseña inicial | Completada |
-| 10. Control de acceso por roles | Completada |
-| 11. Empaquetado, documentación y liberación | Completada |
+| **V1.0** | Base contable: PUC, terceros, comprobantes con partida doble, periodos, libros, estados financieros, cartera, inventario, respaldo, red local, roles |
+| **V1.1** | Activos fijos y depreciación, bitácora de auditoría, cierre anual, provisión de cartera, indicadores, libros oficiales PDF, presupuesto, nómina, alertas |
+| **V2.0** | Estudio multicliente (empresa por cliente), seguimiento por proceso, conciliación bancaria, adjuntos y exportación de informes |
+| **V2.1 / V2.2** | Estabilización, aislamiento entre empresas, rediseño profesional de la interfaz y respaldo robustecido |
+
+La versión interna actual es **2.2.0** (el cierre de la etapa se marcó como Release de
+GitHub sobre el tag `v2.2.0`). El detalle versión por versión está en
+[CHANGELOG](CHANGELOG.md), la instalación desde cero en "Instalación desde cero" más
+arriba y el despliegue en red local en [docs/despliegue.md](docs/despliegue.md).
