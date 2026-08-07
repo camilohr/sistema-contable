@@ -62,10 +62,11 @@ pm2 startup       # genera el comando de inicio automático (requiere admin)
 
 ## IP fija del servidor
 
-Para que los clientes siempre usen la misma URL:
+El servidor usa actualmente **DHCP** (IP `192.168.18.219`, gateway `192.168.18.1`,
+MAC `00:25:22:ae:b6:44`). Para que los clientes usen siempre la misma URL:
 
 - Configurar una **IP estática** en el adaptador de red del servidor, o
-- Reservar la IP en el DHCP del router (reserva DHCP por MAC).
+- Reservar la IP en el DHCP del router (reserva DHCP por MAC del servidor).
 
 Comandos útiles:
 
@@ -110,7 +111,8 @@ corriendo `cd backend && npm run dev`).
 | **Proceso** | PM2 `contabilidad-backend` (2.2.0) ✓ `online` |
 | **Health** | `GET /api/health` → `{"status":"ok"}` ✓ |
 | **Carga de la UI** | `GET /` → `200` con el contenedor de React de la SPA ✓ |
-| **Firewall LAN (puerto 3000)** | Pendiente de confirmar: ejecutar `scripts\abrir-puerto.ps1` como **administrador** (perfil Privado) |
+| **Firewall LAN (puerto 3000)** | ✓ Regla creada: entrada TCP 3000 (Private) `New-NetFirewallRule` vía `scripts\abrir-puerto.ps1` |
+| **Acceso por IP (misma red)** | ✓ `http://192.168.18.219:3000` → `200` (UI) y `/api/health` → `{"status":"ok"}` |
 | **Acceso desde un segundo equipo** | Pendiente de probar en vivo |
 
 Pasos que faltan para cerrar la validación (prueba real desde otro
