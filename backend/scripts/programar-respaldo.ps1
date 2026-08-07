@@ -4,15 +4,15 @@
 #   powershell -ExecutionPolicy Bypass -File backend\scripts\programar-respaldo.ps1
 #
 # Parámetros opcionales:
-#   -Keep 14      número de respaldos a conservar
-#   -Day Sunday   día de la semana
+#   -Keep 14     número de respaldos a conservar
+#   -Day Daily   frecuencia: "Daily" para todos los días o un día de la semana
 #   -Time "22:00" hora de ejecución
 #   -TaskName "SistemaContable-Respaldo"
 
 param(
     [int]$Keep = 14,
-    [ValidateSet("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday")]
-    [string]$Day = "Sunday",
+    [ValidateSet("Daily","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday")]
+    [string]$Day = "Daily",
     [string]$Time = "22:00",
     [string]$TaskName = "SistemaContable-Respaldo"
 )
@@ -28,7 +28,11 @@ $backendDir = Split-Path -Parent $PSScriptRoot
 $script = Join-Path $backendDir "scripts\backup.mjs"
 
 $action = New-ScheduledTaskAction -Execute $node -Argument "`"$script`" --keep $Keep" -WorkingDirectory $backendDir
-$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek $Day -At $Time
+if ($Day -eq "Daily") {
+    $trigger = New-ScheduledTaskTrigger -Daily -At $Time
+} else {
+    $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek $Day -At $Time
+}
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 2)
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Description "Respaldo automatico de la base de datos del sistema contable" -Force | Out-Null

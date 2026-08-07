@@ -1,4 +1,7 @@
 import { prisma } from "./prisma.js";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   EstadoActivoFijo,
   EstadoCartera,
@@ -20,6 +23,7 @@ export const REGLAS_DEFECTO: ConfigRegla[] = [
   { tipo: TipoAlerta.PERIODO_SIN_CERRAR, dias: null, activa: true },
   { tipo: TipoAlerta.ACTIVO_SIN_BAJA, dias: null, activa: true },
   { tipo: TipoAlerta.TERCERO_SIN_MOVIMIENTO, dias: 90, activa: true },
+  { tipo: TipoAlerta.RESPALDO_DESACTUALIZADO, dias: 2, activa: true },
 ];
 
 export type SeveridadAlerta = "ALTA" | "MEDIA" | "BAJA";
@@ -155,6 +159,52 @@ async function evaluarActivos(regla: ConfigRegla, empresaId: string): Promise<Al
   }));
 }
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LOG_RESPALDO_DEFECTO = path.resolve(__dirname, "..", "..", "..", "backups", "backup.log");
+
+export function caminoLogRespaldo(): string {
+  return process.env.BACKUP_LOG_PATH ? path.resolve(process.env.BACKUP_LOG_PATH) : LOG_RESPALDO_DEFECTO;
+}
+
+export async function ultimoRespaldoExitoso(logFile: string): Promise<Date | null> {
+  let contenido: string;
+  try {
+    contenido = await readFile(logFile, "utf8");
+  } catch {
+    return null;
+  }
+  const fechas: Date[] = [];
+  for (const m of contenido.matchAll(/^(\S+Z)\s+OK\s+respaldo/mg)) {
+    const d = new Date(m[1]);
+    if (!isNaN(d.getTime())) fechas.push(d);
+  }
+  if (fechas.length === 0) return null;
+  return new Date(Math.max(...fechas.map((d) => d.getTime())));
+}
+
+async function evaluarRespaldo(regla: ConfigRegla): Promise<AlertaGenerada[]> {
+  const dias = regla.dias ?? 2;
+  const ultimo = await ultimoRespaldoExitoso(caminoLogRespaldo());
+  const limite = Date.now() - dias * 24 * 60 * 60 * 1000;
+  if (ultimo === null || ultimo.getTime() < limite) {
+    const mensaje =
+      ultimo === null
+        ? "No hay ningún respaldo exitoso registrado en backups/backup.log. Configure la tarea programada."
+        : `El último respaldo exitoso fue el ${fmtFecha(ultimo)} (más de ${dias} días). Revise la tarea programada.`;
+    return [
+      {
+        tipo: regla.tipo,
+        severidad: "ALTA" as SeveridadAlerta,
+        mensaje,
+        entidad: "Sistema",
+        entidadId: "respaldo",
+        fecha: fmtFecha(ultimo ?? new Date()),
+      },
+    ];
+  }
+  return [];
+}
+
 async function evaluarTerceros(regla: ConfigRegla, empresaId: string): Promise<AlertaGenerada[]> {
   const dias = regla.dias ?? 90;
   const hoy = inicioDeHoy();
@@ -214,6 +264,9 @@ export async function evaluarAlertas(empresaId: string): Promise<AlertaGenerada[
         break;
       case TipoAlerta.TERCERO_SIN_MOVIMIENTO:
         resultado.push(...(await evaluarTerceros(regla, empresaId)));
+        break;
+      case TipoAlerta.RESPALDO_DESACTUALIZADO:
+        resultado.push(...(await evaluarRespaldo(regla)));
         break;
     }
   }

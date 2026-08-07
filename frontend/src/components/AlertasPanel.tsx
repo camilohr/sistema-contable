@@ -4,7 +4,7 @@ import { api } from "../api/client";
 import styles from "./AlertasPanel.module.css";
 
 type Severidad = "ALTA" | "MEDIA" | "BAJA";
-type TipoAlerta = "CARTERA_VENCE" | "PERIODO_SIN_CERRAR" | "ACTIVO_SIN_BAJA" | "TERCERO_SIN_MOVIMIENTO";
+type TipoAlerta = "CARTERA_VENCE" | "PERIODO_SIN_CERRAR" | "ACTIVO_SIN_BAJA" | "TERCERO_SIN_MOVIMIENTO" | "RESPALDO_DESACTUALIZADO";
 
 interface Alerta {
   tipo: TipoAlerta;
@@ -27,6 +27,7 @@ const ETIQUETAS_TIPO: Record<TipoAlerta, string> = {
   PERIODO_SIN_CERRAR: "Periodo sin cerrar",
   ACTIVO_SIN_BAJA: "Activo sin dar de baja",
   TERCERO_SIN_MOVIMIENTO: "Cliente sin movimientos",
+  RESPALDO_DESACTUALIZADO: "Respaldo desactualizado",
 };
 
 const ETIQUETAS_SEVERIDAD: Record<Severidad, string> = {
@@ -36,7 +37,7 @@ const ETIQUETAS_SEVERIDAD: Record<Severidad, string> = {
 };
 
 function requiereDias(tipo: TipoAlerta): boolean {
-  return tipo === "CARTERA_VENCE" || tipo === "TERCERO_SIN_MOVIMIENTO";
+  return tipo === "CARTERA_VENCE" || tipo === "TERCERO_SIN_MOVIMIENTO" || tipo === "RESPALDO_DESACTUALIZADO";
 }
 
 export default function AlertasPanel() {

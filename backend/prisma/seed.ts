@@ -179,6 +179,7 @@ const REGLAS_ALERTA_DEFECTO: Array<{ tipo: Prisma.TipoAlerta; dias: number | nul
   { tipo: "PERIODO_SIN_CERRAR", dias: null },
   { tipo: "ACTIVO_SIN_BAJA", dias: null },
   { tipo: "TERCERO_SIN_MOVIMIENTO", dias: 90 },
+  { tipo: "RESPALDO_DESACTUALIZADO", dias: 2 },
 ];
 
 async function seedReglasAlerta(): Promise<void> {

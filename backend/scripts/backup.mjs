@@ -12,10 +12,12 @@
 // Variables de entorno opcionales:
 //   PGDUMP_PATH    ruta explícita a pg_dump
 //   PGRESTORE_PATH ruta explícita a pg_restore
+//   BACKUP_COPIA_EXTERNA_DIR carpeta adicional a la que se copia el .dump y el
+//                          adjuntos.zip tras verificar el respaldo (no fatal)
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { access, appendFile, mkdir, readdir, stat, unlink } from "node:fs/promises";
+import { access, appendFile, copyFile, mkdir, readdir, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
@@ -134,6 +136,33 @@ async function verificarPorEmpresa(pg, dbUri, logFile) {
   await registrar(logFile, `OK por-empresa: ${filas.length} cliente(s) - ${resumen}`);
 }
 
+async function copiaExterna(logFile, ruta, rutaAdjuntos) {
+  const dir = process.env.BACKUP_COPIA_EXTERNA_DIR;
+  if (!dir) {
+    await registrar(logFile, "INFO copia-externa: omitida (BACKUP_COPIA_EXTERNA_DIR no definido)");
+    return;
+  }
+  const destino = path.resolve(dir);
+  if (!(await existe(destino))) {
+    await registrar(logFile, `AVISO copia-externa: ${destino} no disponible; se omite la copia (respaldo local intacto)`);
+    console.warn(`AVISO copia-externa: ${destino} no está disponible; se omite la copia.`);
+    return;
+  }
+  await mkdir(destino, { recursive: true });
+  for (const f of [ruta, rutaAdjuntos]) {
+    if (!(await existe(f))) continue;
+    try {
+      const destinoArchivo = path.join(destino, path.basename(f));
+      await copyFile(f, destinoArchivo);
+      await registrar(logFile, `OK copia-externa ${path.basename(f)} -> ${destino}`);
+      console.log(`Copia externa: ${path.basename(f)} -> ${destino}`);
+    } catch (err) {
+      await registrar(logFile, `ERROR copia-externa ${path.basename(f)}: ${err.message}`);
+      console.warn(`ERROR copia-externa ${path.basename(f)}:`, err.message);
+    }
+  }
+}
+
 async function listar(opt, pgRestore) {
   await mkdir(opt.dir, { recursive: true });
   const archivos = (await readdir(opt.dir))
@@ -233,6 +262,8 @@ async function main() {
   }
 
   await verificarPorEmpresa(pg, dbUri, logFile);
+
+  await copiaExterna(logFile, ruta, rutaAdjuntos);
 
   const st = await stat(ruta);
   await registrar(

@@ -176,6 +176,14 @@ describe("Alertas: autenticación y roles", () => {
     }
   });
 
+  it("incluye la regla de respaldo desactualizado con umbral por defecto", async () => {
+    const res = await request(app).get("/api/alertas/reglas").set("Authorization", `Bearer ${adminToken}`);
+    const regla = res.body.find((r: { tipo: string }) => r.tipo === "RESPALDO_DESACTUALIZADO");
+    expect(regla).toBeTruthy();
+    expect(regla.activa).toBe(true);
+    expect(regla.dias).toBe(2);
+  });
+
   it("AUXILIAR recibe 403 en PUT /reglas; ADMIN y CONTADOR pueden actualizar", async () => {
     const aux = await request(app)
       .put("/api/alertas/reglas")

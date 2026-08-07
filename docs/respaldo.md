@@ -57,9 +57,47 @@ objetos. Si la copia no supera la verificación se elimina y se registra el erro
 powershell -ExecutionPolicy Bypass -File backend\scripts\programar-respaldo.ps1
 ```
 
-Crea una tarea del Programador de Windows que ejecuta el respaldo **cada domingo a
-las 22:00** conservando 14 copias. Parámetros: `-Keep 14 -Day Sunday -Time "22:00"
--TaskName "SistemaContable-Respaldo"`.
+Crea una tarea del Programador de Windows que ejecuta el respaldo **todos los días a
+las 22:00** conservando 14 copias. Parámetros:
+
+| Parámetro | Descripción | Valor por defecto |
+|---|---|---|
+| `-Keep` | Número de respaldos a conservar | `14` |
+| `-Day` | `Daily` (todos los días) o un día de la semana (`Monday`…`Sunday`) | `Daily` |
+| `-Time` | Hora de ejecución (formato `"HH:mm"`) | `"22:00"` |
+| `-TaskName` | Nombre de la tarea de Windows | `SistemaContable-Respaldo` |
+
+Ejemplo con respaldo diario y retención de 30 copias:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File backend\scripts\programar-respaldo.ps1 -Day Daily -Time "22:00" -Keep 30
+```
+
+## Copia externa opcional (disco USB u otra carpeta)
+
+Para disponer de una copia fuera del disco del servidor, defina
+`BACKUP_COPIA_EXTERNA_DIR` en `backend/.env` con la ruta de destino (por ejemplo, un
+disco USB: `BACKUP_COPIA_EXTERNA_DIR="X:\respaldo-sistema-contable"`). En cada
+`npm run backup`:
+
+1. Se crea y verifica el respaldo local en `backups\`.
+2. Si la ruta externa existe, se copian el `.dump` y su `.adjuntos.zip` a esa carpeta
+   (se sobrescriben las versiones anteriores con el mismo nombre).
+3. Si la ruta no está disponible (por ejemplo, el USB no está conectado), el respaldo
+   local se genera igual y se registra un `AVISO copia-externa` y un
+   `ERROR copia-externa` por archivo en `backups\backup.log`.
+
+Cada acierto u omisión queda registrado en `backup.log` para su revisión.
+
+## Alerta de respaldo desactualizado
+
+Si el sistema tiene activa la regla de alertas **Respaldo desactualizado** (viene
+activa por defecto con umbral de 2 días), el panel de alertas mostrará una alerta de
+severidad **ALTA** cuando el último respaldo exitoso registrado en `backup.log` tenga
+más de ese número de días de antigüedad, o cuando no exista ningún respaldo
+registrado. La regla se puede ajustar o desactivar desde *Alertas y recordatorios*;
+el registro se lee de `backups\backup.log` (o de `BACKUP_LOG_PATH` si está definido
+en `backend/.env`).
 
 ## Restaurar un respaldo
 
