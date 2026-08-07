@@ -31,3 +31,33 @@ Resultado: `backend` `npm run build` OK y `npm test` 531/531 en 25 archivos; `fr
 - [x] **Fase G — QA visual Playwright**: capturas de las 24 pantallas en `docs/qa-v2.2-screenshots/*.png`, recorrido funcional de flujos clave sin regresiones y sin errores de consola/HTTP. Documentado en `docs/qa-v2.2.md`. Commit `docs(qa): ...`.
 
 Resultado de cierre: `backend` `npm run build` OK y `npm test` 531/531 en 25 archivos; `frontend` `npm run lint` (0 errores) y `npm run build` OK. 8 commits de la Parte 3.
+
+---
+
+## Plan de cierre V1 (`instrucciones-opencode-cierre-v1.md`) — Partes 1-3 completas; Parte 4 parcial
+
+### Parte 1 — `.form-row` (14 pantallas) ✅
+- [x] `.form-row` reescrito de flex a **grid de ajuste automático** (`repeat(auto-fit, minmax(160px, 1fr))` + `label { min-width: 0 }`) en `frontend/src/index.css`; elimina el desborde horizontal en pantallas angostas en las 14 pantallas con formularios.
+- [x] Fix de cascada: `.form-card.form-card-ancho { max-width: 100% }` (antes `.form-card-ancho` estaba muerta y ganaba el `max-width: 460px` de `.form-card`). Aplicado en **Cierre anual** y **Parámetros de nómina**.
+- [x] QA visual Playwright en 6 pantallas (Cierre anual, Parámetros, Terceros, Clientes, Activos fijos, modal Comprobantes) sin desbordes. Commit `10831d5`.
+
+### Parte 2 — Respaldo (diario, copia externa y alerta) ✅
+- [x] 2.1 `programar-respaldo.ps1` acepta `-Day Daily` (trigger diario; default `Daily` a las 22:00).
+- [x] 2.2 `backup.mjs` copia opcional externa con `BACKUP_COPIA_EXTERNA_DIR` (`.dump` + `.adjuntos.zip`, no fatal, registrado en `backup.log`). Probado en vivo: ruta disponible → copia OK; ruta ausente → `AVISO` y respaldo local intacto.
+- [x] 2.3 Alerta `RESPALDO_DESACTUALIZADO`: enum nuevo + migración `20260807230111_alerta_respaldo_desactualizado`, regla por defecto (umbral 2 días) en `seed.ts`/`REGLAS_DEFECTO`, evaluación desde `backups/backup.log` (`lib/alertas.ts`) y panel actualizado (`AlertasPanel.tsx`).
+- [x] Tests 4 unitarios (`ultimoRespaldoExitoso`) + 1 de integración de la regla. Commit `5d720cc`. Suite: 536/536.
+
+### Parte 3 — Documentación y cierre V1 ✅
+- [x] `CHANGELOG.md`: entrada `## [2.2.1] - 2026-08-07` (interfaz y respaldo). Revisadas 1.1.0/2.0.0/2.1.0/2.2.0.
+- [x] `README.md`: sección "Estado del proyecto" al inicio (V1 completa y estable, multicliente, enlace a CHANGELOG) y recuadro histórico de etapas.
+- [x] GitHub Release `v2.2.0`: **V1 completa y estable — sistema contable multicliente listo para producción** (https://github.com/camilohr/sistema-contable/releases/tag/v2.2.0). Commit `6d52019` (`docs: actualiza CHANGELOG y README, cierre de la etapa V1`).
+
+### Parte 4 — Validación en red local (parcial) 
+- [x] 4.1 Despliegue PM2: builds OK, app `contabilidad-backend` (2.2.0) en PM2 **online**, health `{"status":"ok"}`, la UI se sirve en `http://192.168.18.219:3000` (200). Firewall: pendiente que el usuario ejecute `scripts\abrir-puerto.ps1` como administrador (el entorno no puede elevar).
+- [ ] 4.2 IP fija del servidor (reserva DHCP por MAC o IP estática): pendiente de fijar por el usuario.
+- [ ] 4.3 Prueba desde un segundo equipo (incluido rol AUXILIAR): pendiente en vivo.
+- [x] 4.4 Sección "Validación realizada" en `docs/despliegue.md` con IP, estado y checklist pendiente. Commit `3c8a4e5`.
+
+Para cerrar la Parte 4 por completo, completar la validación pendiente documentada en
+`docs/despliegue.md` (firewall con administrador, IP fija y prueba desde un segundo
+equipo) y actualizar el registro con el resultado.
