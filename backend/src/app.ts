@@ -37,7 +37,17 @@ const sirveFrontend = fs.existsSync(indexFile);
 export function createApp(): express.Express {
   const app = express();
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          // El despliegue es HTTP sobre LAN (sin TLS); `upgrade-insecure-requests`
+          // haría que el navegador pida los recursos por HTTPS y rompería el SPA.
+          upgradeInsecureRequests: null,
+        },
+      },
+    })
+  );
   app.use(cors());
   app.use(express.json());
 

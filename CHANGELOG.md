@@ -5,6 +5,12 @@
 Cierre de la etapa V1: ajustes finales de interfaz y robustecimiento del respaldo,
 después del rediseño de V2.2. Sin reglas contables nuevas.
 
+### Corrección de seguridad para despliegue HTTP en LAN
+- El CSP por defecto de Helmet incluía `upgrade-insecure-requests`, que obliga al
+  navegador a pedir todos los recursos por HTTPS. Como el despliegue es **HTTP sobre
+  red local** (sin TLS), el SPA quedaba en blanco desde otros equipos. Se deshabilitó
+  solo esa directiva (`backend/src/app.ts`); el resto del CSP se conserva.
+
 ### Interfaz — formularios en pantallas angostas
 - `.form-row` reescrito de flex a **grid con ajuste automático**
   (`repeat(auto-fit, minmax(160px, 1fr))`): los campos se acomodan al ancho disponible
