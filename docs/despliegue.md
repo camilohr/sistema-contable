@@ -63,10 +63,10 @@ pm2 startup       # genera el comando de inicio automático (requiere admin)
 ## IP fija del servidor
 
 El servidor usa actualmente **DHCP** (IP `192.168.18.219`, gateway `192.168.18.1`,
-MAC `00:25:22:ae:b6:44`). Para que los clientes usen siempre la misma URL:
+MAC `00:25:22:ae:b6:44`). Método elegido: **reserva DHCP por MAC** — registrar en el
+router `192.168.18.1` la entrada `00:25:22:ae:b6:44` → IP `192.168.18.219`.
 
-- Configurar una **IP estática** en el adaptador de red del servidor, o
-- Reservar la IP en el DHCP del router (reserva DHCP por MAC del servidor).
+Alternativa (no elegida): configurar una **IP estática** en el adaptador del servidor.
 
 Comandos útiles:
 
@@ -91,6 +91,7 @@ pm2 stop contabilidad-backend    # detener
 | Error `EADDRINUSE` | Ya hay un proceso en 3000 | `pm2 kill` o cerrar el proceso previo y reintentar |
 | `FATAL: password authentication failed` | Password mal en `.env` | Revisar `DATABASE_URL` en `backend\.env` |
 | La página carga pero la API falla | Build desactualizado | Volver a ejecutar `scripts\desplegar.ps1` |
+| La página carga en blanco (solo fondo claro) | CSP de `helmet` con `upgrade-insecure-requests` sobre HTTP | Corregido (2.2.1): `upgradeInsecureRequests: null` en `backend\src\app.ts` |
 
 ## Desarrollo (no producción)
 
@@ -113,19 +114,28 @@ corriendo `cd backend && npm run dev`).
 | **Carga de la UI** | `GET /` → `200` con el contenedor de React de la SPA ✓ |
 | **Firewall LAN (puerto 3000)** | ✓ Regla creada: entrada TCP 3000 (Private) `New-NetFirewallRule` vía `scripts\abrir-puerto.ps1` |
 | **Acceso por IP (misma red)** | ✓ `http://192.168.18.219:3000` → `200` (UI) y `/api/health` → `{"status":"ok"}` |
-| **Acceso desde un segundo equipo** | Pendiente de probar en vivo |
+| **Acceso desde un segundo equipo** | **Windows + Chrome** por WiFi (`192.168.18.31`): login OK, dashboard, selector de empresa y consulta ✓; rol **AUXILIAR** verificado |
 
-Pasos que faltan para cerrar la validación (prueba real desde otro
-computador de la LAN, preferiblemente con un rol distinto, p. ej. AUXILIAR, y un
-navegador/equipo diferente):
+### Prueba en un segundo equipo — realizada ✓
 
-1. Desde el otro equipo abrir `http://192.168.18.219:3000` y confirmar que carga el
-   inicio de sesión.
-2. Iniciar sesión con un usuario real y confirmar dashboard, selector de empresa y al
-   menos una consulta (Resumen o Cartera).
-3. Revisar con un usuario de rol AUXILIAR que los permisos también se respetan por red.
-4. Confirmar la **IP fija** (reserva DHCP por MAC o IP estática) para que la URL no
-   cambie; anotar aquí cuál se usó y con qué IP quedó el servidor.
+1. Windows + Chrome, equipo por WiFi (`192.168.18.31`): se abrió
+   `http://192.168.18.219:3000`, login con un usuario real, dashboard, selector de
+   empresa y al menos una consulta. ✓
+2. Rol **AUXILIAR** desde el mismo equipo: permisos respetados por red. ✓
+3. **IP fija**: método elegido — reserva DHCP por MAC (ver `## IP fija del servidor`).
 
-Al cerrar la lista, anotar aquí qué IP fija se usó, desde qué equipos y navegadores se
-probó y el resultado, para dejar el registro en el histórico del despliegue.
+### Página en blanco (anotación técnica)
+
+Al servir la SPA por HTTP en la LAN, el middleware `helmet` incluía
+`upgrade-insecure-requests` en su Content-Security-Policy y el navegador intentaba
+cargar los assets (`/assets/*`) por HTTPS, dejando la página en blanco. Corregido en
+`backend\src\app.ts` (`contentSecurityPolicy.directives.upgradeInsecureRequests:
+null`), compilar con `npm run build` + `pm2 restart`. Ver commit `533b732` y la entrada
+2.2.1 del `CHANGELOG.md`.
+
+### Pendiente
+
+- **Reservar la IP en el DHCP del router** `192.168.18.1`: `MAC 00:25:22:ae:b6:44`
+  → IP `192.168.18.219` (menú *Address/DHCP Reservation*). Al terminar, comprobar con
+  `ipconfig /renew` en el servidor y que la URL `http://192.168.18.219:3000` siga
+  respondiendo (o anotar aquí la IP nueva si cambia).
