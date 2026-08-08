@@ -133,9 +133,10 @@ cargar los assets (`/assets/*`) por HTTPS, dejando la página en blanco. Corregi
 null`), compilar con `npm run build` + `pm2 restart`. Ver commit `533b732` y la entrada
 2.2.1 del `CHANGELOG.md`.
 
-### Pendiente
+### Reserva DHCP — realizada ✓
 
-- **Reservar la IP en el DHCP del router** `192.168.18.1`: `MAC 00:25:22:ae:b6:44`
-  → IP `192.168.18.219` (menú *Address/DHCP Reservation*). Al terminar, comprobar con
-  `ipconfig /renew` en el servidor y que la URL `http://192.168.18.219:3000` siga
-  respondiendo (o anotar aquí la IP nueva si cambia).
+- Se registró la reserva en el router `192.168.18.1`: `MAC 00:25:22:ae:b6:44` →
+  IP `192.168.18.219`. Comprobado con `ipconfig /renew` en el servidor: la IP se
+  mantiene en `192.168.18.219` y `http://192.168.18.219:3000/api/health` responde
+  `{"status":"ok"}`. La URL de acceso a la LAN queda fija:
+  `http://192.168.18.219:3000`.

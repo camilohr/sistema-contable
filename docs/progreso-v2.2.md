@@ -34,7 +34,7 @@ Resultado de cierre: `backend` `npm run build` OK y `npm test` 531/531 en 25 arc
 
 ---
 
-## Plan de cierre V1 (`instrucciones-opencode-cierre-v1.md`) — Partes 1-3 completas; Parte 4 parcial
+## Plan de cierre V1 (`instrucciones-opencode-cierre-v1.md`) — Partes 1-4 completas ✅
 
 ### Parte 1 — `.form-row` (14 pantallas) ✅
 - [x] `.form-row` reescrito de flex a **grid de ajuste automático** (`repeat(auto-fit, minmax(160px, 1fr))` + `label { min-width: 0 }`) en `frontend/src/index.css`; elimina el desborde horizontal en pantallas angostas en las 14 pantallas con formularios.
@@ -52,13 +52,13 @@ Resultado de cierre: `backend` `npm run build` OK y `npm test` 531/531 en 25 arc
 - [x] `README.md`: sección "Estado del proyecto" al inicio (V1 completa y estable, multicliente, enlace a CHANGELOG) y recuadro histórico de etapas.
 - [x] GitHub Release `v2.2.0`: **V1 completa y estable — sistema contable multicliente listo para producción** (https://github.com/camilohr/sistema-contable/releases/tag/v2.2.0). Commit `6d52019` (`docs: actualiza CHANGELOG y README, cierre de la etapa V1`).
 
-### Parte 4 — Validación en red local (en curso: solo la IP fija) 
+### Parte 4 — Validación en red local ✅ 
 - [x] 4.1 Despliegue PM2: builds OK, app `contabilidad-backend` (2.2.0) en PM2 **online**, health `{"status":"ok"}`, la UI se sirve en `http://192.168.18.219:3000` (200). Firewall: regla TCP 3000 creada con `scripts\abrir-puerto.ps1` (perfiles Private y Any).
-- [ ] 4.2 IP fija del servidor: método elegido **reserva DHCP por MAC** (`00:25:22:ae:b6:44` → `192.168.18.219` en el router `192.168.18.1`). Pendiente: ejecutar la reserva en el router y reconfirmar la IP.
+- [x] 4.2 IP fija del servidor: **reserva DHCP por MAC** registrada en el router `192.168.18.1` (`00:25:22:ae:b6:44` → `192.168.18.219`). Verificado con `ipconfig /renew`: IP estable y `/api/health` responde `{"status":"ok"}`.
 - [x] 4.3 Prueba desde un segundo equipo ✓: Windows + Chrome por WiFi (`192.168.18.31`) — login OK, dashboard, selector de empresa y consulta; rol **AUXILIAR** verificado (permisos respetados).
 - [x] 4.4 Sección "Validación realizada" en `docs/despliegue.md` con IP, estado y checklist. Commit `3c8a4e5`; resultado final reflejado en el commit posterior de `docs/despliegue.md`.
 - [x] 4.5 (hallazgo) Página en blanco por CSP: `helmet` emitía `upgrade-insecure-requests` y el navegador cargaba assets por HTTPS. Fix `533b732` (`upgradeInsecureRequests: null` en `backend/src/app.ts`) + build + `pm2 restart` + verificación del header.
 
-Para cerrar la Parte 4 solo falta ejecutar la **reserva DHCP por MAC** en el router
-(documentado en `docs/despliegue.md`, sección `Validación realizada` / Pendiente),
-confirmar que `192.168.18.219` sigue fija tras un reinicio y dejar constancia.
+Para cerrar la Parte 4 se ejecutó la **reserva DHCP por MAC** en el router
+(`docs/despliegue.md`, sección `Validación realizada`): IP estable `192.168.18.219`
+y `/api/health` OK. El plan de cierre V1 queda **completo** (Partes 1-4).
