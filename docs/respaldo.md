@@ -49,6 +49,28 @@ Opciones:
 | `npm run backup -- --dir C:\respaldos` | Guarda en otra carpeta |
 | `npm run backup:list` | Lista los respaldos e indica si cada uno es `OK` o `CORRUPTO` |
 
+### Cifrado de respaldos (S1-10)
+
+Los respaldos pueden cifrarse en reposo con **AES-256-GCM** (implementación nativa de
+Node, sin dependencias; `backend/scripts/cifrado.mjs`). Para activarlo basta definir
+en `backend/.env`:
+
+```
+BACKUP_ENCRYPT_KEY=<frase de acceso larga y aleatoria>
+```
+
+Cuando la clave está definida, `backup.mjs`:
+
+1. Crea y verifica el `.dump` (y el `adjuntos.zip`) como siempre.
+2. Cifra ambos a `contabilidad_*.dump.enc` y `contabilidad_*.adjuntos.zip.enc` y
+   **elimina los archivos en claro**.
+3. La retención GFS/simple opera sobre los archivos cifrados con normalidad.
+
+La frase de acceso debe respaldarse de forma segura: **sin ella no se puede restaurar
+ningún respaldo cifrado**. Si se pierde, los respaldos quedan inaccesibles. Por eso se
+recomienda guardarla en un gestor de contraseñas del despacho, separada de los
+respaldos mismos.
+
 ### Retención GFS (abuelo-padre-hijo) — por defecto
 
 El esquema de retención **por defecto** sigue la estrategia *grandfather-father-son*
@@ -147,7 +169,11 @@ node scripts/restore.mjs "..\backups\contabilidad_20260803_143507.dump" --confir
 node scripts/restore.mjs "..\backups\contabilidad_20260803_143507.dump" --list
 ```
 
-Formatos admitidos: `.dump` (pg_restore) y `.sql` (psql con `ON_ERROR_STOP=1`).
+Formatos admitidos: `.dump` (pg_restore), `.sql` (psql con `ON_ERROR_STOP=1`) y sus
+versiones **cifradas** `.dump.enc` / `.sql.enc`. Para restaurar un respaldo cifrado,
+`BACKUP_ENCRYPT_KEY` debe estar definida en `backend/.env` con la misma frase de
+acceso que se usó al crearlo; el script descifra a un archivo temporal, opera y lo
+elimina al terminar. Sin la clave correcta, la restauración aborta con error.
 
 Si existe el archivo `contabilidad_YYYYMMDD_HHMMSS.adjuntos.zip` junto al `.dump`,
 la restauración con `--confirm` lo **extrae automáticamente** en la carpeta de
@@ -172,7 +198,8 @@ restaurar para que los adjuntos vayan a otra ubicación.
 - Los respaldos contienen información contable sensible: la carpeta `backups\` está
   excluida del control de versiones; protéjala con permisos del sistema y considere
   copiarla a un medio externo. El ZIP de adjuntos tiene la misma sensibilidad que la
-  base de datos: no se debe distribuir sin cifrado.
+  base de datos: no se debe distribuir sin cifrado. Con `BACKUP_ENCRYPT_KEY` definida,
+  tanto el `.dump` como el `adjuntos.zip` quedan cifrados en reposo (AES-256-GCM).
 - La retención elimina por cada `.dump` sobrante su archivo `.adjuntos.zip`
   asociado, para que no queden respaldos huérfanos.
 - La restauración usa `--clean --if-exists --no-owner --no-privileges`, es decir,

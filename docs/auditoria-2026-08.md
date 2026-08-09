@@ -63,7 +63,11 @@ Bloque prioritario (no cubierto por auditorías anteriores). Se revisó contra `
 
 **- S1-09 (Alto) — Datos personales en tránsito sin cifrar.** El despliegue es **HTTP** en la LAN (`app.ts:40-50` neutraliza `upgrade-insecure-requests`; `docs/despliegue.md`). El login, las consultas de terceros/empleados, los adjuntos y la exportación viajan en claro entre el servidor y los demás equipos de la red. Un equipo comprometido o un sniffer en la LAN puede capturar credenciales y datos personales. Recomendación: habilitar TLS (auto-firmado o certificado local) en PM2/Express o un proxy; o al menos restringir la red y documentar el riesgo residual.
 
+  **Corregido en 5b3184c** — `index.ts` ahora soporta HTTPS: si `HTTPS_CERT` y `HTTPS_KEY` apuntan a un certificado (autofirmado) y su clave, el servidor escucha por HTTPS; si no, HTTP (por defecto). Procedimiento de generación del cert y configuración documentado en `docs/despliegue.md` (sección TLS en la red local).
+
 - **S1-10 (Medio) — Datos personales en reposo sin cifrado.** Postgres almacena en claro; los `.dump` (`backup.mjs`) y los adjuntos (`adjuntos.controller.ts`) tampoco están cifrados. Si el disco o un respaldo externo se expone, los datos quedan al descubierto. Recomendación: cifrar la carpeta de respaldos/adjuntos (p. ej. a nivel de FS) o cifrar el `.dump`; documentar el riesgo.
+
+  **Corregido en 5b3184c** — Cifrado de respaldos **AES-256-GCM** (`backend/scripts/cifrado.mjs`, nativo de Node). Con `BACKUP_ENCRYPT_KEY` definida en `.env`, `backup.mjs` cifra el `.dump` y el `adjuntos.zip` a `*.enc` (y elimina los planos) tras verificarlos; `restore.mjs` descifra automáticamente a temporal con la misma clave (aborta sin ella). Retención GFS y `--list` compatibles con cifrado. Documentado en `docs/respaldo.md`.
 
 - **S1-11 (Medio) — Sin trazabilidad de descarga de adjuntos con datos personales.** `adjuntos.controller.ts` (`descargar`, ~lín. 91-99) no llama a `registrarAuditoria`; quien descarga un soporte (con datos de terceros/empleado) no queda registrado. Recomendación: registrar una `Auditoria` de `accion DESCARGAR_ADJUNTO` con `entidadId` y `empresaId`.
 

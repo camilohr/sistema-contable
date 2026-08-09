@@ -83,6 +83,38 @@ pm2 restart contabilidad-backend # reiniciar
 pm2 stop contabilidad-backend    # detener
 ```
 
+## TLS en la red local (opcional — S1-09)
+
+Por defecto el servidor escucha en **HTTP** sobre la LAN. Para proteger los datos
+personales (login, terceros, adjuntos) en tránsito frente a un sniffer de la red, el
+backend soporta **HTTPS** con un certificado autofirmado:
+
+1. Generar el certificado autofirmado (OpenSSL disponible con PostgreSQL o Git):
+
+   ```powershell
+   openssl req -x509 -newkey rsa:2048 -keyout backend\certs\local-key.pem -out backend\certs\local-cert.pem -days 3650 -nodes -subj "/CN=192.168.18.219"
+   ```
+
+   Use como `CN` la IP o nombre con el que acceden los demás equipos.
+
+2. Declarar en `backend\.env`:
+
+   ```
+   HTTPS_CERT=C:\ruta\a\local-cert.pem
+   HTTPS_KEY=C:\ruta\a\local-key.pem
+   ```
+
+3. Reiniciar el backend (`pm2 restart contabilidad-backend`). El log mostrará
+   `Servidor contable en https://localhost:3000`.
+
+Los navegadores advertirán que el certificado no es de confianza (autofirmado); el
+usuario debe aceptar la advertencia una vez por equipo. **La carpeta `backend\certs`
+nunca se sube al repositorio**: la clave privada es sensible (ver `.gitignore`).
+
+> Alternativa sin TLS: mantener HTTP restringiendo la red (segmento confiable, sin
+> equipos desconocidos) y asumir el riesgo residual documentado en la auditoría
+> (S1-09).
+
 ## Solución de problemas
 
 | Síntoma | Causa probable | Solución |
