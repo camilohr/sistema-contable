@@ -46,7 +46,7 @@ Ver [Respaldo y restauración](respaldo.md). Rutina mínima:
 
 ```bash
 cd backend
-npm run backup                 # copia + verificación + retención (14)
+npm run backup                 # copia + verificación + retención GFS (30d/12m/5a)
 npm run backup:list            # comprobar que las copias están OK
 ```
 

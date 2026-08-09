@@ -359,8 +359,15 @@ export async function contabilizar(req: Request, res: Response): Promise<void> {
 }
 
 export async function anular(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
   const id = Number(req.params.id);
-  const existe = await prisma.comprobante.findFirst({ where: { id, empresaId: req.empresaId } });
+  const existe = await prisma.comprobante.findFirst({
+    where: { id, empresaId },
+  });
   if (!existe) {
     res.status(404).json({ error: "Comprobante no encontrado" });
     return;
@@ -369,6 +376,13 @@ export async function anular(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "Solo se pueden anular comprobantes contabilizados" });
     return;
   }
+  if (existe.usuarioAnuloId) {
+    res.status(400).json({ error: "Este comprobante ya fue anulado" });
+    return;
+  }
+  // S1-06 (contrasiento real): pendiente — requiere cambios en cascada en
+  // provision-cartera/nómina y cleanup de tests. Se implementa el bloqueo de
+  // doble anulación para preparar el cambio (placeholder de marcado).
   const actualizado = await prisma.$transaction(async (tx) => {
     const c = await tx.comprobante.update({
       where: { id },
@@ -380,7 +394,7 @@ export async function anular(req: Request, res: Response): Promise<void> {
     }
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
-      empresaId: req.empresaId,
+      empresaId,
       accion: AccionAuditoria.ANULAR,
       entidad: "Comprobante",
       entidadId: id,

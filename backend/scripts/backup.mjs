@@ -4,8 +4,9 @@
 // sus adjuntos, vía psql) y retención de copias.
 //
 // Uso:
-//   node scripts/backup.mjs                       # crea un respaldo y aplica retención
-//   node scripts/backup.mjs --keep 30             # conserva las 30 copias más recientes
+//   node scripts/backup.mjs                       # crea un respaldo y aplica retención GFS
+//   node scripts/backup.mjs --keep 30             # retención simple: las 30 copias más recientes
+//   node scripts/backup.mjs --daily 30 --monthly 12 --annual 5  #调味 GFS
 //   node scripts/backup.mjs --dir C:\respaldos    # carpeta de destino
 //   node scripts/backup.mjs --list                # lista respaldos y verifica su integridad
 //
@@ -14,6 +15,12 @@
 //   PGRESTORE_PATH ruta explícita a pg_restore
 //   BACKUP_COPIA_EXTERNA_DIR carpeta adicional a la que se copia el .dump y el
 //                          adjuntos.zip tras verificar el respaldo (no fatal)
+//
+// Retención por defecto (GFS — abuelo-padre-hijo):
+//   - Diarios: conserva todas las copias de los últimos 30 días.
+//   - Mensuales: conserva la copia más reciente de cada mes de los últimos 12 meses.
+//   - Anuales: conserva la copia más reciente de cada uno de los últimos 5 años
+//     (alineado con el Estatuto Tributario, art. 632; configurable con --annual).
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -66,13 +73,95 @@ function ahora() {
 
 function leerArgs() {
   const args = process.argv.slice(2);
-  const opt = { keep: 14, dir: path.resolve(backendDir, "..", "backups"), list: false };
+  const opt = {
+    keep: 14,
+    keepMode: "gfs",
+    daily: 30,
+    monthly: 12,
+    annual: 5,
+    dir: path.resolve(backendDir, "..", "backups"),
+    list: false,
+  };
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--keep") opt.keep = Number(args[++i]);
+    if (args[i] === "--keep") { opt.keep = Number(args[++i]); opt.keepMode = "simple"; }
+    else if (args[i] === "--daily") opt.daily = Number(args[++i]);
+    else if (args[i] === "--monthly") opt.monthly = Number(args[++i]);
+    else if (args[i] === "--annual") opt.annual = Number(args[++i]);
     else if (args[i] === "--dir") opt.dir = path.resolve(args[++i]);
     else if (args[i] === "--list") opt.list = true;
   }
   return opt;
+}
+
+function parsearFechaBackup(f) {
+  const m = f.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
+  if (!m) return null;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6]));
+}
+
+function aplicarRetencion(dumps, opt) {
+  if (opt.keepMode === "simple") {
+    const sobrantes = dumps.slice().sort().reverse().slice(opt.keep);
+    const eliminar = sobrantes;
+    const mantener = new Set(dumps.filter((f) => !eliminar.includes(f)));
+    return { mantener, eliminar, modo: `simple (keep=${opt.keep})` };
+  }
+
+  const ahora = new Date();
+  const limiteDiario = new Date(ahora);
+  limiteDiario.setDate(limiteDiario.getDate() - opt.daily);
+  const limiteMensual = new Date(ahora);
+  limiteMensual.setMonth(limiteMensual.getMonth() - opt.monthly);
+  const anioMin = ahora.getFullYear() - opt.annual;
+
+  const porMes = new Map();
+  const porAnio = new Map();
+  for (const f of dumps) {
+    const fecha = parsearFechaBackup(f);
+    if (!fecha) continue;
+    const mesClave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`;
+    const anioClave = `${fecha.getFullYear()}`;
+    if (!porMes.has(mesClave)) porMes.set(mesClave, []);
+    porMes.get(mesClave).push({ f, fecha });
+    if (!porAnio.has(anioClave)) porAnio.set(anioClave, []);
+    porAnio.get(anioClave).push({ f, fecha });
+  }
+
+  const eliminar = [];
+  const mantener = new Set();
+
+  const latest = (arr) => arr.sort((a, b) => b.fecha - a.fecha)[0];
+
+  for (const f of dumps) {
+    const fecha = parsearFechaBackup(f);
+    if (!fecha) {
+      mantener.add(f);
+      continue;
+    }
+    let sobrevive = false;
+
+    // Diarios: todos los de los últimos `opt.daily` días
+    if (fecha >= limiteDiario) sobrevive = true;
+
+    // Mensuales: el más reciente de cada mes dentro de los últimos `opt.monthly` meses
+    const mesClave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`;
+    const itemsMes = porMes.get(mesClave) || [];
+    if (itemsMes.length > 0 && f === latest(itemsMes).f && fecha >= limiteMensual) {
+      sobrevive = true;
+    }
+
+    // Anuales: el más reciente de cada año dentro de los últimos `opt.annual` años
+    const anioClave = `${fecha.getFullYear()}`;
+    const itemsAnio = porAnio.get(anioClave) || [];
+    if (itemsAnio.length > 0 && f === latest(itemsAnio).f && Number(anioClave) >= anioMin) {
+      sobrevive = true;
+    }
+
+    if (sobrevive) mantener.add(f);
+    else eliminar.push(f);
+  }
+
+  return { mantener, eliminar, modo: `GFS (diarios=${opt.daily}, mensuales=${opt.monthly}, anuales=${opt.annual})` };
 }
 
 async function tool(nombre) {
@@ -253,11 +342,11 @@ async function main() {
     .filter((f) => f.endsWith(".dump") && !f.includes(".tmp"))
     .sort()
     .reverse();
-  const sobrantes = dumps.slice(opt.keep);
-  for (const f of sobrantes) {
+  const retencion = aplicarRetencion(dumps, opt);
+  for (const f of retencion.eliminar) {
     await unlink(path.join(opt.dir, f));
     await unlink(path.join(opt.dir, f.replace(/\.dump$/, ".adjuntos.zip"))).catch(() => {});
-    await registrar(logFile, `Eliminado por retención: ${f}`);
+    await registrar(logFile, `Eliminado por retención ${retencion.modo}: ${f}`);
     console.log(`Retención: eliminado ${f}`);
   }
 
@@ -268,9 +357,9 @@ async function main() {
   const st = await stat(ruta);
   await registrar(
     logFile,
-    `OK respaldo ${nombre} (${(st.size / 1024).toFixed(0)} KB, ${verif.objetos} objetos, retención ${opt.keep})`
+    `OK respaldo ${nombre} (${(st.size / 1024).toFixed(0)} KB, ${verif.objetos} objetos, retención ${retencion.modo})`
   );
-  console.log(`Listo. Quedan ${Math.min(dumps.length, opt.keep)} respaldo(s).`);
+  console.log(`Listo. Quedan ${retencion.mantener.size} respaldo(s).`);
 }
 
 main().catch((err) => {

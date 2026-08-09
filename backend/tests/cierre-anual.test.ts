@@ -277,25 +277,20 @@ describe("Cierre de ejercicio anual: consultas", () => {
 });
 
 describe("Cierre de ejercicio anual: bloqueo de movimientos posteriores", () => {
-  it("rechaza un comprobante con cuentas de resultado en un año cerrado aunque se reabra el periodo", async () => {
-    await reabrirPeriodo(periodos2025[0]);
-
-    const res = await crearComprobante(periodos2025[0].id, "2025-01-15", `CIERRE-${suf}-2025-prohibido`, [
-      { cuentaId: cajaId, debito: 100000 },
-      { cuentaId: ingresosId, credito: 100000 },
-    ]);
+  it("rechaza la reapertura de un periodo en un año ya cerrado (S1-03/S4-04)", async () => {
+    const res = await request(app)
+      .patch(`/api/periodos/${periodos2025[0].id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ estado: "ABIERTO" });
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain("año 2025 está cerrado");
+    expect(res.body.error).toContain("año ya cerrado");
   });
 
-  it("permite un comprobante de balance (sin cuentas de resultado) en el año cerrado", async () => {
-    const res = await crearComprobante(periodos2025[0].id, "2025-01-15", `CIERRE-${suf}-2025-traslado`, [
+  it("rechaza crear comprobante en un periodo de un año cerrado (sin reapertura posible)", async () => {
+    const res = await crearComprobante(periodos2025[0].id, "2025-01-15", `CIERRE-${suf}-2025-bloqueado`, [
       { cuentaId: cajaId, debito: 100000 },
       { cuentaId: bancosId, credito: 100000 },
     ]);
-    expect(res.status).toBe(201);
-
-    const borrado = await request(app).delete(`/api/comprobantes/${res.body.id}`).set("Authorization", `Bearer ${adminToken}`);
-    expect(borrado.status).toBe(200);
+    expect(res.status).toBe(400);
   });
 });

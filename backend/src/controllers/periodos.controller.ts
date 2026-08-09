@@ -93,6 +93,14 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     res.status(404).json({ error: "Periodo no encontrado" });
     return;
   }
+  if (parsed.data.estado === EstadoPeriodo.ABIERTO) {
+    const anio = existe.fechaFin.getFullYear();
+    const cierre = await prisma.cierreAnual.findFirst({ where: { empresaId, anio } });
+    if (cierre) {
+      res.status(400).json({ error: `No se puede reabrir un periodo de un año ya cerrado (${anio})` });
+      return;
+    }
+  }
   const periodo = await prisma.$transaction(async (tx) => {
     const p = await tx.periodo.update({ where: { id }, data: parsed.data });
     if (parsed.data.estado && parsed.data.estado !== existe.estado) {

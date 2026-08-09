@@ -243,7 +243,7 @@ export async function depreciar(req: Request, res: Response): Promise<void> {
     const comprobante = await crearComprobanteDiario(tx, {
       empresaId: req.empresaId!,
       periodoId,
-      fecha: new Date(),
+      fecha: periodo.fechaFin,
       concepto: `Depreciación periodo ${periodo.nombre}`,
       usuarioId,
       asientos,

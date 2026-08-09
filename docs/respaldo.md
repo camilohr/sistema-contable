@@ -1,8 +1,8 @@
 # Respaldo y restauración de la base de datos
 
 El sistema incluye scripts de respaldo (pg_dump) y restauración (pg_restore / psql)
-para PostgreSQL, con verificación automática de cada copia y retención de las más
-recientes.
+para PostgreSQL, con verificación automática de cada copia y **retención por
+niveles** (esquema abuelo-padre-hijo, GFS).
 
 ## Requisitos
 
@@ -21,7 +21,7 @@ npm run backup
 
 Crea `backups\contabilidad_YYYYMMDD_HHMMSS.dump` (formato custom, comprimido) en la
 carpeta `backups\` del proyecto, lo **verifica** con `pg_restore --list` y aplica la
-**retención** (por defecto conserva las 14 copias más recientes).
+**retención GFS** (ver más abajo).
 
 Además del `.dump`, el respaldo genera un archivo hermano
 `contabilidad_YYYYMMDD_HHMMSS.adjuntos.zip` con **toda la carpeta de adjuntos**
@@ -44,9 +44,37 @@ Opciones:
 
 | Comando | Efecto |
 |---|---|
-| `npm run backup -- --keep 30` | Conserva las 30 copias más recientes |
+| `npm run backup -- --keep 30` | Retención simple: conserva las 30 copias más recientes (backward compat) |
+| `npm run backup -- --daily 30 --monthly 12 --annual 5` | GFS con valores personalizados (estos son los defaults) |
 | `npm run backup -- --dir C:\respaldos` | Guarda en otra carpeta |
 | `npm run backup:list` | Lista los respaldos e indica si cada uno es `OK` o `CORRUPTO` |
+
+### Retención GFS (abuelo-padre-hijo) — por defecto
+
+El esquema de retención **por defecto** sigue la estrategia *grandfather-father-son*
+(GFS), alineada con el Estatuto Tributario colombiano (art. 632, 5 años) y los
+plazos de conservación de libros del Código de Comercio:
+
+| Nivel | Conserva | Cantidad por defecto |
+|---|---|---|
+| **Diario** | Todas las copias de los últimos N días | 30 días |
+| **Mensual** | La copia más reciente de cada mes | 12 meses |
+| **Anual** | La copia más reciente de cada año | 5 años |
+
+Con un respaldo diario programado, en cualquier momento habrá:
+
+- ~30 copias diarias recientes (recuperación hasta el día anterior).
+- 12 copias mensuales (recuperación a fin de mes de los últimos 12 meses).
+- 5 copias anuales (recuperación por ejercicio contable de los últimos 5 años).
+
+Las copias que no caen en ninguno de los tres niveles se eliminan automáticamente
+(junto con su `.adjuntos.zip` hermano). Para retención simple (solo las N más
+recientes, sin niveles), use `--keep N` (compatible con versiones anteriores).
+
+> **Nota de cumplimiento normativo.** El Estatuto Tributario exige conservar
+> respaldos durante 5 años; el Código de Comercio establece hasta 10 años para
+> ciertos libros. El valor por defecto (`--annual 5`) cubre la obligación
+> tributaria; si debe alinearse con el Código de Comercio, use `--annual 10`.
 
 Cada respaldo se registra en `backups\backup.log` con fecha, tamaño y número de
 objetos. Si la copia no supera la verificación se elimina y se registra el error.
@@ -58,7 +86,7 @@ powershell -ExecutionPolicy Bypass -File backend\scripts\programar-respaldo.ps1
 ```
 
 Crea una tarea del Programador de Windows que ejecuta el respaldo **todos los días a
-las 22:00** conservando 14 copias. Parámetros:
+las 22:00** aplicando retención GFS (30 diarios / 12 mensuales / 5 anuales). Parámetros:
 
 | Parámetro | Descripción | Valor por defecto |
 |---|---|---|
@@ -67,7 +95,7 @@ las 22:00** conservando 14 copias. Parámetros:
 | `-Time` | Hora de ejecución (formato `"HH:mm"`) | `"22:00"` |
 | `-TaskName` | Nombre de la tarea de Windows | `SistemaContable-Respaldo` |
 
-Ejemplo con respaldo diario y retención de 30 copias:
+Ejemplo con respaldo diario y retención simple de 30 copias:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File backend\scripts\programar-respaldo.ps1 -Day Daily -Time "22:00" -Keep 30

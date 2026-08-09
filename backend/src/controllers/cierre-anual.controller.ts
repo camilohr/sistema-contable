@@ -187,11 +187,19 @@ export async function cerrarAnio(req: Request, res: Response): Promise<void> {
     if (!CLASES_RESULTADO.includes(c.clase)) continue;
     const saldo = c.clase === 4 ? c.creditos - c.debitos : c.debitos - c.creditos;
     const monto = redondear2(saldo);
-    if (monto <= 0) continue;
+    if (monto === 0) continue;
     if (c.clase === 4) {
-      asientos.push({ cuentaId: c.id, debito: monto, credito: 0, detalle: `Cierre ${anio}: ${c.codigo} ${c.nombre}` });
+      if (monto > 0) {
+        asientos.push({ cuentaId: c.id, debito: monto, credito: 0, detalle: `Cierre ${anio}: ${c.codigo} ${c.nombre}` });
+      } else {
+        asientos.push({ cuentaId: c.id, debito: 0, credito: -monto, detalle: `Cierre ${anio}: ${c.codigo} ${c.nombre} (saldo inverso)` });
+      }
     } else {
-      asientos.push({ cuentaId: c.id, debito: 0, credito: monto, detalle: `Cierre ${anio}: ${c.codigo} ${c.nombre}` });
+      if (monto > 0) {
+        asientos.push({ cuentaId: c.id, debito: 0, credito: monto, detalle: `Cierre ${anio}: ${c.codigo} ${c.nombre}` });
+      } else {
+        asientos.push({ cuentaId: c.id, debito: -monto, credito: 0, detalle: `Cierre ${anio}: ${c.codigo} ${c.nombre} (saldo inverso)` });
+      }
     }
   }
 
@@ -200,8 +208,10 @@ export async function cerrarAnio(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const debitoIngresos = redondear2(asientos.filter((a) => a.debito > 0).reduce((s, a) => s + a.debito, 0));
-  const creditoGastos = redondear2(asientos.filter((a) => a.credito > 0).reduce((s, a) => s + a.credito, 0));
+  const totalDebitos = redondear2(asientos.reduce((s, a) => s + a.debito, 0));
+  const totalCreditos = redondear2(asientos.reduce((s, a) => s + a.credito, 0));
+  const debitoIngresos = totalDebitos;
+  const creditoGastos = totalCreditos;
   const resultado = redondear2(debitoIngresos - creditoGastos);
 
   if (resultado > 0) {

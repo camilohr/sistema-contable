@@ -25,10 +25,21 @@ interface CrearComprobanteDiarioArgs {
  * (depreciación, baja, cierre anual, provisión de cartera).
  */
 export async function crearComprobanteDiario(db: DbEjecutor, data: CrearComprobanteDiarioArgs) {
+  if (data.asientos.length < 2) {
+    throw new Error("Un comprobante requiere al menos 2 asientos");
+  }
   const totalDebito = data.asientos.reduce((s, a) => s.plus(a.debito), new Prisma.Decimal(0));
   const totalCredito = data.asientos.reduce((s, a) => s.plus(a.credito), new Prisma.Decimal(0));
   if (!totalDebito.equals(totalCredito)) {
     throw new Error(`La partida doble no cuadra: débitos ${totalDebito.toFixed(2)} vs créditos ${totalCredito.toFixed(2)}`);
+  }
+
+  const periodo = await db.periodo.findFirst({ where: { id: data.periodoId, empresaId: data.empresaId } });
+  if (!periodo) {
+    throw new Error(`No existe el periodo ${data.periodoId} para la empresa`);
+  }
+  if (data.fecha < periodo.fechaInicio || data.fecha > periodo.fechaFin) {
+    throw new Error(`La fecha ${data.fecha.toISOString().slice(0, 10)} no está dentro del periodo ${periodo.nombre}`);
   }
 
   const consecutivo = await obtenerSiguienteConsecutivo(db, data.empresaId, "DIARIO");

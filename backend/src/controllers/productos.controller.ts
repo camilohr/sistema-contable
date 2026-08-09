@@ -137,6 +137,11 @@ export async function listarMovimientos(req: Request, res: Response): Promise<vo
 }
 
 export async function crearMovimiento(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
   const productoId = Number(req.params.id);
   const parsed = movimientoSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -145,14 +150,15 @@ export async function crearMovimiento(req: Request, res: Response): Promise<void
   }
   const data = parsed.data;
 
-  const producto = await prisma.producto.findFirst({ where: { id: productoId, empresaId: req.empresaId } });
-  if (!producto) {
+  // Pre-validación (sin bloqueo): el producto existe y pertenece a la empresa
+  const existe = await prisma.producto.findFirst({ where: { id: productoId, empresaId }, select: { id: true } });
+  if (!existe) {
     res.status(404).json({ error: "Producto no encontrado" });
     return;
   }
   if (data.comprobanteId) {
     const comprobante = await prisma.comprobante.findFirst({
-      where: { id: data.comprobanteId, empresaId: req.empresaId },
+      where: { id: data.comprobanteId, empresaId },
     });
     if (!comprobante) {
       res.status(400).json({ error: `No existe el comprobante ${data.comprobanteId}` });
@@ -160,41 +166,54 @@ export async function crearMovimiento(req: Request, res: Response): Promise<void
     }
   }
 
-  const cantidadActual = producto.cantidadActual.toNumber();
-  const costoPromedio = producto.costoPromedio.toNumber();
+  try {
+    const resultado = await prisma.$transaction(async (tx) => {
+      // Bloquear la fila del producto (SELECT ... FOR UPDATE) para evitar
+      // condición de carrera (TOCTOU) en salidas concurrentes (ver S4-05).
+      await tx.$queryRaw`SELECT id FROM "Producto" WHERE id = ${productoId} FOR UPDATE`;
+      const producto = await tx.producto.findUniqueOrThrow({ where: { id: productoId } });
 
-  let nuevaCantidad: number;
-  let costoUnitario = data.costoUnitario;
+      const cantidadActual = producto.cantidadActual.toNumber();
+      const costoPromedio = producto.costoPromedio.toNumber();
 
-  if (data.tipo === "ENTRADA") {
-    nuevaCantidad = cantidadActual + data.cantidad;
-    costoUnitario = cantidadActual + data.cantidad > 0 ? (costoPromedio * cantidadActual + data.costoUnitario * data.cantidad) / (cantidadActual + data.cantidad) : data.costoUnitario;
-  } else {
-    if (data.cantidad > cantidadActual) {
-      res.status(400).json({ error: `Saldo insuficiente: hay ${cantidadActual} ${producto.unidad}` });
+      let nuevaCantidad: number;
+      let costoUnitario = data.costoUnitario;
+
+      if (data.tipo === "ENTRADA") {
+        nuevaCantidad = cantidadActual + data.cantidad;
+        costoUnitario = cantidadActual + data.cantidad > 0 ? (costoPromedio * cantidadActual + data.costoUnitario * data.cantidad) / (cantidadActual + data.cantidad) : data.costoUnitario;
+      } else {
+        if (data.cantidad > cantidadActual) {
+          throw new Error(`SALDO_INSUFICIENTE:${cantidadActual}|${producto.unidad}`);
+        }
+        nuevaCantidad = cantidadActual - data.cantidad;
+        costoUnitario = costoPromedio;
+      }
+
+      const movimiento = await tx.inventarioMovimiento.create({
+        data: {
+          productoId,
+          comprobanteId: data.comprobanteId ?? null,
+          tipo: data.tipo,
+          cantidad: data.cantidad,
+          costoUnitario,
+          fecha: new Date(data.fecha),
+        },
+      });
+      const actualizado = await tx.producto.update({
+        where: { id: productoId },
+        data: { cantidadActual: nuevaCantidad, costoPromedio: costoUnitario },
+      });
+      return { movimiento, actualizado };
+    });
+    res.status(201).json({ movimiento: serializarMovimiento(resultado.movimiento), actualizado: serializarProducto(resultado.actualizado) });
+  } catch (err) {
+    const msg = (err as Error).message;
+    if (msg.startsWith("SALDO_INSUFICIENTE:")) {
+      const [, restante, unidad] = msg.split(/[|:]/);
+      res.status(400).json({ error: `Saldo insuficiente: hay ${restante} ${unidad}` });
       return;
     }
-    nuevaCantidad = cantidadActual - data.cantidad;
-    costoUnitario = costoPromedio;
+    throw err;
   }
-
-  const resultado = await prisma.$transaction(async (tx) => {
-    const movimiento = await tx.inventarioMovimiento.create({
-      data: {
-        productoId,
-        comprobanteId: data.comprobanteId ?? null,
-        tipo: data.tipo,
-        cantidad: data.cantidad,
-        costoUnitario,
-        fecha: new Date(data.fecha),
-      },
-    });
-    const actualizado = await tx.producto.update({
-      where: { id: productoId },
-      data: { cantidadActual: nuevaCantidad, costoPromedio: costoUnitario },
-    });
-    return { movimiento, actualizado };
-  });
-
-  res.status(201).json({ movimiento: serializarMovimiento(resultado.movimiento), actualizado: serializarProducto(resultado.actualizado) });
 }
