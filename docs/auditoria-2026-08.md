@@ -104,7 +104,11 @@ Bloque prioritario (no cubierto por auditorías anteriores). Se revisó contra `
 
 ### Control de acceso por rol
 - **S2-10 (Medio) — Adjuntos POST/GET sin `requireRole`.** `backend/src/routes/adjuntos.routes.ts:10-12` — solo `requireAuth`+`requireEmpresa`. Un `AUXILIAR` puede **subir** adjuntos (archivos de 15 MB, ver S2-12) y **listar/descargar** todos los de la empresa (posibles soportes con datos personales, ver S1-11). `DELETE` sí está protegido (`:13`). Recomendación: `requireRole("ADMIN","CONTADOR")` al menos en POST;(acotar GET por entidad.
+
+  **Corregido en ad7b9a6** — `requireRole("ADMIN","CONTADOR")` añadido al `POST /api/adjuntos` (subida de adjuntos).
 - **S2-11 (Medio) — `GET /api/procesos/cartera` evita `requireEmpresa`.** `backend/src/routes/procesos.routes.ts:9` está registrado **antes** de `router.use(requireEmpresa)` (`:11`). Expone un dashboard transversal sin validar cabecera de empresa ni vínculo (el controlador usa los vínculos del usuario o todas las activas si ADMIN). Confirmar si es lectura agregada; si no, moverlo tras `requireEmpresa`.
+
+  **Corregido en ad7b9a6** — Confirmado: el controlador resuelve acceso internamente por vínculo. Comentado en `procesos.routes.ts` como lectura agregada intencional fuera de `requireEmpresa` (no usa `req.empresaId`).
 
 ### Subida de archivos (adjuntos)
 - **S2-12 (Alto) — Sin whitelist de tipos MIME.** `backend/src/lib/multer.ts` sin `fileFilter`; `adjuntos.controller.ts:30-37` solo valida `entidad`, no `mimetype`/extensión. Se permite subir `.exe`, `.html`, `.svg` con JS, `.js`. El nombre guardado es UUID (sin path traversal — `lib/adjuntos.ts:18-21`, ✓), pero `res.download` (`adjuntos.controller.ts:~98`) envía `Content-Type` derivado del MIME guardado, lo que puede inducir al navegador a previsualizar HTML/JS y generar XSS. Recomendación: `fileFilter` con whitelist (imágenes, PDF, Word/Excel, texto, zip); forzar `Content-Disposition: attachment` y `application/octet-stream` al descargar.
@@ -125,23 +129,41 @@ Bloque prioritario (no cubierto por auditorías anteriores). Se revisó contra `
 - `backend/src/middleware/auth.ts:80-122` — toma `empresaId` del header `x-empresa-id` (`:81`), verifica `empresa.activa` (`:88,93`), valida el vínculo `UsuarioEmpresa` para no-ADMIN (`:107-114`) y setea `req.empresaId`/`req.rolEfectivo` (`:118-121`, con `rolMasRestrictivo`, `:76-78`). La empresa activa **no** está en el JWT (`lib/jwt.ts:6-10`); el rol se refresca desde BD (`middleware/auth.ts:44-61`). ✓ Correcto.
 - **S3-01 (Alto) — `req.empresaId` declarado `string` obligatorio en el tipo global.** `middleware/auth.ts:21`. Muchos controladores usan `req.empresaId!` (p. ej. `comprobantes.controller.ts:159,208,221`). Si alguna ruta futura omite `requireEmpresa`, Prisma recibe `undefined` y no filtra (riesgo de fuga latente). Recomendación: tipo `empresaId?: string` y validar al inicio de cada controlador.
 
+  **Corregido en ad7b9a6** — Tipo cambiado a `empresaId?: string`; cada controlador valida explícitamente con guard `if (!empresaId) → 403` antes de usarlo.
+
 ### Rutas multiempresa sin `requireEmpresa`
 - **S3-02 (Alto) — `POST /api/empresas/:empresaId/informes/paquete-final`.** `empresas.routes.ts:23-25` — solo `requireRole("ADMIN")`, **sin** `requireEmpresa`. `exportacion.controller.ts:266` hace `empresa.findUnique({where:{id:req.params.empresaId}})` sin validar vínculo y genera un ZIP completo de la empresa. Compárese con `paquete` (`empresas.routes.ts:27-31`), que sí monta `requireEmpresa` y compara `req.params.empresaId !== req.empresaId`. Recomendación: aplicar el mismo patrón en `paquete-final`.
+
+  **Corregido en ad7b9a6** — `requireEmpresa` + comparación `req.params.empresaId !== req.empresaId` añadidos, mismo patrón que `paquete`.
 - **S3-03 (Medio) — `GET /api/procesos/cartera`** (también S2-11) no pasa por `requireEmpresa` (`procesos.routes.ts:9` antes de `:11`).
+
+  **Corregido en ad7b9a6** — Confirmado: el controlador resuelve el acceso internamente por vínculo del usuario (sin `req.empresaId`). Comentado en `procesos.routes.ts` explicando que es lectura agregada intencional fuera de `requireEmpresa`.
 - **S3-04 (Informativo) — `GET /api/empresas` y `/administracion`.** `empresas.routes.ts:10-11`. Razonable por diseño (selección de empresa / panel admin). `empresas.controller.ts:35-59` acota por vínculo para no-ADMIN. Mantener; vigilar que exponer `nit` de empresas a las que el usuario no pertenece sea aceptable.
 
 ### Filtros `empresaId` en controladores
 - **S3-05 (Alto) — `cuentas.actualizar`/`eliminar` sin filtro `empresaId`.** `cuentas.controller.ts:117-118` (`update({where:{id}})`), `:136` (`findUnique({where:{id}})`), `:150` (`delete({where:{id}})`). `Cuenta.empresaId` es opcional (PUC compartido), pero una cuenta propia de **otra empresa** (`empresaId="uuid-otra"`) es alcanzable si se adivina el `id`, y se podría modificar/borrar; las hijas se cuentan por `codigo` y no por empresa (`:142-143`). Recomendación: validar pertenencia con `findFirst({id, OR:[{empresaId:req.empresaId},{empresaId:null}]})` antes de `update`/`delete`; prohibir borrar cuentas con `empresaId:null` (PUC nacional).
+
+  **Corregido en ad7b9a6** — `actualizar` y `eliminar` validan con `findFirst({id, OR:[{empresaId:req.empresaId},{empresaId:null}]})`; borrar PUC nacional (`empresaId:null`) devuelve 403; hijas filtradas por `empresaId`.
 - **S3-06 (Alto) — Indicadores y reportes por `periodoId` sin acotar empresa.** `indicadores.controller.ts:27-29` (`obtenerDatosIndicadores` hace `periodo.findUnique({where:{id:periodoId}})` sin `empresaId`; `saldosPorCuenta({estado, periodoId})` sin `empresaId`). `indicadores.controller.ts:57-59` (comparativo) idem. `libros-pdf.controller.ts:208,231-243` (`indicadoresPdf`) invoca lo mismo. Aunque las rutas `/api/reportes` montan `requireEmpresa`, el controlador **no** restringe `periodoId` a `req.empresaId`: un usuario autenticado con empresa activa A puede pedir `periodoId` de la empresa B y leer sus saldos e indicadores. Recomendación: `prisma.periodo.findFirst({where:{id:periodoId, empresaId:req.empresaId}})` y añadir `empresaId` a `saldosPorCuenta` en estos flujos.
+
+  **Corregido en ad7b9a6** — `obtenerDatosIndicadores` recibe `empresaId`, valida periodo con `findFirst` y pasa `empresaId` a `saldosPorCuenta`; comparativo e `indicadoresPdf` también acotados.
 - **S3-07 (Medio) — `provision-cartera.obtenerProvision` por `periodoId` sin `empresaId`.** `provision-cartera.controller.ts:~306` — `provisionCartera.findUnique({where:{periodoId}})` sin filtrar; la ruta `/api/cartera/provision/:periodoId` está bajo `requireEmpresa` pero el controlador no acota. Recomendación: validar `periodo.findFirst({where:{id:periodoId, empresaId:req.empresaId}})` primero.
+
+  **Corregido en ad7b9a6** — `obtenerProvision` valida `periodo.findFirst({where:{id:periodoId, empresaId}})` antes de consultar la provisión.
 - **S3-08 (Medio) — Adjuntos a entidad `EMPRESA` sin filtrar empresa.** `adjuntos.controller.ts` `validarEntidad` para `EMPRESA` hace `empresa.findUnique({where:{id:entidadId}})` sin `empresaId`. No hay fuga de archivos, pero se puede ligar un adjunto de la empresa activa a un `entidadId` externo. Recomendación: filtrar por `req.empresaId` para `EMPRESA`.
+
+  **Corregido en ad7b9a6** — `validarEntidad` para `EMPRESA` ahora exige `entidadId === empresaId` antes de aceptar.
 - **S3-09 (Medio) — `ReglaAlerta` es global.** `schema.prisma:818-825` — sin `empresaId`. `alertas.controller.actualizarReglas` permite a cualquier CONTADOR/ADMIN de **cualquier empresa** modificar las reglas para todas. Recomendación: migrar a por-empresa (añadir `empresaId`) o restringir `PUT /api/alertas/reglas` a `ADMIN` global.
+
+  **Corregido en ad7b9a6** — Decisión (b): reglas globales a propósito; `PUT /api/alertas/reglas` restringido a `ADMIN` (CONTADOR ya no puede modificarlas).
 - **S3-10 (Medio) — Auditoría con `empresaId:null` compartida.** `schema.prisma:617`; `auditoria.controller.listar` filtra `OR:[{empresaId:null},{empresaId:req.empresaId}]`. Las acciones globales (crear empresa/usuario) son visibles para todas las empresas. Decidir política; hoy se comparten.
 - **S3-11 (Informativo) — Modelos sin `empresaId` directo.** `Asiento`, `Recibo`, `Pago`, `InventarioMovimiento`, `Depreciacion`, `ProvisionCartera`, `Empleado`, `Nomina`, `ProvisionNomina`, `Presupuesto`, `MovimientoExtracto` se acceden vía relación padre. La seguridad depende de que el controlador valide el padre con `empresaId` (donde fallan S3-06/S3-07).
 - **S3-12 (Informativo) — Sin `req.body.empresaId`/`req.query.empresaId`.** No existe override del header; convención correcta.
 
 ### Prueba `backend/tests/aislamiento-empresas.test.ts`
 - **S3-13 (Alto, brecha de test) — Solo prueba la barrera del middleware.** Crea una empresa B sin vínculo para el usuario y espera `403` en 96 rutas (`:170-190`). **No** cubre el caso de un usuario *con* vínculo a A que pasa `id`/`periodoId` de B (justo lo que falla en S3-05/S3-06/S3-07). No prueba `ADMIN` ni `AUXILIAR`, ni `paquete-final` (S3-02) ni `/procesos/cartera` (S3-03). Recomendación: añadir casos cross-empresa por enumeración de `id`/`periodoId` ajeno y los roles ADMIN/AUXILIAR.
+
+  **Corregido en ad7b9a6** — Tests cross-empresa ampliados: usuario con vínculo a A pasa `id`/`periodoId` de B → 404/403; cubre S3-05, S3-06, S3-07, S3-02; roles CONTADOR, AUXILIAR y ADMIN.
 
 ---
 
