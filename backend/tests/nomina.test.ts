@@ -435,17 +435,17 @@ describe("Nómina: provisión de prestaciones", () => {
 
     const res = await provisionar(periodoB, adminToken);
     expect(res.status).toBe(201);
-    expect(res.body.total).toBe(2081287.73);
+    expect(res.body.total).toBe(2080942.74);
     const comp = res.body.comprobante;
-    expect(comp.totalDebito).toBe(2081287.73);
-    expect(comp.totalCredito).toBe(2081287.73);
+    expect(comp.totalDebito).toBe(2080942.74);
+    expect(comp.totalCredito).toBe(2080942.74);
     expect(comp.numAsientos).toBe(8);
     const cesantias = comp.asientos.find((a: { codigoCuenta: string }) => a.codigoCuenta === "510535");
-    expect(cesantias.debito).toBe(833333.34);
+    expect(cesantias.debito).toBe(833000);
     const cesantiasPasivo = comp.asientos.find((a: { codigoCuenta: string }) => a.codigoCuenta === "251005");
-    expect(cesantiasPasivo.credito).toBe(833333.34);
+    expect(cesantiasPasivo.credito).toBe(833000);
     const vacacionesPasivo = comp.asientos.find((a: { codigoCuenta: string }) => a.codigoCuenta === "252505");
-    expect(vacacionesPasivo.credito).toBe(406287.71);
+    expect(vacacionesPasivo.credito).toBe(406612.74);
   });
 
   it("no permite provisionar dos veces el mismo periodo (400)", async () => {
@@ -468,7 +468,7 @@ describe("Nómina: provisión de prestaciones", () => {
 
     const res = await provisionar(periodoB, adminToken);
     expect(res.status).toBe(201);
-    expect(res.body.total).toBe(2081287.73);
+    expect(res.body.total).toBe(2080942.74);
   });
 });
 

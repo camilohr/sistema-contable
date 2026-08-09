@@ -141,17 +141,25 @@ export interface ProvisionResultado {
 }
 
 /**
- * Provisión mensual de prestaciones sociales. Las fracciones cesantías/prima
- * (1/12), vacaciones (1/24) e intereses (1/12 del porcentaje anual) son fijas
- * por norma; solo el porcentaje anual de intereses es parametrizable.
+ * Provisión mensual de prestaciones sociales. Los porcentajes de cesantías,
+ * prima y vacaciones se toman de `ParametroNomina` (por defecto 8.33/8.33/4.17
+ * que equivalen a 1/12, 1/12 y 1/24). Solo el porcentaje anual de intereses
+ * de cesantías es parametrizable (como ya lo era).
  */
-export function provisionarEmpleado(l: { sueldo: number; auxilioTransporte: number }, interesesCesantiasAnual: number): ProvisionResultado {
+export function provisionarEmpleado(
+  l: { sueldo: number; auxilioTransporte: number },
+  interesesCesantiasAnual: number,
+  tasas?: { cesantias?: number; prima?: number; vacaciones?: number }
+): ProvisionResultado {
+  const pctCesantias = tasas?.cesantias ?? 8.33;
+  const pctPrima = tasas?.prima ?? 8.33;
+  const pctVacaciones = tasas?.vacaciones ?? 4.17;
   const baseCesantias = redondear2(l.sueldo + l.auxilioTransporte);
-  const cesantias = redondear2(baseCesantias / 12);
+  const cesantias = redondear2((baseCesantias * pctCesantias) / 100);
   const interesesCesantias = redondear2((cesantias * interesesCesantiasAnual) / 100 / 12);
-  const prima = redondear2(baseCesantias / 12);
+  const prima = redondear2((baseCesantias * pctPrima) / 100);
   const baseVacaciones = redondear2(l.sueldo);
-  const vacaciones = redondear2(baseVacaciones / 24);
+  const vacaciones = redondear2((baseVacaciones * pctVacaciones) / 100);
   const total = redondear2(cesantias + interesesCesantias + prima + vacaciones);
   return { baseCesantias, cesantias, interesesCesantias, prima, baseVacaciones, vacaciones, total };
 }

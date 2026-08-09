@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { TipoDocumento, TipoTercero } from "@prisma/client";
+import { TipoDocumento, TipoTercero, AccionAuditoria } from "@prisma/client";
+import { registrarAuditoria } from "../lib/auditoria.js";
 
 function regexPorTipo(tipo: TipoDocumento): RegExp {
   switch (tipo) {
@@ -124,6 +125,10 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     res.status(404).json({ error: "Tercero no encontrado" });
     return;
   }
+  if (existe.anonimizado) {
+    res.status(400).json({ error: "No se puede editar un tercero anonimizado (datos personales suprimidos a petición del titular, Ley 1581)" });
+    return;
+  }
 
   const tipoDoc = (data.tipoDocumento ?? existe.tipoDocumento) as TipoDocumento;
   const documento = data.documento ?? existe.documento;
@@ -150,4 +155,54 @@ export async function eliminar(req: Request, res: Response): Promise<void> {
   }
   await prisma.tercero.update({ where: { id }, data: { activo: false } });
   res.json({ ok: true });
+}
+
+/**
+ * Anonimiza los datos personales de un tercero a petición del titular (derecho
+ * de supresión, Ley 1581 de 2012). Conserva el registro contable (movimientos y
+ * montos siguen existiendo) pero limpia los campos identificables: nombre,
+ * dirección, teléfono, email y ciudad. El `documento` se conserva porque la
+ * norma contable exige trazabilidad. El tercero queda inactivo y marcado como
+ * anonimizado para impedir ediciones posteriores.
+ */
+export async function anonimizar(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
+  const id = req.params.id;
+  const existe = await prisma.tercero.findFirst({ where: { id, empresaId } });
+  if (!existe) {
+    res.status(404).json({ error: "Tercero no encontrado" });
+    return;
+  }
+  if (existe.anonimizado) {
+    res.status(400).json({ error: "Este tercero ya fue anonimizado" });
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tercero.update({
+      where: { id },
+      data: {
+        nombreRazonSocial: "[ANONIMIZADO]",
+        direccion: null,
+        telefono: null,
+        email: null,
+        ciudad: null,
+        anonimizado: true,
+        activo: false,
+      },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: req.user!.sub,
+      empresaId,
+      accion: AccionAuditoria.ANONIMIZAR_TERCERO,
+      entidad: "Tercero",
+      entidadId: id,
+      detalle: { documento: existe.documento, mensaje: "Datos personales suprimidos (Ley 1581); registro contable conservado" },
+    });
+  });
+  res.json({ ok: true, mensaje: "Tercero anonimizado: datos personales suprimidos, registro contable conservado" });
 }

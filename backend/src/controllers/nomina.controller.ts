@@ -164,6 +164,7 @@ function serializarParametro(p: {
   saludEmpleador: Prisma.Decimal; pensionEmpleador: Prisma.Decimal; arlEmpleador: Prisma.Decimal;
   cajaCompensacion: Prisma.Decimal; icbf: Prisma.Decimal; sena: Prisma.Decimal; umbralParafiscales: number;
   solidaridadUmbralSalarios: Prisma.Decimal; interesesCesantias: Prisma.Decimal;
+  cesantias: Prisma.Decimal; prima: Prisma.Decimal; vacaciones: Prisma.Decimal;
 }) {
   return {
     anio: p.anio,
@@ -182,6 +183,9 @@ function serializarParametro(p: {
     umbralParafiscales: p.umbralParafiscales,
     solidaridadUmbralSalarios: num(p.solidaridadUmbralSalarios),
     interesesCesantias: num(p.interesesCesantias),
+    cesantias: num(p.cesantias),
+    prima: num(p.prima),
+    vacaciones: num(p.vacaciones),
   };
 }
 
@@ -215,6 +219,9 @@ const parametroSchema = z.object({
   umbralParafiscales: z.number().int().min(1),
   solidaridadUmbralSalarios: z.number().positive(),
   interesesCesantias: z.number().min(0).max(100),
+  cesantias: z.number().min(0).max(100).optional(),
+  prima: z.number().min(0).max(100).optional(),
+  vacaciones: z.number().min(0).max(100).optional(),
 });
 
 export async function actualizarParametros(req: Request, res: Response): Promise<void> {
@@ -245,6 +252,9 @@ export async function actualizarParametros(req: Request, res: Response): Promise
     umbralParafiscales: data.umbralParafiscales,
     solidaridadUmbralSalarios: new Prisma.Decimal(data.solidaridadUmbralSalarios),
     interesesCesantias: new Prisma.Decimal(data.interesesCesantias),
+    cesantias: data.cesantias !== undefined ? new Prisma.Decimal(data.cesantias) : undefined,
+    prima: data.prima !== undefined ? new Prisma.Decimal(data.prima) : undefined,
+    vacaciones: data.vacaciones !== undefined ? new Prisma.Decimal(data.vacaciones) : undefined,
   };
   const guardado = await prisma.$transaction(async (tx) => {
     const p = await tx.parametroNomina.upsert({
@@ -654,7 +664,12 @@ export async function provisionar(req: Request, res: Response): Promise<void> {
   }
 
   const intereses = num(parametros.interesesCesantias);
-  const provisiones = lineas.map((l) => provisionarEmpleado(aContable(l), intereses));
+  const tasasPrestaciones = {
+    cesantias: num(parametros.cesantias),
+    prima: num(parametros.prima),
+    vacaciones: num(parametros.vacaciones),
+  };
+  const provisiones = lineas.map((l) => provisionarEmpleado(aContable(l), intereses, tasasPrestaciones));
 
   let mapa: Map<string, number>;
   try {

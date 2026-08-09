@@ -98,6 +98,9 @@ const PARAMETROS_NOMINA_DEFECTO_2026 = {
   umbralParafiscales: 10,
   solidaridadUmbralSalarios: 4,
   interesesCesantias: 12,
+  cesantias: 8.33,
+  prima: 8.33,
+  vacaciones: 4.17,
 };
 
 async function seedParametroNomina(): Promise<void> {

@@ -158,6 +158,8 @@ enum AccionAuditoria {
   ACTUALIZAR_PARAMETROS_NOMINA
   CARGAR_PRESUPUESTO
   SUBIR_ADJUNTO
+  DESCARGAR_ADJUNTO
+  ANONIMIZAR_TERCERO
   ELIMINAR_ADJUNTO
   IMPORTAR_EXTRACTO
   APROBAR_CONCILIACION
@@ -340,6 +342,7 @@ model Tercero {
   telefono          String?
   email             String?
   ciudad            String?
+  anonimizado       Boolean       @default(false)
   activo            Boolean       @default(true)
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
@@ -778,6 +781,9 @@ model ParametroNomina {
   umbralParafiscales         Int
   solidaridadUmbralSalarios  Decimal  @db.Decimal(5, 2)
   interesesCesantias         Decimal  @db.Decimal(5, 2)
+  cesantias                  Decimal  @default(8.33) @db.Decimal(5, 2)
+  prima                      Decimal  @default(8.33) @db.Decimal(5, 2)
+  vacaciones                 Decimal  @default(4.17) @db.Decimal(5, 2)
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
 

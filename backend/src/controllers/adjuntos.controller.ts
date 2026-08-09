@@ -90,12 +90,25 @@ export async function listar(req: Request, res: Response): Promise<void> {
 }
 
 export async function descargar(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
   const id = Number(req.params.id);
-  const adjunto = await prisma.adjunto.findFirst({ where: { id, empresaId: req.empresaId! } });
+  const adjunto = await prisma.adjunto.findFirst({ where: { id, empresaId } });
   if (!adjunto) {
     res.status(404).json({ error: "Adjunto no encontrado" });
     return;
   }
+  await registrarAuditoria(prisma, {
+    usuarioId: req.user!.sub,
+    empresaId,
+    accion: AccionAuditoria.DESCARGAR_ADJUNTO,
+    entidad: adjunto.entidad,
+    entidadId: adjunto.entidadId,
+    detalle: { nombre: adjunto.nombreOriginal, tamanoBytes: adjunto.tamanoBytes },
+  });
   res.download(path.join(adjuntosDir, adjunto.nombreArchivo), adjunto.nombreOriginal);
 }
 
