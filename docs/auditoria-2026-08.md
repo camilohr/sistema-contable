@@ -77,13 +77,21 @@ Bloque prioritario (no cubierto por auditorías anteriores). Se revisó contra `
 
 ### Autenticación
 - **S2-01 (Crítico) — Secreto JWT por defecto hardcodeado.** `backend/src/lib/jwt.ts:3` — `const SECRET = process.env.JWT_SECRET ?? "dev-secret";`. Si `JWT_SECRET` falta en producción, los tokens se firman con una cadena estática pública del repo: cualquiera puede forjar tokens válidos. No hay validación al arranque. `signToken` (`:13`) no especifica `algorithm` (HS256 por defecto, aceptable pero conviene fijarlo). Recomendación: abortar el boot si `JWT_SECRET` no existe o es `"dev-secret"` en producción; fijar `algorithm: "HS256"`; rotar el secreto.
-- **S2-02 (Crítico) — Sin protección contra fuerza bruta en login.** `backend/src/routes/auth.routes.ts:7` — `router.post("/login", login)`; `auth.controller.ts:12-40` sin contador de intentos, retardo ni límite. No existe `express-rate-limit` (no está en dependencias; `app.ts` no lo monta). Un atacante puede probar ilimitadamente. Recomendación: `express-rate-limit` en `/api/auth/login` (p. ej. 5 intentos/15 min por IP+email) + bloqueo temporal y registro en auditoría.
+
+  **Corregido en 20e08a6** — `JWT_SECRET` obligatorio (arrastra si falta o es `"dev-secret"`); `signToken`/`verifyToken` fijan `HS256` explícito.
+- **S2-02 (Crítico) — Sin protección contra fuerza bruta en login.** `backend/src/routes/auth.routes.ts:7` — `router.post("/login", login)`; `auth.controller.ts:12-40` sin contador de intentos, retardo ni límite. No existe `express-rate-limit` (no está en dependencias; `app.ts` no lo monta). Un atacante puede probar ilimitadamente. Recromendación: `express-rate-limit` en `/api/auth/login` (p. ej. 5 intentos/15 min por IP+email) + bloqueo temporal y registro en auditoría.
+
+  **Corregido en 20e08a6** — `express-rate-limit` v8 en `/api/auth/login` (5 por IP+email cada 15 min); al superar el límite responde 429 y registra `LOGIN_BLOQUEADO` en auditoría. Helper `ipKeyGenerator` para IPv6.
 - **S2-03 (Medio) — Política de contraseñas débil y cost bcrypt bajo.** `auth.controller.ts:68-70` exige `.min(6)`; `docs/manual-usuario.md:133` dice "mínimo 8 caracteres" (inconsistencia, ver S5). `auth.controller.ts:89` y `usuarios.controller.ts:50` usan `bcrypt.hash(..., 10)` (cost 10, por debajo de lo recomendado 12-14 en 2026). Recomendación: subir a `.min(8)` (o `.min(12)`), añadir complejidad y `process.env.BCRYPT_ROUNDS` (12).
+
+  **Corregido en 20e08a6** — Política subida a `.min(8)` + regex de letras y al menos un número; bcrypt usa `process.env.BCRYPT_ROUNDS` (default 12). `docs/manual-usuario.md` sincronizado con la política real (S5-14 cerrado para este ítem).
 - **S2-04 (Medio) — Token sin refresh/revocación.** `lib/jwt.ts:4` — TTL 12h, sin mecanismo de refresh, sin lista negra ni `jti`. Logout (`AuthContext.tsx:51`) solo limpia localStorage; el token sigue válido hasta expirar. `requireAuth` (`middleware/auth.ts:56-59`) sí valida `usuario.activo`. Recomendación: tokens de acceso cortos (15-30 min) + refresh; o invalidar por versión tras desactivar.
 - **S2-05 (Informativo) — `debeCambiarPassword` correcto.** `middleware/auth.ts:63-67` bloquea toda ruta salvo `me`/`cambiar-password`; `auth.controller.ts:89-93` limpia el flag al cambiar. ✓
 
 ### Gestión de secretos
 - **S2-06 (Crítico) — Igual que S2-01.** Confirma: el único secreto hardcodeado es `JWT_SECRET`. `frontend/src` no usa `process.env` ni credenciales; consume `/api` relativo. ✓ para el resto.
+
+  **Corregido en 20e08a6** — Cerrado junto con S2-01. No hay otros secretos hardcodeados.
 
 ### Validación de entradas (Zod)
 - **S2-07 (Medio) — Rutas de escritura sin Zod.** `conciliacion.controller.ts:88-89` (`crear`) y `:115-145` (`importar`) parsean con `Number(...)` 6 mapeos de columnas sin schema (NaN puede llegar a Prisma). `exportacion.controller.ts:240-241,260-261` (`paqueteInformes`/`paqueteFinalBaja`) usan `Number(req.body?.periodoId)` sin schema. `adjuntos.controller.ts:26-27` (`subir`) lee `entidad`/`entidadId` con `String(...)` sin schema (`entidad` se valida contra lista fija en `:30`, pero `entidadId` no en tipo). Recomendación: definir `.*Schema` y aplicar `.safeParse` en esos endpoints; unificar el patrón.

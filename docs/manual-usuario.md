@@ -130,7 +130,8 @@ Cada **comprobante** y cada **empresa** admite **soportes adjuntos** (facturas, 
 
 ## 11. Cambiar contraseña
 
-En *Cambiar contraseña* ingrese la actual y la nueva (mínimo 8 caracteres).
+En *Cambiar contraseña* ingrese la actual y la nueva. La nueva contraseña debe
+tener **mínimo 8 caracteres**, e incluir **letras y al menos un número**.
 
 ## 13. Usuarios y clientes (solo Administrador)
 
@@ -139,7 +140,9 @@ En *Cambiar contraseña* ingrese la actual y la nueva (mínimo 8 caracteres).
 Página **Usuarios** (módulo de administración):
 
 - Muestra los usuarios **asignados a la empresa activa** con su rol en esa empresa.
-- **Crear usuario**: nombre, correo, contraseña y rol. El nuevo usuario queda asignado
+- **Crear usuario**: nombre, correo, contraseña y rol. La contraseña debe tener
+  **mínimo 8 caracteres**, con **letras y al menos un número**. El nuevo usuario queda
+  asignado
   a la empresa activa. Su primer ingreso exige cambiar la contraseña.
 - **Cambiar rol**: selector junto a cada usuario. Un administrador no puede cambiarse
   su propio rol en la empresa activa.
