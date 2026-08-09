@@ -28,14 +28,24 @@ Bloque prioritario (no cubierto por auditorías anteriores). Se revisó contra `
 - `comprobantes.controller.ts:260-263` — `actualizar` rechaza si `estado !== BORRADOR`; `:396-399` — `eliminar` solo en BORRADOR. Asientos de comprobantes contabilizados no se borran. ✓
 - `comprobantes.controller.ts:103-108` — bloquea crear en periodo cerrado y valida fecha dentro del rango del periodo.
 - **S1-03 (Alto) — Reapertura de periodos de un año ya cerrado.** `backend/src/controllers/periodos.controller.ts:74-106` permite pasar `estado` de `CERRADO` a `ABIERTO` (audita `REABRIR_PERIODO`, lín. 92) **sin validar** que el año tenga `CierreAnual`. Combinado con `comprobantes.controller.ts:122-125` (que tras el cierre solo bloquea clases 4–7), permite alterar cuentas de balance (1–3) de un año cerrado, desvirtuando el asiento de cierre. Recomendación: en `actualizar`, bloquear el paso a `ABIERTO` si existe `CierreAnual` para ese `empresaId`+`anio`.
+
+  **Corregido en 0cdbeb3** — `periodos.actualizar` valida `CierreAnual.findFirst({empresaId, anio})` antes de aceptar `estado: "ABIERTO"`; rechaza con `400 "no se puede reabrir un periodo de un año ya cerrado"`.
 - **S1-04 (Alto) — Violación del orden cronológico en depreciación.** `backend/src/controllers/activos-fijos.controller.ts:241` fija `fecha: new Date()`. Si la depreciación de un periodo cerrado cronológicamente se ejecuta días después, el comprobante queda con fecha fuera del rango `[periodo.fechaInicio, periodo.fechaFin]`. El helper `crearComprobanteDiario` (`backend/src/lib/comprobantes.ts:27-58`) **no** invoca `validarYPreparar`, omitiendo toda validación de fecha/periodo/cierre. Otros módulos (provisión `provision-cartera.controller.ts:235`, nómina `nomina.controller.ts:571`, cierre `cierre-anual.controller.ts:219`) sí usan `periodo.fechaFin`. Recomendación: usar `periodo.fechaFin` en depreciación y hacer que `crearComprobanteDiario` valide fecha-dentro-de-periodo (o delegue en `validarYPreparar`).
+
+  **Corregido en 0cdbeb3** — Depreciación usa `periodo.fechaFin`; `crearComprobanteDiario` valida `fecha` dentro de `[periodo.fechaInicio, periodo.fechaFin]` y exige `min(2)` asientos (S4-01 también cubierto).
 - **S1-05 (Bajo) — Sin validación cronológica estricta entre comprobantes.** `comprobantes.controller.ts:100-149` solo exige que la fecha caiga dentro del periodo abierto; no compara contra comprobantes ya contabilizados del mismo `tipo`. `docs/normatividad.md:47-51` menciona "registro cronológico sin enmendaduras". Recomendación: evaluar si la política de la firma exige orden cronológico entre tipos y bloquear el back-dating fraccionado.
 - **S1-06 (Bajo) — Anulación por exclusión, no por contrasiento.** `comprobantes.controller.ts:356-387` solo cambia `estado` a `ANULADO` (sin asiento inverso); los reportes excluyen `ANULADO` (`reportes.controller.ts`). El efecto contable es correcto, pero `docs/normatividad.md:61` declara "anulación por contrasiento". Recomendación: alinear la documentación al mecanismo real (exclusión) o generar comprobante inverso al anular.
+
+  **Pendiente (parcial en 0cdbeb3)** — Se agregó bloqueo de doble anulación (`usuarioAnuloId` check). El contrasiento real (decisión (b)) se difiere: requiere cambios en cascada en provision-cartera (`estado === ANULADO`), nómina y cleanup de tests.
 
 **Conservación de libros y soportes (art. 134; Código de Comercio arts. 48-74; Estatuto Tributario art. 632 — 5 años, libros hasta 10).**
 - `backend/scripts/backup.mjs:69` — `keep: 14` por defecto. `programar-respaldo.ps1:13` — `-Keep 14` por defecto. Documentado en `docs/respaldo.md:24`.
 - **S1-07 (Alto) — Retención por defecto insuficiente.** 14 copias diarias ≈ 14 días, muy por debajo de la obligación de conservación (5 años tributarios; 10 años libros). Es configurable (`--keep`, `-Keep`), pero el valor por defecto instala al incumplimiento si el contador no lo ajusta. Recomendación: subir el valor por defecto a algo alineado con el régimen (p. ej. 60 mensuales + 10 anuales) o al menos advertir al instalar.
+
+  **Corregido en 0cdbeb3** — Retención por defecto GFS (diarios 30 + mensuales 12 + anuales 5), alineada con art. 632 del Estatuto Tributario (5 años). Documentado en `docs/respaldo.md`.
 - **S1-08 (Medio) — Sin esquema GFS de retención.** Subir `--keep` a `1825` implica miles de `.dump` diarios. Recomendación: implementar retención diaria/semanal/mensual/anual (grandfather-father-son) y dejar constancia documental del periodo cubierto.
+
+  **Corregido en 0cdbeb3** — Esquema GFS implementado en `backup.mjs` (abuelo-padre-hijo: diarios 30d + mensuales 12m + anuales 5a). `--keep N` mantiene retención simple (backward compat); `--daily/--monthly/--annual` ajustan GFS.
 
 **Reproducción de asientos históricos (art. 128).**
 - `reportes.controller.ts:17-29` — `whereFiltros` filtra por `estado CONTABILIZADO` + `empresaId` + opcional `periodoId`/rango; **sin** limitar a "periodo activo". Exportación PDF (`libros-pdf.controller.ts`), CSV/XLSX (`exportacion.controller.ts`) y `paqueteParaEmpresa` permiten reconstruir cualquier periodo histórico. ✓ Adeuda nota: `ANULADO`/`BORRADOR` no aparecen en los libros legales (`S1-06`).
@@ -174,11 +184,17 @@ Bloque prioritario (no cubierto por auditorías anteriores). Se revisó contra `
 - `backend/src/lib/comprobantes.ts:28-32` — `crearComprobanteDiario` también valida partida doble (para comprobantes del sistema).
 - **S4-01 (Bajo) — `crearComprobanteDiario` no exige `min(2)`.** `lib/comprobantes.ts:27-58`. Hoy se invoca siempre con pares binarios y los controladores verifican, pero un caller futuro podría pasar un único asiento. Recomendación: añadir `if (data.asientos.length < 2) throw`.
 
+  **Corregido en 0cdbeb3** — Se añadió `if (data.asientos.length < 2) throw` en `crearComprobanteDiario`.
+
 ### Cierre anual
 - `cierre-anual.controller.ts:104-108` — bloquea doble cierre; `:112-124` exige todos los periodos cerrados; `:180-206` construye asientos de clases 4–7 + cuenta de utilidad; `:215-254` usa `crearComprobanteDiario` y `ultimoPeriodo.fechaFin`. ✓
 - **S4-02 (Medio) — Omite cuentas de resultado con saldo inverso.** `cierre-anual.controller.ts:185` — `if (monto <= 0) continue;`. Una cuenta de gasto con saldo neto acreedor ( crédito > débito, inusual pero posible por asientos correctores) quedaría **sin cerrar**. Igual para ingresos con saldo deudor. Recomendación: cambiar a `if (monto === 0) continue;` y gestionar el signo.
+
+  **Corregido en 0cdbeb3** — Condición cambiada a `if (monto === 0) continue;`; las cuentas con saldo inverso (gasto acreedor, ingreso deudor) generan asiento en el lado contrario. `resultado` se calcula con `totalDebitos - totalCreditos` (correcto con saldo inverso).
 - **S4-03 (Bajo) — Redondeo por cuenta.** `redondear2(saldo)` por cuenta (`:184`) y `resultado = redondear2(debitoIngresos - creditoGastos)` (`:200`). El asiento cuadra por construcción, pero la utilidad puede diferir en centavos de la suma de saldos sin redondeo. Documentar.
 - **S4-04 (Alto, ya S1-03) — Reapertura post-cierre.** `periodos.controller.ts:74-106` permite alterar cuentas 1–3 de un año ya cerrado. Ver S1-03.
+
+  **Corregido en 0cdbeb3** — Ver S1-03 (mismo fix).
 
 ### Redondeo (depreciación, provisión cartera, nómina)
 - `provision-cartera.controller.ts:199-227` — cada `provision` redondea a 2 y usa el mismo `incremental` como débito/crédito (cuadra exacto); reversión simétrica. ✓
@@ -186,6 +202,8 @@ Bloque prioritario (no cubierto por auditorías anteriores). Se revisó contra `
 
 ### Inventario — salidas negativas
 - **S4-05 (Medio) — Condición de carrera (TOCTOU) en salidas.** `productos.controller.ts:158-192` — `cantidadActual`/`costoPromedio` se leen **fuera** de la transacción (`:158-159`), el chequeo `data.cantidad > cantidadActual` (`:168`) ocurre antes de `$transaction` (`:176-192`) y no bloquea la fila `Producto`. Dos `SALIDA` concurrentes pueden leer el mismo saldo y dejar existencias negativas. La validación existe, pero no es atómica. Recomendación: leer `cantidadActual` y verificar dentro de la transacción con `SELECT ... FOR UPDATE` (o serializable). `movimientoSchema.cantidad: z.number().positive()` (`:22`) ✓.
+
+  **Corregido en 0cdbeb3** — `crearMovimiento` ahora lee `cantidadActual`/`costoPromedio` dentro de `prisma.$transaction` con `SELECT ... FOR UPDATE` (lock de fila) y valida saldo antes de crear el movimiento o actualizar el producto.
 
 ### Anulación
 - **S4-06 (Bajo, ya S1-06) — Anulación por estado, no contrasiento.** `comprobantes.controller.ts:356-387`. Reportes excluyen `ANULADO`. Efecto correcto, documentación desincronizada.
