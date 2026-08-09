@@ -8,7 +8,11 @@ import { AccionAuditoria } from "@prisma/client";
 const createSchema = z.object({
   nombre: z.string().min(1),
   email: z.string().email(),
-  password: z.string().min(6),
+  password: z
+    .string()
+    .min(8, "La contraseña debe tener al menos 8 caracteres")
+    .regex(/[a-zA-Z]/, "La contraseña debe contener letras")
+    .regex(/[0-9]/, "La contraseña debe contener al menos un número"),
   rol: z.enum(["ADMIN", "CONTADOR", "AUXILIAR"]),
 });
 
@@ -47,7 +51,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
     res.status(409).json({ error: "El correo ya está registrado" });
     return;
   }
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, Number(process.env.BCRYPT_ROUNDS) || 12);
   const usuario = await prisma.$transaction(async (tx) => {
     const u = await tx.usuario.create({
       data: { nombre, email: email.toLowerCase(), passwordHash, rol, debeCambiarPassword: true },

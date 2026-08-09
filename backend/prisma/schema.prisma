@@ -133,6 +133,7 @@ enum TipoAdjuntoEntidad {
 }
 
 enum AccionAuditoria {
+  LOGIN_BLOQUEADO
   CONTABILIZAR
   ANULAR
   ELIMINAR_COMPROBANTE

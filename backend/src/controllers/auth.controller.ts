@@ -67,7 +67,11 @@ export async function me(req: Request, res: Response): Promise<void> {
 
 const cambiarPasswordSchema = z.object({
   passwordActual: z.string().min(1),
-  passwordNueva: z.string().min(6, "La nueva contraseña debe tener al menos 6 caracteres"),
+  passwordNueva: z
+    .string()
+    .min(8, "La nueva contraseña debe tener al menos 8 caracteres")
+    .regex(/[a-zA-Z]/, "La nueva contraseña debe contener letras")
+    .regex(/[0-9]/, "La nueva contraseña debe contener al menos un número"),
 });
 
 export async function cambiarPassword(req: Request, res: Response): Promise<void> {
@@ -86,7 +90,7 @@ export async function cambiarPassword(req: Request, res: Response): Promise<void
     res.status(400).json({ error: "La contraseña actual es incorrecta" });
     return;
   }
-  const passwordHash = await bcrypt.hash(parsed.data.passwordNueva, 10);
+  const passwordHash = await bcrypt.hash(parsed.data.passwordNueva, Number(process.env.BCRYPT_ROUNDS) || 12);
   await prisma.usuario.update({
     where: { id: usuario.id },
     data: { passwordHash, debeCambiarPassword: false },
