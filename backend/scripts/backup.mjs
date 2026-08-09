@@ -15,6 +15,9 @@
 //   PGRESTORE_PATH ruta explícita a pg_restore
 //   BACKUP_COPIA_EXTERNA_DIR carpeta adicional a la que se copia el .dump y el
 //                          adjuntos.zip tras verificar el respaldo (no fatal)
+//   BACKUP_ENCRYPT_KEY frase de acceso para cifrar el .dump y el adjuntos.zip
+//                          (AES-256-GCM, S1-10). Si se define, los respaldos se
+//                          cifran en el momento de crearlos.
 //
 // Retención por defecto (GFS — abuelo-padre-hijo):
 //   - Diarios: conserva todas las copias de los últimos 30 días.
@@ -29,6 +32,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { escribirZipDesdeCarpeta, extraerZip } from "./zip-lite.mjs";
+import { cifrarArchivo, esCifrado, baseDeCifrado } from "./cifrado.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendDir = path.resolve(__dirname, "..");
@@ -255,7 +259,7 @@ async function copiaExterna(logFile, ruta, rutaAdjuntos) {
 async function listar(opt, pgRestore) {
   await mkdir(opt.dir, { recursive: true });
   const archivos = (await readdir(opt.dir))
-    .filter((f) => f.endsWith(".dump") || f.endsWith(".sql") || f.endsWith(".adjuntos.zip"))
+    .filter((f) => baseDeCifrado(f).endsWith(".dump") || baseDeCifrado(f).endsWith(".sql") || baseDeCifrado(f).endsWith(".adjuntos.zip"))
     .sort();
   if (archivos.length === 0) {
     console.log("No hay respaldos en", opt.dir);
@@ -265,13 +269,15 @@ async function listar(opt, pgRestore) {
   for (const f of archivos) {
     const ruta = path.join(opt.dir, f);
     const st = await stat(ruta);
-    if (f.endsWith(".adjuntos.zip")) {
+    if (baseDeCifrado(f).endsWith(".adjuntos.zip")) {
       const mb = (st.size / 1024 / 1024).toFixed(2);
-      console.log(`  ${f.padEnd(32)} ${mb.padStart(8)} MB   adjuntos`);
+      const cifra = esCifrado(f) ? " [cifrado]" : "";
+      console.log(`  ${f.padEnd(32)} ${mb.padStart(8)} MB   adjuntos${cifra}`);
       continue;
     }
-    const estado = f.endsWith(".dump") ? await verificar(pgRestore, ruta) : { ok: null };
-    const marca = estado.ok ? `OK (${estado.objetos} objetos)` : estado.ok === false ? "CORRUPTO" : "—";
+    let estado = { ok: null };
+    if (f.endsWith(".dump")) estado = await verificar(pgRestore, ruta);
+    const marca = estado.ok ? `OK (${estado.objetos} objetos)` : estado.ok === false ? "CORRUPTO" : esCifrado(f) ? "cifrado" : "—";
     const mb = (st.size / 1024 / 1024).toFixed(2);
     console.log(`  ${f.padEnd(32)} ${mb.padStart(8)} MB   ${marca}`);
   }
@@ -324,6 +330,7 @@ async function main() {
 
   console.log(`Respaldo verificado: OK (${verif.objetos} objetos)`);
 
+  const claveCifrado = process.env.BACKUP_ENCRYPT_KEY;
   const rutaAdjuntos = ruta.replace(/\.dump$/, ".adjuntos.zip");
   const adjuntosDir = process.env.ADJUNTOS_DIR ? path.resolve(process.env.ADJUNTOS_DIR) : path.join(backendDir, "adjuntos");
   if (await existe(adjuntosDir)) {
@@ -338,26 +345,59 @@ async function main() {
     }
   }
 
+  // S1-10: cifrar el respaldo (AES-256-GCM) si BACKUP_ENCRYPT_KEY está definida.
+  let rutaFinalDump = ruta;
+  let rutaFinalAdjuntos = rutaAdjuntos;
+  if (claveCifrado) {
+    try {
+      const rutaEnc = `${ruta}.enc`;
+      await cifrarArchivo(ruta, rutaEnc, claveCifrado);
+      await unlink(ruta).catch(() => {});
+      rutaFinalDump = rutaEnc;
+      await registrar(logFile, `OK cifrado ${path.basename(rutaEnc)}`);
+      console.log(`Respaldo cifrado: ${path.basename(rutaEnc)}`);
+    } catch (err) {
+      await registrar(logFile, `ERROR cifrado dump: ${err.message}`);
+      console.error("ERROR al cifrar el respaldo:", err.message);
+      process.exit(1);
+    }
+    if (await existe(rutaAdjuntos)) {
+      try {
+        const rutaAdjEnc = `${rutaAdjuntos}.enc`;
+        await cifrarArchivo(rutaAdjuntos, rutaAdjEnc, claveCifrado);
+        await unlink(rutaAdjuntos).catch(() => {});
+        rutaFinalAdjuntos = rutaAdjEnc;
+        await registrar(logFile, `OK cifrado ${path.basename(rutaAdjEnc)}`);
+        console.log(`Adjuntos cifrados: ${path.basename(rutaAdjEnc)}`);
+      } catch (err) {
+        await registrar(logFile, `ERROR cifrado adjuntos: ${err.message}`);
+        console.error("ERROR al cifrar los adjuntos:", err.message);
+      }
+    }
+  }
+
   const dumps = (await readdir(opt.dir))
-    .filter((f) => f.endsWith(".dump") && !f.includes(".tmp"))
+    .filter((f) => baseDeCifrado(f).endsWith(".dump") && !f.includes(".tmp"))
     .sort()
     .reverse();
   const retencion = aplicarRetencion(dumps, opt);
   for (const f of retencion.eliminar) {
-    await unlink(path.join(opt.dir, f));
+    const base = baseDeCifrado(f);
+    await unlink(path.join(opt.dir, f)).catch(() => {});
     await unlink(path.join(opt.dir, f.replace(/\.dump$/, ".adjuntos.zip"))).catch(() => {});
+    await unlink(path.join(opt.dir, `${base}.adjuntos.zip.enc`)).catch(() => {});
     await registrar(logFile, `Eliminado por retención ${retencion.modo}: ${f}`);
     console.log(`Retención: eliminado ${f}`);
   }
 
   await verificarPorEmpresa(pg, dbUri, logFile);
 
-  await copiaExterna(logFile, ruta, rutaAdjuntos);
+  await copiaExterna(logFile, rutaFinalDump, rutaFinalAdjuntos);
 
-  const st = await stat(ruta);
+  const st = await stat(rutaFinalDump);
   await registrar(
     logFile,
-    `OK respaldo ${nombre} (${(st.size / 1024).toFixed(0)} KB, ${verif.objetos} objetos, retención ${retencion.modo})`
+    `OK respaldo ${path.basename(rutaFinalDump)} (${(st.size / 1024).toFixed(0)} KB, ${verif.objetos} objetos, retención ${retencion.modo}${claveCifrado ? ", cifrado" : ""})`
   );
   console.log(`Listo. Quedan ${retencion.mantener.size} respaldo(s).`);
 }

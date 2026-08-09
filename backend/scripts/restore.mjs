@@ -7,19 +7,25 @@
 //   node scripts/restore.mjs <archivo.dump> --confirm --target <uri>  # restaura en otra BD
 //   node scripts/restore.mjs <archivo.dump> --list      # solo lista el contenido del respaldo
 //
-// Formatos soportados: .dump (pg_restore, formato custom) y .sql (psql, texto plano).
+// Formatos soportados: .dump (pg_restore, formato custom), .sql (psql, texto
+// plano) y sus versiones cifradas .dump.enc / .sql.enc (si BACKUP_ENCRYPT_KEY
+// está definida en backend/.env se descifran automáticamente a un temporal).
 //
 // Variables de entorno opcionales:
 //   PGRESTORE_PATH ruta explícita a pg_restore
 //   PSQL_PATH      ruta explícita a psql
+//   BACKUP_ENCRYPT_KEY frase de acceso usada para cifrar los respaldos (S1-10);
+//                      si el archivo está cifrado y no se define, se aborta.
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { access } from "node:fs/promises";
+import { access, unlink } from "node:fs/promises";
 import path from "node:path";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { extraerZip } from "./zip-lite.mjs";
+import { esCifrado, baseDeCifrado, descifrarArchivo } from "./cifrado.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendDir = path.resolve(__dirname, "..");
@@ -72,10 +78,10 @@ async function main() {
     process.exit(1);
   }
 
-  const esSql = archivo.toLowerCase().endsWith(".sql");
-  const esDump = archivo.toLowerCase().endsWith(".dump");
+  const esSql = baseDeCifrado(archivo).toLowerCase().endsWith(".sql");
+  const esDump = baseDeCifrado(archivo).toLowerCase().endsWith(".dump");
   if (!esSql && !esDump) {
-    console.error("ERROR: el archivo debe tener extensión .dump o .sql");
+    console.error("ERROR: el archivo debe tener extensión .dump, .sql o sus versiones cifradas .enc");
     process.exit(1);
   }
 
@@ -86,26 +92,50 @@ async function main() {
 
   const destino = (target || process.env.DATABASE_URL).split("?")[0];
 
+  // S1-10: descifrar respaldo cifrado (.enc) a un archivo temporal antes de operar.
+  let archivoPlano = archivo;
+  let temporalCifrado = null;
+  if (esCifrado(archivo)) {
+    const clave = process.env.BACKUP_ENCRYPT_KEY;
+    if (!clave) {
+      console.error("ERROR: el respaldo está cifrado (S1-10) y no se encontró BACKUP_ENCRYPT_KEY en backend/.env para descifrarlo.");
+      process.exit(1);
+    }
+    archivoPlano = path.join(os.tmpdir(), `contabilidad_restore_${Date.now()}.dump`);
+    try {
+      await descifrarArchivo(archivo, clave, archivoPlano);
+      console.log(`Respaldo cifrado descifrado a temporal: ${archivoPlano}`);
+    } catch (err) {
+      await unlink(archivoPlano).catch(() => {});
+      console.error("ERROR al descifrar el respaldo:", err.message);
+      process.exit(1);
+    }
+    temporalCifrado = archivoPlano;
+  }
+
   if (esDump) {
     const pgRestore = await tool("pg_restore");
     if (soloListar) {
-      const { stdout } = await exec(pgRestore, ["--list", archivo]);
+      const { stdout } = await exec(pgRestore, ["--list", archivoPlano]);
       console.log(stdout);
+      await unlink(temporalCifrado || "").catch(() => {});
       return;
     }
     if (!confirmar) {
       console.log("Modo previsualización (no se restauró nada).");
       console.log("Objetos que contiene el respaldo (primeras líneas):");
-      const { stdout } = await exec(pgRestore, ["--list", archivo]);
+      const { stdout } = await exec(pgRestore, ["--list", archivoPlano]);
       console.log(stdout.split("\n").slice(0, 12).join("\n"));
       console.log(`\nPara restaurar de verdad ejecute con --confirm (destino: ${destino})`);
+      await unlink(temporalCifrado || "").catch(() => {});
       return;
     }
     console.log(`Restaurando ${archivo} en ${destino} ...`);
-    const argsRestore = ["--clean", "--if-exists", "--no-owner", "--no-privileges", "-d", destino, archivo];
+    const argsRestore = ["--clean", "--if-exists", "--no-owner", "--no-privileges", "-d", destino, archivoPlano];
     try {
       await exec(pgRestore, argsRestore, { encoding: "utf8" });
     } catch (err) {
+      await unlink(temporalCifrado || "").catch(() => {});
       console.error("ERROR en la restauración:", err.stderr?.trim() || err.message);
       process.exit(1);
     }
@@ -113,17 +143,20 @@ async function main() {
     const psql = await tool("psql");
     if (soloListar) {
       console.log("Los respaldos .sql no permiten previsualización; puede revisar el archivo directamente.");
+      await unlink(temporalCifrado || "").catch(() => {});
       return;
     }
     if (!confirmar) {
       console.log("Modo previsualización (no se restauró nada).");
       console.log(`Para restaurar de verdad ejecute con --confirm (destino: ${destino})`);
+      await unlink(temporalCifrado || "").catch(() => {});
       return;
     }
     console.log(`Restaurando ${archivo} en ${destino} ...`);
     try {
-      await exec(psql, ["-v", "ON_ERROR_STOP=1", "-d", destino, "-f", archivo], { encoding: "utf8" });
+      await exec(psql, ["-v", "ON_ERROR_STOP=1", "-d", destino, "-f", archivoPlano], { encoding: "utf8" });
     } catch (err) {
+      await unlink(temporalCifrado || "").catch(() => {});
       console.error("ERROR en la restauración:", err.stderr?.trim() || err.message);
       process.exit(1);
     }
@@ -132,19 +165,43 @@ async function main() {
   console.log("Restauración completada.");
 
   if (esDump && confirmar) {
-    const adjuntosZip = archivo.replace(/\.dump$/i, ".adjuntos.zip");
+    const adjuntosZip = baseDeCifrado(archivo).replace(/\.dump$/i, ".adjuntos.zip");
+    const adjuntosZipEnc = esCifrado(archivo) ? `${adjuntosZip}.enc` : null;
     const adjuntosDir = process.env.ADJUNTOS_DIR ? path.resolve(process.env.ADJUNTOS_DIR) : path.join(backendDir, "adjuntos");
-    if (await existe(adjuntosZip)) {
+    const rutaAdj = adjuntosZipEnc && (await existe(adjuntosZipEnc)) ? adjuntosZipEnc : adjuntosZip;
+    if (await existe(rutaAdj)) {
+      let rutaZipPlano = rutaAdj;
+      let temporalAdj = null;
+      if (esCifrado(rutaAdj)) {
+        const clave = process.env.BACKUP_ENCRYPT_KEY;
+        if (!clave) {
+          console.error("ERROR: los adjuntos están cifrados y no se encontró BACKUP_ENCRYPT_KEY.");
+          await unlink(temporalCifrado || "").catch(() => {});
+          process.exit(1);
+        }
+        rutaZipPlano = path.join(os.tmpdir(), `contabilidad_adjuntos_${Date.now()}.zip`);
+        try {
+          await descifrarArchivo(rutaAdj, clave, rutaZipPlano);
+        } catch (err) {
+          console.error("ERROR al descifrar los adjuntos:", err.message);
+          await unlink(temporalCifrado || "").catch(() => {});
+          process.exit(1);
+        }
+        temporalAdj = rutaZipPlano;
+      }
       try {
-        await extraerZip(adjuntosZip, adjuntosDir);
+        await extraerZip(rutaZipPlano, adjuntosDir);
         console.log(`Adjuntos restaurados en ${adjuntosDir}`);
       } catch (err) {
         console.error("ERROR al restaurar los adjuntos:", err.message);
       }
+      await unlink(temporalAdj || "").catch(() => {});
     } else {
       console.log("No se encontró un archivo de adjuntos asociado; se omiten los adjuntos.");
     }
   }
+
+  await unlink(temporalCifrado || "").catch(() => {});
 }
 
 main().catch((err) => {
