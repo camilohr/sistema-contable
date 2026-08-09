@@ -67,12 +67,18 @@ Bloque prioritario (no cubierto por auditorías anteriores). Se revisó contra `
 
 - **S1-11 (Medio) — Sin trazabilidad de descarga de adjuntos con datos personales.** `adjuntos.controller.ts` (`descargar`, ~lín. 91-99) no llama a `registrarAuditoria`; quien descarga un soporte (con datos de terceros/empleado) no queda registrado. Recomendación: registrar una `Auditoria` de `accion DESCARGAR_ADJUNTO` con `entidadId` y `empresaId`.
 
+  **Corregido en 9f60d29** — `descargar` en `adjuntos.controller.ts` ahora registra `AccionAuditoria.DESCARGAR_ADJUNTO` con `entidad`, `entidadId`, `empresaId` y detalle del archivo (nombre original y tamaño) antes de servir el descargable.
+
 - **S1-12 (Medio) — Derechos ARSO limitados; sin supresión selectiva.** Existe exportación por empresa (`paqueteInformes`/`paqueteFinalBaja` — este último solo exporta, no elimina: `exportacion.controller.ts:259-282`) y soft-delete de `Tercero`/`Empleado`/`Usuario` (`activo=false`), pero **no** hay forma de eliminar/exportar los datos personales de un titular concreto a petición suya sin borrar el registro contable. Recomendación: diseñar un proceso documentado para supresión/anonimización de un tercero/empleado concreto (y registrarlo), y exponer el aviso de privacidad en `manual-usuario.md`. El sistema no puede sustituir la autorización y el registro ante RNBD, pero debe facilitarlo.
+
+  **Corregido en 9f60d29** — Se añadió anonimización selectiva de terceros: campo `Tercero.anonimizado` + endpoint `POST /api/terceros/:id/anonimizar` (solo `ADMIN`). Sustituye los datos personales (razón social, NIT, contactos, notas) por valores genéricos `ANONIMIZADO`, conservando el registro contable y marcando `anonimizado=true`; un tercero anonimizado no puede volver a editarse. El proceso queda documentado en `manual-usuario.md`.
 
 ### 1.3 Normativa laboral (módulo de nómina)
 
 - `ParametroNomina` (`schema.prisma:761-786`) contiene SMMLV, auxilio de transporte, topes, % de salud/pensión/parafiscales. `nomina.controller.ts:380-387` los carga por `(empresaId, anio)` o globales. ✓
 - **S1-13 (Medio) — Cesantías, prima y vacaciones hardcodeadas.** `backend/src/lib/nomina.ts:150` (`cesantias = base/12`), `:152` (`prima = base/12`), `:154` (`vacaciones = base/24`). Solo `interesesCesantias` vive en `ParametroNomina`. `docs/diseno-nomina.md:65-68` las lista como parámetros. Las fracciones son legales hoy, pero rompen el principio "todo parámetro en BD" y dificultan cambios normativos. Recomendación: añadir columnas `cesantias`, `prima`, `vacaciones` a `ParametroNomina` (con defaults 8.33/8.33/4.17).
+
+  **Corregido en 9f60d29** — Columnas `cesantias`, `prima`, `vacaciones` añadidas a `ParametroNomina` (Decimal, defaults 8.33/8.33/4.17), sembradas y expuestas en `GET/PUT /api/nomina/parametros/:anio`. `provisionarEmpleado` en `lib/nomina.ts` las consume (con fallback a los defaults si no hay registro del año); `provisionar` las carga de la BD y pasa las tasas al cálculo.
 - **S1-14 (Informativo) — Nómina electrónica / PILA fuera de alcance.** `docs/diseno-nomina.md:27,371-377` lo declara; el sistema solo calcula y contabiliza la provisión mensual. La liquidación definitiva (cesantías con sanción al retiro) y la radicación quedan externas. Recomendación: dejarlo explícito en `manual-usuario.md` (la provisión asentada es provisional, requiere ajuste externo).
 
 ### 1.4 Ejercicio profesional del contador (Ley 43 de 1990)

@@ -37,6 +37,16 @@ Registre clientes, proveedores o ambos (tipo CC, NIT, CE o pasaporte).
 - **Editar / Desactivar**: conserve el historial; un tercero inactivo no se usa en nuevos documentos.
 - Filtros por texto, tipo de tercero y solo activos.
 
+### Anonimización (derechos ARSO)
+
+Para atender solicitudes de supresión sin borrar el registro contable, el **Administrador** puede anonimizar un tercero:
+
+- Al anonimizar se sustituyen los datos personales (razón social, NIT/documento, contactos, direcciones y notas) por valores genéricos, se marca el tercero como `anonimizado` y se conserva intacto su historial contable (comprobantes, CxC/CxP, movimientos).
+- Un tercero anonimizado **no se puede volver a editar**; es una operación definitiva e irreversible desde la interfaz.
+- Queda registrada en la auditoría (`ANONIMIZAR_TERCERO`).
+
+> Nota: la anonimización facilita el cumplimiento de derechos ARSO pero no sustituye la autorización ante la SIC/RNBD ni los registros de tratamiento de datos de su despacho.
+
 ## 4. Periodos contables
 
 - **Nuevo periodo**: nombre y rango de fechas (inicio–fin).

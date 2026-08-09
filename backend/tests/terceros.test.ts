@@ -6,9 +6,10 @@ import bcrypt from "bcryptjs";
 
 const app = createApp();
 
-const emails = ["admin3@test.local", "aux3@test.local"];
+const emails = ["admin3@test.local", "aux3@test.local", "cont3@test.local"];
 let adminToken = "";
 let auxToken = "";
+let contadorToken = "";
 
 async function login(email: string, password: string): Promise<string> {
   const res = await request(app).post("/api/auth/login").send({ email, password });
@@ -16,16 +17,20 @@ async function login(email: string, password: string): Promise<string> {
 }
 
 beforeAll(async () => {
+  await prisma.auditoria.deleteMany({ where: { usuario: { email: { in: emails } } } });
   await prisma.usuario.deleteMany({ where: { email: { in: emails } } });
-  await prisma.tercero.deleteMany({ where: { documento: { in: ["79808071", "900123456", "900123456-1", "AB123456", "79999999", "79999998"] } } });
+  await prisma.tercero.deleteMany({ where: { documento: { in: ["79808071", "900123456", "900123456-1", "AB123456", "79999999", "79999998", "79999997", "79999996", "79999995"] } } });
   await prisma.usuario.create({ data: { nombre: "Admin 3", email: "admin3@test.local", passwordHash: await bcrypt.hash("clave123", 10), rol: "ADMIN" } });
   await prisma.usuario.create({ data: { nombre: "Aux 3", email: "aux3@test.local", passwordHash: await bcrypt.hash("clave123", 10), rol: "AUXILIAR" } });
+  await prisma.usuario.create({ data: { nombre: "Cont 3", email: "cont3@test.local", passwordHash: await bcrypt.hash("clave123", 10), rol: "CONTADOR" } });
   adminToken = await login("admin3@test.local", "clave123");
   auxToken = await login("aux3@test.local", "clave123");
+  contadorToken = await login("cont3@test.local", "clave123");
 });
 
 afterAll(async () => {
-  await prisma.tercero.deleteMany({ where: { documento: { in: ["79808071", "900123456", "900123456-1", "AB123456", "79999999", "79999998"] } } });
+  await prisma.tercero.deleteMany({ where: { documento: { in: ["79808071", "900123456", "900123456-1", "AB123456", "79999999", "79999998", "79999997", "79999996", "79999995"] } } });
+  await prisma.auditoria.deleteMany({ where: { usuario: { email: { in: emails } } } });
   await prisma.usuario.deleteMany({ where: { email: { in: emails } } });
   await prisma.$disconnect();
 });
@@ -157,6 +162,83 @@ describe("Actualización y desactivación", () => {
     expect(enBD?.activo).toBe(false);
     const soloActivos = await request(app).get("/api/terceros?soloActivos=true").set("Authorization", `Bearer ${adminToken}`);
     expect(soloActivos.body.some((t: { id: string }) => t.id === creado.body.id)).toBe(false);
+    await prisma.tercero.delete({ where: { id: creado.body.id } });
+  });
+});
+
+describe("Anonimización de terceros (S1-12)", () => {
+  let terceroId = "";
+
+  beforeAll(async () => {
+    const creado = await request(app)
+      .post("/api/terceros")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ tipoDocumento: "CC", documento: "79999997", nombreRazonSocial: "Titular ARSO", telefono: "3115550000", email: "titular@ejemplo.com" });
+    terceroId = creado.body.id;
+  });
+
+  afterAll(async () => {
+    await prisma.tercero.delete({ where: { id: terceroId } });
+  });
+
+  it("anonimiza un tercero y conserva el registro (200)", async () => {
+    const res = await request(app)
+      .post(`/api/terceros/${terceroId}/anonimizar`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    const enBD = await prisma.tercero.findUnique({ where: { id: terceroId } });
+    expect(enBD?.anonimizado).toBe(true);
+    expect(enBD?.nombreRazonSocial).toBe("[ANONIMIZADO]");
+    expect(enBD?.telefono).toBeNull();
+    expect(enBD?.email).toBeNull();
+    expect(enBD?.documento).toBe("79999997");
+  });
+
+  it("registra ANONIMIZAR_TERCERO en auditoría", async () => {
+    const auditoria = await prisma.auditoria.findFirst({
+      where: { entidad: "Tercero", entidadId: terceroId, accion: "ANONIMIZAR_TERCERO" },
+      orderBy: { fecha: "desc" },
+    });
+    expect(auditoria).not.toBeNull();
+  });
+
+  it("no permite editar un tercero ya anonimizado (400)", async () => {
+    const res = await request(app)
+      .patch(`/api/terceros/${terceroId}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ nombreRazonSocial: "Intento de edición" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("anonimizado");
+  });
+
+  it("no permite anonimizar dos veces (400)", async () => {
+    const res = await request(app)
+      .post(`/api/terceros/${terceroId}/anonimizar`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(400);
+  });
+
+  it("CONTADOR no puede anonimizar (403)", async () => {
+    const creado = await request(app)
+      .post("/api/terceros")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ tipoDocumento: "CC", documento: "79999996", nombreRazonSocial: "Sin permiso" });
+    const res = await request(app)
+      .post(`/api/terceros/${creado.body.id}/anonimizar`)
+      .set("Authorization", `Bearer ${contadorToken}`);
+    expect(res.status).toBe(403);
+    await prisma.tercero.delete({ where: { id: creado.body.id } });
+  });
+
+  it("AUXILIAR no puede anonimizar (403)", async () => {
+    const creado = await request(app)
+      .post("/api/terceros")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ tipoDocumento: "CC", documento: "79999995", nombreRazonSocial: "Sin permiso aux" });
+    const res = await request(app)
+      .post(`/api/terceros/${creado.body.id}/anonimizar`)
+      .set("Authorization", `Bearer ${auxToken}`);
+    expect(res.status).toBe(403);
     await prisma.tercero.delete({ where: { id: creado.body.id } });
   });
 });
