@@ -16,6 +16,7 @@ async function validarEntidad(entidad: string, entidadId: string, empresaId: str
     return Boolean(c);
   }
   if (entidad === "EMPRESA") {
+    if (entidadId !== empresaId) return false;
     const e = await prisma.empresa.findUnique({ where: { id: entidadId } });
     return Boolean(e);
   }

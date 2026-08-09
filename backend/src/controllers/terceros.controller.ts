@@ -74,6 +74,11 @@ export async function listar(req: Request, res: Response): Promise<void> {
 }
 
 export async function crear(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
   const parsed = crearSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
@@ -82,7 +87,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
   const data = parsed.data;
 
   const existe = await prisma.tercero.findFirst({
-    where: { empresaId: req.empresaId, tipoDocumento: data.tipoDocumento, documento: data.documento },
+    where: { empresaId, tipoDocumento: data.tipoDocumento, documento: data.documento },
   });
   if (existe) {
     res.status(409).json({ error: `Ya existe un tercero con ${data.tipoDocumento} ${data.documento}` });
@@ -91,7 +96,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
 
   const tercero = await prisma.tercero.create({
     data: {
-      empresaId: req.empresaId,
+      empresaId,
       tipo: data.tipo ?? "CLIENTE",
       tipoDocumento: data.tipoDocumento,
       documento: data.documento,

@@ -259,6 +259,7 @@ describe("Gestión de clientes (/api/empresas)", () => {
     });
     const res = await request(app)
       .post(`/api/empresas/${empresaNoVinculada}/informes/paquete-final`)
+      .set("X-Empresa-Id", empresaNoVinculada)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({ anio: 2026 });
     expect(res.status).toBe(200);

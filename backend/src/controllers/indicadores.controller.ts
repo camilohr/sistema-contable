@@ -23,10 +23,10 @@ function mapearRazones(r: Razones) {
   };
 }
 
-export async function obtenerDatosIndicadores(periodoId: number): Promise<{ periodo: { id: number; nombre: string }; datos: ReturnType<typeof agregarDatos>; razones: ReturnType<typeof mapearRazones> }> {
-  const periodo = await prisma.periodo.findUnique({ where: { id: periodoId } });
-  if (!periodo) return null as never;
-  const saldos = await saldosPorCuenta({ estado: EstadoComprobante.CONTABILIZADO, periodoId });
+export async function obtenerDatosIndicadores(periodoId: number, empresaId: string): Promise<{ periodo: { id: number; nombre: string }; datos: ReturnType<typeof agregarDatos>; razones: ReturnType<typeof mapearRazones> } | null> {
+  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId } });
+  if (!periodo) return null;
+  const saldos = await saldosPorCuenta({ estado: EstadoComprobante.CONTABILIZADO, periodoId, empresaId });
   const datos = agregarDatos(saldos);
   return { periodo: { id: periodo.id, nombre: periodo.nombre }, datos, razones: mapearRazones(calcularRazones(datos)) };
 }
@@ -38,7 +38,7 @@ export async function indicadoresPorPeriodo(req: Request, res: Response): Promis
     return;
   }
 
-  const datos = await obtenerDatosIndicadores(periodoId);
+  const datos = await obtenerDatosIndicadores(periodoId, req.empresaId!);
   if (!datos) {
     res.status(404).json({ error: "Periodo no encontrado" });
     return;
@@ -54,9 +54,10 @@ export async function indicadoresComparativo(req: Request, res: Response): Promi
     return;
   }
 
+  const empresaId = req.empresaId!;
   const [pDesde, pHasta] = await Promise.all([
-    prisma.periodo.findUnique({ where: { id: desde } }),
-    prisma.periodo.findUnique({ where: { id: hasta } }),
+    prisma.periodo.findFirst({ where: { id: desde, empresaId } }),
+    prisma.periodo.findFirst({ where: { id: hasta, empresaId } }),
   ]);
   if (!pDesde || !pHasta) {
     res.status(404).json({ error: "Periodo no encontrado" });
@@ -64,8 +65,8 @@ export async function indicadoresComparativo(req: Request, res: Response): Promi
   }
 
   const [saldosDesde, saldosHasta] = await Promise.all([
-    saldosPorCuenta({ estado: EstadoComprobante.CONTABILIZADO, periodoId: desde }),
-    saldosPorCuenta({ estado: EstadoComprobante.CONTABILIZADO, periodoId: hasta }),
+    saldosPorCuenta({ estado: EstadoComprobante.CONTABILIZADO, periodoId: desde, empresaId }),
+    saldosPorCuenta({ estado: EstadoComprobante.CONTABILIZADO, periodoId: hasta, empresaId }),
   ]);
 
   const datosDesde = agregarDatos(saldosDesde);

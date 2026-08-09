@@ -20,7 +20,11 @@ router.patch("/:id/estado", requireRole("ADMIN"), (req, res, next) => {
   empresas.cambiarEstado(req, res).catch(next);
 });
 
-router.post("/:empresaId/informes/paquete-final", requireRole("ADMIN"), (req, res, next) => {
+router.post("/:empresaId/informes/paquete-final", requireEmpresa, requireRole("ADMIN"), (req, res, next) => {
+  if (req.params.empresaId !== req.empresaId) {
+    res.status(403).json({ error: "La empresa de la URL no coincide con la empresa activa" });
+    return;
+  }
   paqueteFinalBaja(req, res).catch(next);
 });
 

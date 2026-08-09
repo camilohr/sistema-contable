@@ -22,6 +22,10 @@ function avanceProceso(p: { id: string; anio: number; estado: string; actividade
 
 export async function resumen(req: Request, res: Response): Promise<void> {
   const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
   const hoy = inicioDeHoy();
 
   const [abiertos, vencidos, borradores, contabilizados, ultimoPeriodo] = await Promise.all([

@@ -99,6 +99,11 @@ export async function listar(req: Request, res: Response): Promise<void> {
 }
 
 export async function crear(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
   const parsed = crearSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
@@ -111,7 +116,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const validado = await validarCuentas(data.cuentaId, data.cuentaDepreciacionId, data.cuentaGastoId, req.empresaId!);
+  const validado = await validarCuentas(data.cuentaId, data.cuentaDepreciacionId, data.cuentaGastoId, empresaId);
   if ("error" in validado) {
     res.status(400).json({ error: validado.error });
     return;
@@ -120,7 +125,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
   const activo = await prisma.$transaction(async (tx) => {
     const a = await tx.activoFijo.create({
       data: {
-        empresaId: req.empresaId,
+        empresaId,
         cuentaId: data.cuentaId,
         cuentaDepreciacionId: data.cuentaDepreciacionId,
         cuentaGastoId: data.cuentaGastoId,
@@ -139,7 +144,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
     });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
-      empresaId: req.empresaId,
+      empresaId,
       accion: AccionAuditoria.CREAR_ACTIVO,
       entidad: "ActivoFijo",
       entidadId: a.id,

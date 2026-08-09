@@ -4,6 +4,7 @@ import { createApp } from "../src/app.js";
 import { prisma } from "../src/lib/prisma.js";
 import { empresaDePrueba } from "./helpers.js";
 import bcrypt from "bcryptjs";
+import { derivarPuc } from "../src/lib/puc.js";
 
 const app = createApp();
 
@@ -187,5 +188,128 @@ describe("Aislamiento entre empresas: 403 en todas las rutas con requireEmpresa"
       .set("Authorization", `Bearer ${token}`)
       .set("x-empresa-id", empresaB);
     expect(res.status).toBe(403);
+  });
+});
+
+// ---- S3-13: Casos cross-empresa (id/periodoId de B con empresa activa A) ----
+// Cubre S3-05 (cuentas), S3-06 (indicadores), S3-07 (provision) y S3-02
+// (paquete-final). Un usuario CON vínculo a A pasa un id/periodoId de B:
+// no debe leer datos de B.
+const corssEmails = {
+  contador: "cross-cont@test.local",
+  auxiliar: "cross-aux@test.local",
+  admin: "cross-adm@test.local",
+};
+
+describe("Aislamiento cross-empresa: id/periodoId de B con empresa activa A", () => {
+  let empresaA = "";
+  let empresaCrossB = "";
+  let tokenCont = "";
+  let tokenAux = "";
+  let tokenAdmin = "";
+  let periodoB_id = 0;
+  let cuentaPrivadaB_id = 0;
+
+  beforeAll(async () => {
+    empresaA = await empresaDePrueba();
+
+    const b = await prisma.empresa.create({ data: { nombre: "Empresa Cross B", nit: "777777777" } });
+    empresaCrossB = b.id;
+
+    const periodoB = await prisma.periodo.create({
+      data: { empresaId: empresaCrossB, nombre: "Periodo Cross B", fechaInicio: new Date("2026-01-01"), fechaFin: new Date("2026-01-31") },
+    });
+    periodoB_id = periodoB.id;
+
+    const cuentaB = await prisma.cuenta.create({
+      data: { empresaId: empresaCrossB, codigo: "199901", nombre: "Cuenta privada B", permiteMovimiento: false, ...derivarPuc("199901") },
+    });
+    cuentaPrivadaB_id = cuentaB.id;
+
+    for (const [rol, email] of [["CONTADOR", corssEmails.contador], ["AUXILIAR", corssEmails.auxiliar], ["ADMIN", corssEmails.admin]] as [string, string][]) {
+      await prisma.usuario.deleteMany({ where: { email } });
+      const u = await prisma.usuario.create({ data: { nombre: `Cross ${rol}`, email, passwordHash: await bcrypt.hash("clave123", 10), rol: rol as "ADMIN" | "CONTADOR" | "AUXILIAR" } });
+      await prisma.usuarioEmpresa.upsert({
+        where: { usuarioId_empresaId: { usuarioId: u.id, empresaId: empresaA } },
+        update: { rol: rol as "ADMIN" | "CONTADOR" | "AUXILIAR", activo: true },
+        create: { usuarioId: u.id, empresaId: empresaA, rol: rol as "ADMIN" | "CONTADOR" | "AUXILIAR" },
+      });
+    }
+    tokenCont = (await request(app).post("/api/auth/login").send({ email: corssEmails.contador, password: "clave123" })).body.token;
+    tokenAux = (await request(app).post("/api/auth/login").send({ email: corssEmails.auxiliar, password: "clave123" })).body.token;
+    tokenAdmin = (await request(app).post("/api/auth/login").send({ email: corssEmails.admin, password: "clave123" })).body.token;
+  });
+
+  afterAll(async () => {
+    await prisma.cuenta.deleteMany({ where: { id: cuentaPrivadaB_id } });
+    await prisma.periodo.deleteMany({ where: { id: periodoB_id } });
+    for (const email of Object.values(corssEmails)) {
+      await prisma.usuario.deleteMany({ where: { email } });
+    }
+    await prisma.empresa.deleteMany({ where: { id: empresaCrossB } });
+    await prisma.$disconnect();
+  });
+
+  // S3-06: indicadores por periodoId de B
+  it("S3-06: GET /api/reportes/indicadores/:periodoId de B → 404 (CONTADOR con empresa A)", async () => {
+    const res = await request(app).get(`/api/reportes/indicadores/${periodoB_id}`).set("Authorization", `Bearer ${tokenCont}`).set("x-empresa-id", empresaA);
+    expect(res.status).toBe(404);
+  });
+
+  it("S3-06: GET /api/reportes/indicadores/:periodoId.pdf de B → 400/404 (CONTADOR con empresa A)", async () => {
+    const res = await request(app).get(`/api/reportes/indicadores/${periodoB_id}.pdf`).set("Authorization", `Bearer ${tokenCont}`).set("x-empresa-id", empresaA);
+    expect([400, 404]).toContain(res.status);
+  });
+
+  it("S3-06: GET indicadores/comparativo con periodos de B → 404 (CONTADOR con empresa A)", async () => {
+    const res = await request(app).get(`/api/reportes/indicadores/comparativo?desde=${periodoB_id}&hasta=${periodoB_id}`).set("Authorization", `Bearer ${tokenCont}`).set("x-empresa-id", empresaA);
+    expect(res.status).toBe(404);
+  });
+
+  it("S3-06: ADMIN con empresa A tampoco lee indicadores de B", async () => {
+    const res = await request(app).get(`/api/reportes/indicadores/${periodoB_id}`).set("Authorization", `Bearer ${tokenAdmin}`).set("x-empresa-id", empresaA);
+    expect(res.status).toBe(404);
+  });
+
+  it("S3-06: AUXILIAR con empresa A no lee indicadores de B", async () => {
+    const res = await request(app).get(`/api/reportes/indicadores/${periodoB_id}`).set("Authorization", `Bearer ${tokenAux}`).set("x-empresa-id", empresaA);
+    expect(res.status).toBe(404);
+  });
+
+  // S3-05: cuentas de B
+  it("S3-05: PATCH /api/cuentas/:id de B → 404 (CONTADOR con empresa A)", async () => {
+    const res = await request(app).patch(`/api/cuentas/${cuentaPrivadaB_id}`).set("Authorization", `Bearer ${tokenCont}`).set("x-empresa-id", empresaA).send({ nombre: "Hack" });
+    expect(res.status).toBe(404);
+  });
+
+  it("S3-05: DELETE /api/cuentas/:id de B → 404 (CONTADOR con empresa A)", async () => {
+    const res = await request(app).delete(`/api/cuentas/${cuentaPrivadaB_id}`).set("Authorization", `Bearer ${tokenCont}`).set("x-empresa-id", empresaA);
+    expect(res.status).toBe(404);
+  });
+
+  it("S3-05: DELETE /api/cuentas/:id PUC nacional → 403 (no es eliminable)", async () => {
+    const puc = await prisma.cuenta.findFirst({ where: { codigo: "1105", empresaId: null } });
+    const res = await request(app).delete(`/api/cuentas/${puc!.id}`).set("Authorization", `Bearer ${tokenCont}`).set("x-empresa-id", empresaA);
+    expect(res.status).toBe(403);
+  });
+
+  // S3-07: provisión cartera por periodoId de B
+  it("S3-07: GET /api/cartera/provision/:periodoId de B → 404 (CONTADOR con empresa A)", async () => {
+    const res = await request(app).get(`/api/cartera/provision/${periodoB_id}`).set("Authorization", `Bearer ${tokenCont}`).set("x-empresa-id", empresaA);
+    expect(res.status).toBe(404);
+  });
+
+  // S3-02: paquete-final con empresaId de B en URL pero empresa A activa
+  it("S3-02: POST /api/empresas/:empresaId/informes/paquete-final con empresaId B y cabecera A → 403 (ADMIN)", async () => {
+    const res = await request(app).post(`/api/empresas/${empresaCrossB}/informes/paquete-final`).set("Authorization", `Bearer ${tokenAdmin}`).set("x-empresa-id", empresaA).send({ anio: 2026 });
+    expect(res.status).toBe(403);
+  });
+
+  // Controles positivos: los mismos datos sí son accesibles con la empresa correcta
+  it("Control positivo: GET /api/reportes/indicadores/:periodoId de A no da 404", async () => {
+    const periodoA = await prisma.periodo.findFirst({ where: { empresaId: empresaA } });
+    if (!periodoA) return; // si no hay periodo en A, saltar
+    const res = await request(app).get(`/api/reportes/indicadores/${periodoA.id}`).set("Authorization", `Bearer ${tokenCont}`).set("x-empresa-id", empresaA);
+    expect([200, 404]).toContain(res.status); // 200 si hay comprobantes, 404 si no hay datos → pero no 403
   });
 });

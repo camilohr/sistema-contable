@@ -50,6 +50,11 @@ export async function listar(req: Request, res: Response): Promise<void> {
 }
 
 export async function crear(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
   const parsed = crearSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
@@ -58,7 +63,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
   const { nombre, fechaInicio, fechaFin } = parsed.data;
 
   const duplicado = await prisma.periodo.findFirst({
-    where: { empresaId: req.empresaId, nombre },
+    where: { empresaId, nombre },
   });
   if (duplicado) {
     res.status(409).json({ error: `Ya existe un periodo llamado ${nombre}` });
@@ -66,19 +71,24 @@ export async function crear(req: Request, res: Response): Promise<void> {
   }
 
   const periodo = await prisma.periodo.create({
-    data: { empresaId: req.empresaId, nombre, fechaInicio: new Date(fechaInicio), fechaFin: new Date(fechaFin) },
+    data: { empresaId, nombre, fechaInicio: new Date(fechaInicio), fechaFin: new Date(fechaFin) },
   });
   res.status(201).json(periodo);
 }
 
 export async function actualizar(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
   const id = Number(req.params.id);
   const parsed = actualizarSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
     return;
   }
-  const existe = await prisma.periodo.findFirst({ where: { id, empresaId: req.empresaId } });
+  const existe = await prisma.periodo.findFirst({ where: { id, empresaId } });
   if (!existe) {
     res.status(404).json({ error: "Periodo no encontrado" });
     return;
@@ -88,7 +98,7 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     if (parsed.data.estado && parsed.data.estado !== existe.estado) {
       await registrarAuditoria(tx, {
         usuarioId: req.user!.sub,
-        empresaId: req.empresaId,
+        empresaId,
         accion: parsed.data.estado === EstadoPeriodo.CERRADO ? AccionAuditoria.CERRAR_PERIODO : AccionAuditoria.REABRIR_PERIODO,
         entidad: "Periodo",
         entidadId: id,
@@ -96,8 +106,8 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
       });
       if (parsed.data.estado === EstadoPeriodo.CERRADO) {
         const anio = p.fechaFin.getFullYear();
-        await marcarActividadProceso(tx, req.empresaId, anio, TipoActividadProceso.CIERRE_PERIODO);
-        await marcarActividadProceso(tx, req.empresaId, anio, TipoActividadProceso.COMPROBANTES);
+        await marcarActividadProceso(tx, empresaId, anio, TipoActividadProceso.CIERRE_PERIODO);
+        await marcarActividadProceso(tx, empresaId, anio, TipoActividadProceso.COMPROBANTES);
       }
     }
     return p;

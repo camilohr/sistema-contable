@@ -130,7 +130,7 @@ async function datosTabulares(tipo: TipoReporte, req: Request): Promise<TablaDat
     case "indicadores": {
       const periodoId = Number(req.query.periodoId);
       if (!Number.isInteger(periodoId)) throw new Error("Se requiere periodoId");
-      const d = await obtenerDatosIndicadores(periodoId);
+      const d = await obtenerDatosIndicadores(periodoId, req.empresaId!);
       if (!d) throw new Error("Periodo no encontrado");
       const r = d.razones;
       return {
@@ -226,7 +226,7 @@ export async function paqueteParaEmpresa(
       { archivo: "libro-inventarios.pdf", fn: () => generarPdfLibroInventarios(empresa, reqP) },
       { archivo: "balance-general.pdf", fn: () => generarPdfBalanceGeneral(empresa, reqP) },
       { archivo: "estado-resultados.pdf", fn: () => generarPdfEstadoResultados(empresa, reqP) },
-      { archivo: "indicadores.pdf", fn: () => generarPdfIndicadores(empresa, p.id) },
+      { archivo: "indicadores.pdf", fn: () => generarPdfIndicadores(empresa, p.id, empresaId) },
     ];
     for (const g of generadores) {
       archivos.push({ nombre: `${p.nombre}/${g.archivo}`, contenido: await g.fn() });

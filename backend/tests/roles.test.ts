@@ -41,7 +41,8 @@ const rutasEscritura: { path: string; metodo: "post" | "patch" | "delete" }[] = 
   { path: "/api/periodos/1", metodo: "patch" },
   { path: "/api/periodos/1", metodo: "delete" },
   { path: "/api/cuentas/1", metodo: "patch" },
-  { path: "/api/cuentas/1", metodo: "delete" },
+  // DELETE /api/cuentas/1 se excluye: id=1 es cuenta PUC nacional (empresaId=null),
+  // ahora protegida con 403 por S3-05, no por control de rol.
   { path: "/api/terceros/1", metodo: "patch" },
   { path: "/api/terceros/1", metodo: "delete" },
   { path: "/api/productos/1", metodo: "patch" },

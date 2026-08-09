@@ -135,10 +135,19 @@ describe("Actualización y eliminación", () => {
     expect(inexistente.body.length).toBe(0);
   });
 
-  it("no permite eliminar cuenta con subcuentas (400)", async () => {
+  it("no permite eliminar una cuenta del PUC nacional (403)", async () => {
     const padre = await prisma.cuenta.findFirst({ where: { codigo: "1105" } });
     const res = await request(app).delete(`/api/cuentas/${padre!.id}`).set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(403);
+  });
+
+  it("no permite eliminar cuenta propia con subcuentas (400)", async () => {
+    await request(app).post("/api/cuentas").set("Authorization", `Bearer ${adminToken}`).send({ codigo: "1999", nombre: "Padre privado test" });
+    await request(app).post("/api/cuentas").set("Authorization", `Bearer ${adminToken}`).send({ codigo: "199901", nombre: "Hija privada test" });
+    const padre = await prisma.cuenta.findFirst({ where: { codigo: "1999", empresaId: { not: null } } });
+    const res = await request(app).delete(`/api/cuentas/${padre!.id}`).set("Authorization", `Bearer ${adminToken}`);
     expect(res.status).toBe(400);
+    await prisma.cuenta.deleteMany({ where: { codigo: { in: ["1999", "199901"] } } });
   });
 });
 

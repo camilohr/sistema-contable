@@ -54,6 +54,11 @@ export async function listarProductos(req: Request, res: Response): Promise<void
 }
 
 export async function crearProducto(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
   const parsed = crearSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
@@ -61,7 +66,7 @@ export async function crearProducto(req: Request, res: Response): Promise<void> 
   }
   const data = parsed.data;
 
-  const duplicado = await prisma.producto.findFirst({ where: { codigo: data.codigo, empresaId: req.empresaId } });
+  const duplicado = await prisma.producto.findFirst({ where: { codigo: data.codigo, empresaId } });
   if (duplicado) {
     res.status(409).json({ error: `Ya existe un producto con el código ${data.codigo}` });
     return;
@@ -69,7 +74,7 @@ export async function crearProducto(req: Request, res: Response): Promise<void> 
 
   const producto = await prisma.producto.create({
     data: {
-      empresaId: req.empresaId,
+      empresaId,
       codigo: data.codigo,
       nombre: data.nombre,
       categoria: data.categoria ?? null,

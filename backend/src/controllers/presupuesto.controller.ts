@@ -57,6 +57,11 @@ export async function listarPorPeriodo(req: Request, res: Response): Promise<voi
 }
 
 export async function cargar(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
   const periodoId = Number(req.params.periodoId);
   if (!Number.isInteger(periodoId)) {
     res.status(400).json({ error: "Periodo inválido" });
@@ -68,7 +73,7 @@ export async function cargar(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const periodo = await periodoValido(periodoId, req.empresaId!);
+  const periodo = await periodoValido(periodoId, empresaId);
   if (!periodo) {
     res.status(404).json({ error: "Periodo no encontrado" });
     return;
@@ -79,7 +84,7 @@ export async function cargar(req: Request, res: Response): Promise<void> {
   const cuentaIds = [...porCuenta.keys()];
 
   if (cuentaIds.length > 0) {
-    const cuentas = await prisma.cuenta.findMany({ where: { id: { in: cuentaIds }, OR: [{ empresaId: null }, { empresaId: req.empresaId }] } });
+    const cuentas = await prisma.cuenta.findMany({ where: { id: { in: cuentaIds }, OR: [{ empresaId: null }, { empresaId }] } });
     const invalidas = cuentas.filter((c) => !c.activa || !c.permiteMovimiento);
     if (invalidas.length > 0) {
       res.status(400).json({
@@ -110,7 +115,7 @@ export async function cargar(req: Request, res: Response): Promise<void> {
     }
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
-      empresaId: req.empresaId,
+      empresaId,
       accion: AccionAuditoria.CARGAR_PRESUPUESTO,
       entidad: "Periodo",
       entidadId: periodoId,
@@ -120,7 +125,7 @@ export async function cargar(req: Request, res: Response): Promise<void> {
         totalPresupuestado,
       },
     });
-    await marcarActividadProceso(tx, req.empresaId, periodo.fechaFin.getFullYear(), TipoActividadProceso.PRESUPUESTO);
+    await marcarActividadProceso(tx, empresaId, periodo.fechaFin.getFullYear(), TipoActividadProceso.PRESUPUESTO);
     return tx.presupuesto.findMany({
       where: { periodoId },
       include: { cuenta: { select: { codigo: true, nombre: true } } },

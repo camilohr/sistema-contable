@@ -184,20 +184,20 @@ describe("Alertas: autenticación y roles", () => {
     expect(regla.dias).toBe(2);
   });
 
-  it("AUXILIAR recibe 403 en PUT /reglas; ADMIN y CONTADOR pueden actualizar", async () => {
-    const aux = await request(app)
-      .put("/api/alertas/reglas")
-      .set("Authorization", `Bearer ${auxiliarToken}`)
-      .send({ reglas: [{ tipo: "CARTERA_VENCE", dias: 15, activa: true }] });
-    expect(aux.status).toBe(403);
-
-    for (const token of [adminToken, contadorToken]) {
+  it("AUXILIAR y CONTADOR reciben 403 en PUT /reglas; solo ADMIN puede actualizar", async () => {
+    for (const token of [auxiliarToken, contadorToken]) {
       const res = await request(app)
         .put("/api/alertas/reglas")
         .set("Authorization", `Bearer ${token}`)
         .send({ reglas: [{ tipo: "CARTERA_VENCE", dias: 15, activa: true }] });
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(403);
     }
+
+    const adminRes = await request(app)
+      .put("/api/alertas/reglas")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reglas: [{ tipo: "CARTERA_VENCE", dias: 15, activa: true }] });
+    expect(adminRes.status).toBe(200);
   });
 
   it("rechaza tipo de regla inválido", async () => {

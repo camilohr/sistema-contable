@@ -7,7 +7,7 @@ const router = Router();
 router.use(requireAuth);
 router.use(requireEmpresa);
 
-router.post("/", subirAdjunto, subir);
+router.post("/", requireRole("ADMIN", "CONTADOR"), subirAdjunto, subir);
 router.get("/", listar);
 router.get("/:id/descargar", descargar);
 router.delete("/:id", requireRole("ADMIN", "CONTADOR"), eliminar);

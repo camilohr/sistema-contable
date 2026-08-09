@@ -113,6 +113,13 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
     return;
   }
+  const existe = await prisma.cuenta.findFirst({
+    where: { id, OR: [{ empresaId: req.empresaId }, { empresaId: null }] },
+  });
+  if (!existe) {
+    res.status(404).json({ error: "Cuenta no encontrada" });
+    return;
+  }
   const cuenta = await prisma.$transaction(async (tx) => {
     const c = await tx.cuenta.update({
       where: { id },
@@ -133,14 +140,20 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
 
 export async function eliminar(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
-  const cuenta = await prisma.cuenta.findUnique({ where: { id } });
+  const cuenta = await prisma.cuenta.findFirst({
+    where: { id, OR: [{ empresaId: req.empresaId }, { empresaId: null }] },
+  });
   if (!cuenta) {
     res.status(404).json({ error: "Cuenta no encontrada" });
     return;
   }
+  if (cuenta.empresaId === null) {
+    res.status(403).json({ error: "No se puede eliminar una cuenta del PUC nacional (compartida)." });
+    return;
+  }
 
   const hijas = await prisma.cuenta.count({
-    where: { codigo: { startsWith: cuenta.codigo, not: cuenta.codigo } },
+    where: { codigo: { startsWith: cuenta.codigo, not: cuenta.codigo }, empresaId: req.empresaId },
   });
   if (hijas > 0) {
     res.status(400).json({ error: "No se puede eliminar: la cuenta tiene subcuentas." });

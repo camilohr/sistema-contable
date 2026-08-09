@@ -88,6 +88,11 @@ export async function listar(req: Request, res: Response): Promise<void> {
 }
 
 export async function crear(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
   const parsed = crearSchema.safeParse(req.body ?? {});
   if (!parsed.success) {
     res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
@@ -96,7 +101,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
   const { anio } = parsed.data;
 
   const existente = await prisma.procesoContable.findUnique({
-    where: { empresaId_anio: { empresaId: req.empresaId, anio } },
+    where: { empresaId_anio: { empresaId, anio } },
   });
   if (existente) {
     res.status(409).json({ error: `Ya existe un proceso para el año ${anio}` });
@@ -104,10 +109,10 @@ export async function crear(req: Request, res: Response): Promise<void> {
   }
 
   const proceso = await prisma.$transaction(async (tx) => {
-    const p = await crearProcesoConPlantilla(tx, req.empresaId, anio);
+    const p = await crearProcesoConPlantilla(tx, empresaId, anio);
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
-      empresaId: req.empresaId,
+      empresaId,
       accion: AccionAuditoria.CREAR_PROCESO,
       entidad: "ProcesoContable",
       entidadId: p.id,

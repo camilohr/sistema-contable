@@ -107,12 +107,17 @@ async function saldoCuenta(codigo: string, empresaId: string): Promise<number> {
 }
 
 export async function calcularProvision(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
   const periodoId = Number(req.params.periodoId);
   if (!Number.isInteger(periodoId)) {
     res.status(400).json({ error: "Periodo inválido" });
     return;
   }
-  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId: req.empresaId } });
+  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId } });
   if (!periodo) {
     res.status(404).json({ error: `No existe el periodo ${periodoId}` });
     return;
@@ -136,7 +141,7 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
   }
 
   const cuentas = await prisma.cuenta.findMany({
-    where: { codigo: { in: [CUENTA_PROVISION, CUENTA_GASTO] }, OR: [{ empresaId: null }, { empresaId: req.empresaId }] },
+    where: { codigo: { in: [CUENTA_PROVISION, CUENTA_GASTO] }, OR: [{ empresaId: null }, { empresaId }] },
   });
   const cuentaProvision = cuentas.find((c) => c.codigo === CUENTA_PROVISION);
   const cuentaGasto = cuentas.find((c) => c.codigo === CUENTA_GASTO);
@@ -150,7 +155,7 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
   }
 
   const parametros = await prisma.parametroProvision.findMany({
-    where: { OR: [{ empresaId: null }, { empresaId: req.empresaId }] },
+    where: { OR: [{ empresaId: null }, { empresaId }] },
     orderBy: { diasDesde: "asc" },
   });
   if (parametros.length === 0) {
@@ -160,12 +165,12 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
   const porRango = new Map<string, (typeof parametros)[number]>();
   for (const p of parametros) {
     const key = `${p.diasDesde}-${p.diasHasta ?? ""}`;
-    if (!porRango.has(key) || p.empresaId === req.empresaId) porRango.set(key, p);
+    if (!porRango.has(key) || p.empresaId === empresaId) porRango.set(key, p);
   }
   const parametrosEfectivos = [...porRango.values()].sort((a, b) => a.diasDesde - b.diasDesde);
 
   const documentos = await prisma.cuentaPorCobrar.findMany({
-    where: { empresaId: req.empresaId, estado: { in: ["PENDIENTE", "VENCIDA", "ABONADA"] } },
+    where: { empresaId, estado: { in: ["PENDIENTE", "VENCIDA", "ABONADA"] } },
     select: {
       id: true,
       numeroDocumento: true,
@@ -211,7 +216,7 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
   }
   requerido = redondear2(requerido);
 
-  const balanceProvision = await saldoCuenta(CUENTA_PROVISION, req.empresaId!);
+  const balanceProvision = await saldoCuenta(CUENTA_PROVISION, empresaId);
   const incremental = redondear2(requerido - balanceProvision);
 
   const usuarioId = req.user!.sub;
@@ -230,7 +235,7 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
     let comprobanteId: number | null = null;
     if (incremental !== 0) {
       const comprobante = await crearComprobanteDiario(tx, {
-        empresaId: req.empresaId!,
+        empresaId,
         periodoId,
         fecha: periodo.fechaFin,
         concepto: incremental > 0 ? `Provisión de cartera ${periodo.nombre}` : `Reversión de provisión de cartera ${periodo.nombre}`,
@@ -251,7 +256,7 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
     });
     await registrarAuditoria(tx, {
       usuarioId,
-      empresaId: req.empresaId,
+      empresaId,
       accion: AccionAuditoria.CALCULAR_PROVISION,
       entidad: "ProvisionCartera",
       entidadId: provision.id,
@@ -263,7 +268,7 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
         comprobanteId,
       },
     });
-    await marcarActividadProceso(tx, req.empresaId, periodo.fechaFin.getFullYear(), TipoActividadProceso.PROVISION_CARTERA);
+    await marcarActividadProceso(tx, empresaId, periodo.fechaFin.getFullYear(), TipoActividadProceso.PROVISION_CARTERA);
     return provision;
   });
 
@@ -301,6 +306,11 @@ export async function obtenerProvision(req: Request, res: Response): Promise<voi
   const periodoId = Number(req.params.periodoId);
   if (!Number.isInteger(periodoId)) {
     res.status(400).json({ error: "Periodo inválido" });
+    return;
+  }
+  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId: req.empresaId } });
+  if (!periodo) {
+    res.status(404).json({ error: "Periodo no encontrado" });
     return;
   }
   const provision = await prisma.provisionCartera.findUnique({

@@ -9,6 +9,9 @@ router.use(requireEmpresa);
 
 router.get("/", listar);
 router.get("/reglas", listarReglas);
-router.put("/reglas", requireRole("ADMIN", "CONTADOR"), actualizarReglas);
+// Las reglas de alerta son globales (afectan a todas las empresas); solo ADMIN
+// puede modificarlas — un CONTADOR de una empresa no debe cambiar reglas que
+// impactan a los demás clientes del contador (ver S3-09 en docs/auditoria-2026-08.md).
+router.put("/reglas", requireRole("ADMIN"), actualizarReglas);
 
 export default router;

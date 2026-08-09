@@ -323,8 +323,13 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
 }
 
 export async function contabilizar(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
   const id = Number(req.params.id);
-  const existe = await prisma.comprobante.findFirst({ where: { id, empresaId: req.empresaId } });
+  const existe = await prisma.comprobante.findFirst({ where: { id, empresaId } });
   if (!existe) {
     res.status(404).json({ error: "Comprobante no encontrado" });
     return;
@@ -341,13 +346,13 @@ export async function contabilizar(req: Request, res: Response): Promise<void> {
     });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
-      empresaId: req.empresaId,
+      empresaId,
       accion: AccionAuditoria.CONTABILIZAR,
       entidad: "Comprobante",
       entidadId: id,
       detalle: { consecutivo: c.consecutivo, tipo: c.tipo, concepto: c.concepto },
     });
-    await marcarActividadProceso(tx, req.empresaId, c.periodo.fechaFin.getFullYear(), TipoActividadProceso.COMPROBANTES);
+    await marcarActividadProceso(tx, empresaId, c.periodo.fechaFin.getFullYear(), TipoActividadProceso.COMPROBANTES);
     return c;
   });
   res.json(serializarComprobante(actualizado));

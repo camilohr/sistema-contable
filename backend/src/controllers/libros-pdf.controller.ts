@@ -62,7 +62,12 @@ export async function generarPdfLibroDiario(empresa: DatosEmpresa, req: Request)
 }
 
 export async function libroDiarioPdf(req: Request, res: Response): Promise<void> {
-  const empresa = await obtenerEmpresa(req.empresaId!);
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
+  const empresa = await obtenerEmpresa(empresaId);
   responderPdf(res, await generarPdfLibroDiario(empresa, req), "libro-diario.pdf");
 }
 
@@ -95,7 +100,12 @@ export async function generarPdfLibroMayor(empresa: DatosEmpresa, req: Request):
 }
 
 export async function libroMayorPdf(req: Request, res: Response): Promise<void> {
-  const empresa = await obtenerEmpresa(req.empresaId!);
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
+  const empresa = await obtenerEmpresa(empresaId);
   responderPdf(res, await generarPdfLibroMayor(empresa, req), "libro-mayor.pdf");
 }
 
@@ -143,7 +153,12 @@ export async function generarPdfLibroInventarios(empresa: DatosEmpresa, req: Req
 }
 
 export async function libroInventariosPdf(req: Request, res: Response): Promise<void> {
-  const empresa = await obtenerEmpresa(req.empresaId!);
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
+  const empresa = await obtenerEmpresa(empresaId);
   responderPdf(res, await generarPdfLibroInventarios(empresa, req), "libro-inventarios.pdf");
 }
 
@@ -172,7 +187,12 @@ export async function generarPdfBalanceGeneral(empresa: DatosEmpresa, req: Reque
 }
 
 export async function balanceGeneralPdf(req: Request, res: Response): Promise<void> {
-  const empresa = await obtenerEmpresa(req.empresaId!);
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
+  const empresa = await obtenerEmpresa(empresaId);
   responderPdf(res, await generarPdfBalanceGeneral(empresa, req), "balance-general.pdf");
 }
 
@@ -200,12 +220,17 @@ export async function generarPdfEstadoResultados(empresa: DatosEmpresa, req: Req
 }
 
 export async function estadoResultadosPdf(req: Request, res: Response): Promise<void> {
-  const empresa = await obtenerEmpresa(req.empresaId!);
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
+  const empresa = await obtenerEmpresa(empresaId);
   responderPdf(res, await generarPdfEstadoResultados(empresa, req), "estado-resultados.pdf");
 }
 
-export async function generarPdfIndicadores(empresa: DatosEmpresa, periodoId: number): Promise<Buffer> {
-  const datos = await obtenerDatosIndicadores(periodoId);
+export async function generarPdfIndicadores(empresa: DatosEmpresa, periodoId: number, empresaId: string): Promise<Buffer> {
+  const datos = await obtenerDatosIndicadores(periodoId, empresaId);
   if (!datos) throw new Error("Periodo no encontrado");
 
   const r = datos.razones;
@@ -229,14 +254,19 @@ export async function generarPdfIndicadores(empresa: DatosEmpresa, periodoId: nu
 }
 
 export async function indicadoresPdf(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
   const periodoId = Number(req.params.periodoId);
   if (!Number.isInteger(periodoId)) {
     res.status(400).json({ error: "periodoId inválido" });
     return;
   }
-  const empresa = await obtenerEmpresa(req.empresaId!);
+  const empresa = await obtenerEmpresa(empresaId);
   try {
-    responderPdf(res, await generarPdfIndicadores(empresa, periodoId), "indicadores.pdf");
+    responderPdf(res, await generarPdfIndicadores(empresa, periodoId, empresaId), "indicadores.pdf");
   } catch (err) {
     res.status(400).json({ error: (err as Error).message });
   }

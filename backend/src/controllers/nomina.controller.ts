@@ -522,12 +522,17 @@ export async function obtenerLiquidacion(req: Request, res: Response): Promise<v
 // ---------------- Contabilización ----------------
 
 export async function contabilizar(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
   const periodoId = Number(req.params.periodoId);
   if (!Number.isInteger(periodoId)) {
     res.status(400).json({ error: "Periodo inválido" });
     return;
   }
-  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId: req.empresaId } });
+  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId } });
   if (!periodo) {
     res.status(404).json({ error: `No existe el periodo ${periodoId}` });
     return;
@@ -552,7 +557,7 @@ export async function contabilizar(req: Request, res: Response): Promise<void> {
 
   let mapa: Map<string, number>;
   try {
-    mapa = await cargarMapaCuentas(CONCEPTOS_NOMINA, req.empresaId!);
+    mapa = await cargarMapaCuentas(CONCEPTOS_NOMINA, empresaId);
   } catch (err) {
     res.status(400).json({ error: (err as Error).message });
     return;
@@ -566,7 +571,7 @@ export async function contabilizar(req: Request, res: Response): Promise<void> {
   const usuarioId = req.user!.sub;
   const resultado = await prisma.$transaction(async (tx) => {
     const comprobante = await crearComprobanteDiario(tx, {
-      empresaId: req.empresaId!,
+      empresaId,
       periodoId,
       fecha: periodo.fechaFin,
       concepto: `Nómina periodo ${periodo.nombre}`,
@@ -576,13 +581,13 @@ export async function contabilizar(req: Request, res: Response): Promise<void> {
     await tx.nomina.updateMany({ where: { periodoId }, data: { estado: EstadoNomina.CONTABILIZADO, comprobanteId: comprobante.id } });
     await registrarAuditoria(tx, {
       usuarioId,
-      empresaId: req.empresaId,
+      empresaId,
       accion: AccionAuditoria.CONTABILIZAR_NOMINA,
       entidad: "Periodo",
       entidadId: periodoId,
       detalle: { periodo: periodo.nombre, consecutivo: comprobante.consecutivo, comprobanteId: comprobante.id },
     });
-    await marcarActividadProceso(tx, req.empresaId, periodo.fechaFin.getFullYear(), TipoActividadProceso.NOMINA);
+    await marcarActividadProceso(tx, empresaId, periodo.fechaFin.getFullYear(), TipoActividadProceso.NOMINA);
     return comprobante;
   });
 

@@ -6,6 +6,10 @@ const router = Router();
 
 router.use(requireAuth);
 
+// GET /cartera va antes de requireEmpresa a propósito: es un dashboard de lectura
+// agregada que muestra los procesos de TODAS las empresas a las que el usuario tiene
+// vínculo (o todas las activas si es ADMIN). El controlador (procesos.controller.cartera)
+// resuelve internamente el acceso por rol/vínculo, sin depender de req.empresaId.
 router.get("/cartera", procesos.cartera);
 
 router.use(requireEmpresa);
