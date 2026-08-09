@@ -50,6 +50,7 @@ interface ResultadoCalculo {
     consecutivo: number;
     fecha: string;
     concepto: string;
+    estado: string;
     totalDebito: number;
     totalCredito: number;
     numAsientos: number;
@@ -137,12 +138,29 @@ export default function ProvisionCartera() {
       setResultado(res.data);
       setMensaje(
         res.data.comprobante
-          ? `Provisión calculada: ${cop(res.data.resumen.incremental)} contabilizados en DIARIO ${res.data.comprobante.consecutivo}.`
+          ? `Provisión calculada en borrador: ${cop(res.data.resumen.incremental)} en DIARIO ${res.data.comprobante.consecutivo}. Debe contabilizarse por un segundo revisor.`
           : "Provisión calculada: no requiere ajuste para este periodo."
       );
     } catch (err) {
       const er = err as { response?: { data?: { error?: string } } };
       setError(er.response?.data?.error ?? "Error al calcular la provisión.");
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const contabilizar = async () => {
+    if (!resultado?.comprobante) return;
+    setError("");
+    setMensaje("");
+    setEnviando(true);
+    try {
+      await api.post(`/cartera/provision/calcular/${Number(periodoId)}/contabilizar`);
+      setMensaje("Provisión contabilizada.");
+      setResultado(null);
+    } catch (err) {
+      const er = err as { response?: { data?: { error?: string } } };
+      setError(er.response?.data?.error ?? "Error al contabilizar la provisión.");
     } finally {
       setEnviando(false);
     }
@@ -231,8 +249,9 @@ export default function ProvisionCartera() {
           </div>
           <p className="count-hint">
             Calcula el deterioro de la cartera con base en los días de mora al cierre del periodo. El asiento debita el
-            gasto (5199) y acredita la provisión (1399), solo por el incremento no contabilizado. Si ya existe una
-            provisión, anule su comprobante para recalcular.
+            gasto (5199) y acredita la provisión (1399), solo por el incremento no contabilizado. El comprobante queda
+            en borrador hasta que un segundo revisor lo contabilice. Si ya existe una provisión contabilizada, anule su
+            comprobante para recalcular.
           </p>
           <button type="submit" className="btn btn-primary" disabled={enviando || !periodoId}>
             {enviando ? "Calculando..." : "Calcular provisión"}
@@ -257,9 +276,19 @@ export default function ProvisionCartera() {
             </span>
             <span>
               <em>Comprobante</em>{" "}
-              {resultado.comprobante ? `DIARIO ${resultado.comprobante.consecutivo} (${resultado.comprobante.concepto})` : "Sin asiento (no requiere ajuste)"}
+              {resultado.comprobante
+                ? `DIARIO ${resultado.comprobante.consecutivo} (${resultado.comprobante.concepto}) · ${resultado.comprobante.estado}`
+                : "Sin asiento (no requiere ajuste)"}
             </span>
           </div>
+
+          {resultado.comprobante && resultado.comprobante.estado === "BORRADOR" && (
+            <div className="acciones">
+              <button type="button" className="btn btn-primary" onClick={contabilizar} disabled={enviando}>
+                {enviando ? "Contabilizando..." : "Contabilizar provisión"}
+              </button>
+            </div>
+          )}
 
           {resultado.lineas.length > 0 && (
             <div className="table-wrap">
@@ -355,6 +384,29 @@ export default function ProvisionCartera() {
                         : "Sin comprobante (no requirió ajuste)"}
                     </td>
                     <td className="acciones">
+                      {consultado.comprobante?.estado === "BORRADOR" && (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => {
+                            setError("");
+                            setMensaje("");
+                            setEnviando(true);
+                            api
+                              .post(`/cartera/provision/calcular/${consultado.periodoId}/contabilizar`)
+                              .then(() => {
+                                setMensaje("Provisión contabilizada.");
+                                setConsultado(null);
+                              })
+                              .catch((err: { response?: { data?: { error?: string } } }) => {
+                                setError(err.response?.data?.error ?? "Error al contabilizar la provisión.");
+                              })
+                              .finally(() => setEnviando(false));
+                          }}
+                          disabled={enviando}
+                        >
+                          {enviando ? "Contabilizando..." : "Contabilizar"}
+                        </button>
+                      )}
                       {consultado.comprobante && (
                         <button
                           className="btn btn-secondary btn-sm"

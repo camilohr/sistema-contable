@@ -25,6 +25,7 @@ router.post("/cxp/:id/pagos", requireRole("ADMIN", "CONTADOR"), cxp.abonar);
 router.get("/cartera/provision/parametros", provision.obtenerParametros);
 router.put("/cartera/provision/parametros", requireRole("ADMIN", "CONTADOR"), provision.actualizarParametros);
 router.post("/cartera/provision/calcular/:periodoId", requireRole("ADMIN", "CONTADOR"), provision.calcularProvision);
+router.post("/cartera/provision/calcular/:periodoId/contabilizar", requireRole("ADMIN", "CONTADOR"), provision.contabilizar);
 router.get("/cartera/provision/:periodoId", provision.obtenerProvision);
 
 export default router;

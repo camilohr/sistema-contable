@@ -46,6 +46,10 @@ function provisionar(periodoId: number, token: string) {
   return request(app).post(`/api/nomina/provisionar/${periodoId}`).set("Authorization", `Bearer ${token}`);
 }
 
+function contabilizarProvision(periodoId: number, token: string) {
+  return request(app).post(`/api/nomina/provisionar/${periodoId}/contabilizar`).set("Authorization", `Bearer ${token}`);
+}
+
 const PARAMETROS_DEFECTO = {
   smmlv: 1750905,
   auxilioTransporte: 249095,
@@ -428,7 +432,7 @@ describe("Nómina: provisión de prestaciones", () => {
     expect(res.status).toBe(400);
   });
 
-  it("provisiona el periodo y genera el comprobante de prestaciones", async () => {
+  it("provisiona el periodo y genera el comprobante de prestaciones en borrador", async () => {
     await liquidar(periodoB, adminToken);
     const cont = await contabilizar(periodoB, adminToken);
     expect(cont.status).toBe(201);
@@ -440,6 +444,7 @@ describe("Nómina: provisión de prestaciones", () => {
     expect(comp.totalDebito).toBe(2080942.74);
     expect(comp.totalCredito).toBe(2080942.74);
     expect(comp.numAsientos).toBe(8);
+    expect(comp.estado).toBe(EstadoComprobante.BORRADOR);
     const cesantias = comp.asientos.find((a: { codigoCuenta: string }) => a.codigoCuenta === "510535");
     expect(cesantias.debito).toBe(833000);
     const cesantiasPasivo = comp.asientos.find((a: { codigoCuenta: string }) => a.codigoCuenta === "251005");
@@ -448,10 +453,17 @@ describe("Nómina: provisión de prestaciones", () => {
     expect(vacacionesPasivo.credito).toBe(406612.74);
   });
 
-  it("no permite provisionar dos veces el mismo periodo (400)", async () => {
+  it("contabiliza la provisión de prestaciones en borrador (segundo revisor)", async () => {
+    const res = await contabilizarProvision(periodoB, adminToken);
+    expect(res.status).toBe(200);
+    expect(res.body.comprobante.estado).toBe(EstadoComprobante.CONTABILIZADO);
+    expect(res.body.comprobante.totalDebito).toBe(2080942.74);
+  });
+
+  it("no permite provisionar dos veces el mismo periodo contabilizado (400)", async () => {
     const res = await provisionar(periodoB, adminToken);
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain("ya fue calculada");
+    expect(res.body.error).toContain("contabilizada");
   });
 
   it("obtiene la provisión de un periodo", async () => {
@@ -468,6 +480,7 @@ describe("Nómina: provisión de prestaciones", () => {
 
     const res = await provisionar(periodoB, adminToken);
     expect(res.status).toBe(201);
+    expect(res.body.comprobante.estado).toBe(EstadoComprobante.BORRADOR);
     expect(res.body.total).toBe(2080942.74);
   });
 });

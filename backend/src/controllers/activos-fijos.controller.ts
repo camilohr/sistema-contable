@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Prisma, EstadoPeriodo, EstadoActivoFijo, AccionAuditoria } from "@prisma/client";
+import { Prisma, EstadoPeriodo, EstadoActivoFijo, EstadoComprobante, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
 import { crearComprobanteDiario, AsientoGenerado } from "../lib/comprobantes.js";
@@ -202,10 +202,38 @@ export async function depreciar(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "El periodo está cerrado" });
     return;
   }
-  const yaGenerado = await prisma.depreciacion.count({ where: { periodoId } });
-  if (yaGenerado > 0) {
-    res.status(400).json({ error: "La depreciación para este periodo ya fue generada" });
+  const yaGenerado = await prisma.depreciacion.findMany({
+    where: { periodoId },
+    include: { comprobante: { select: { estado: true } } },
+  });
+  const vigente = yaGenerado.find((d) => d.comprobante && d.comprobante.estado === EstadoComprobante.CONTABILIZADO);
+  if (vigente) {
+    res.status(400).json({ error: "La depreciación para este periodo ya fue contabilizada; anule el comprobante para recalcular" });
     return;
+  }
+  // S1-15: un comprobante BORRADOR/ANULADO se puede recalcular: se revierte la
+  // acumulada, se elimina la depreciación anterior y su comprobante.
+  if (yaGenerado.length > 0) {
+    await prisma.$transaction(async (tx) => {
+      for (const d of yaGenerado) {
+        const activo = await tx.activoFijo.findUnique({ where: { id: d.activoId } });
+        if (!activo) continue;
+        const baseDepreciable = num(activo.valor) - num(activo.valorResidual);
+        const acumulada = num(activo.depreciacionAcumulada) - num(d.valor);
+        await tx.activoFijo.update({
+          where: { id: activo.id },
+          data: {
+            depreciacionAcumulada: new Prisma.Decimal(acumulada),
+            estado: acumulada < baseDepreciable ? EstadoActivoFijo.ACTIVO : activo.estado,
+          },
+        });
+      }
+      const comprobanteId = yaGenerado[0].comprobanteId;
+      await tx.depreciacion.deleteMany({ where: { periodoId } });
+      if (comprobanteId) {
+        await tx.comprobante.delete({ where: { id: comprobanteId } });
+      }
+    });
   }
 
   const activos = await prisma.activoFijo.findMany({ where: { estado: EstadoActivoFijo.ACTIVO, empresaId: req.empresaId } });
@@ -247,6 +275,8 @@ export async function depreciar(req: Request, res: Response): Promise<void> {
       concepto: `Depreciación periodo ${periodo.nombre}`,
       usuarioId,
       asientos,
+      // S1-15: queda en BORRADOR hasta que un segundo revisor lo contabilice.
+      estado: EstadoComprobante.BORRADOR,
     });
     await tx.depreciacion.createMany({
       data: porDepreciar.map((p) => ({
@@ -283,11 +313,88 @@ export async function depreciar(req: Request, res: Response): Promise<void> {
       tipo: resultado.tipo,
       consecutivo: resultado.consecutivo,
       concepto: resultado.concepto,
+      estado: resultado.estado,
       totalDebito: num(resultado.totalDebito),
       totalCredito: num(resultado.totalCredito),
       numAsientos: resultado.asientos.length,
     },
     procesados: porDepreciar.length,
+  });
+}
+
+export async function contabilizar(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
+  const periodoId = Number(req.params.periodoId);
+  if (!Number.isInteger(periodoId)) {
+    res.status(400).json({ error: "Periodo inválido" });
+    return;
+  }
+  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId } });
+  if (!periodo) {
+    res.status(404).json({ error: `No existe el periodo ${periodoId}` });
+    return;
+  }
+  if (periodo.estado !== EstadoPeriodo.ABIERTO) {
+    res.status(400).json({ error: "El periodo está cerrado" });
+    return;
+  }
+
+  const depreciaciones = await prisma.depreciacion.findMany({
+    where: { periodoId },
+    include: { comprobante: true },
+  });
+  if (depreciaciones.length === 0) {
+    res.status(400).json({ error: "Primero calcule la depreciación del periodo (queda en borrador)" });
+    return;
+  }
+  const comprobante = depreciaciones[0].comprobante;
+  if (!comprobante) {
+    res.status(400).json({ error: "La depreciación no tiene comprobante asociado; vuelva a calcularla" });
+    return;
+  }
+  if (comprobante.estado === EstadoComprobante.CONTABILIZADO) {
+    res.status(400).json({ error: "La depreciación del periodo ya está contabilizada" });
+    return;
+  }
+  if (comprobante.estado !== EstadoComprobante.BORRADOR) {
+    res.status(400).json({ error: "El comprobante de depreciación no está en borrador" });
+    return;
+  }
+
+  const usuarioId = req.user!.sub;
+  const resultado = await prisma.$transaction(async (tx) => {
+    const c = await tx.comprobante.update({
+      where: { id: comprobante.id },
+      data: { estado: EstadoComprobante.CONTABILIZADO },
+      include: { asientos: { include: { cuenta: { select: { codigo: true } } } }, periodo: true },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId,
+      empresaId,
+      accion: AccionAuditoria.CONTABILIZAR,
+      entidad: "Comprobante",
+      entidadId: comprobante.id,
+      detalle: { consecutivo: c.consecutivo, concepto: c.concepto, origen: "depreciacion", periodo: periodo.nombre },
+    });
+    return c;
+  });
+
+  res.status(200).json({
+    comprobante: {
+      id: resultado.id,
+      tipo: resultado.tipo,
+      consecutivo: resultado.consecutivo,
+      concepto: resultado.concepto,
+      estado: resultado.estado,
+      totalDebito: num(resultado.totalDebito),
+      totalCredito: num(resultado.totalCredito),
+      numAsientos: resultado.asientos.length,
+    },
+    procesados: depreciaciones.length,
   });
 }
 

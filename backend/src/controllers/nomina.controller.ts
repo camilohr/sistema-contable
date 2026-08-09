@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Prisma, EstadoPeriodo, EstadoNomina, TipoActividadProceso, AccionAuditoria } from "@prisma/client";
+import { Prisma, EstadoPeriodo, EstadoNomina, EstadoComprobante, TipoActividadProceso, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
 import { crearComprobanteDiario } from "../lib/comprobantes.js";
@@ -657,9 +657,9 @@ export async function provisionar(req: Request, res: Response): Promise<void> {
     where: { periodoId },
     include: { comprobante: { select: { estado: true } } },
   });
-  const vigentes = existentes.filter((p) => p.comprobanteId !== null && p.comprobante?.estado !== "ANULADO");
+  const vigentes = existentes.filter((p) => p.comprobanteId !== null && p.comprobante?.estado !== "ANULADO" && p.comprobante?.estado !== "BORRADOR");
   if (vigentes.length > 0) {
-    res.status(400).json({ error: "La provisión de prestaciones del periodo ya fue calculada; anule el comprobante para recalcular" });
+    res.status(400).json({ error: "La provisión de prestaciones del periodo ya fue contabilizada; anule el comprobante para recalcular" });
     return;
   }
 
@@ -685,7 +685,11 @@ export async function provisionar(req: Request, res: Response): Promise<void> {
 
   const usuarioId = req.user!.sub;
   const resultado = await prisma.$transaction(async (tx) => {
+    const borradorAnterior = existentes.find((p) => p.comprobanteId !== null && p.comprobante?.estado === "BORRADOR");
     await tx.provisionNomina.deleteMany({ where: { periodoId } });
+    if (borradorAnterior?.comprobanteId) {
+      await tx.comprobante.delete({ where: { id: borradorAnterior.comprobanteId } });
+    }
     const comprobante = await crearComprobanteDiario(tx, {
       empresaId: req.empresaId!,
       periodoId,
@@ -693,6 +697,8 @@ export async function provisionar(req: Request, res: Response): Promise<void> {
       concepto: `Provisión de prestaciones ${periodo.nombre}`,
       usuarioId,
       asientos,
+      // S1-15: queda en BORRADOR hasta que un segundo revisor lo contabilice.
+      estado: EstadoComprobante.BORRADOR,
     });
     const creadas = [];
     for (let i = 0; i < lineas.length; i++) {
@@ -731,6 +737,7 @@ export async function provisionar(req: Request, res: Response): Promise<void> {
       consecutivo: resultado.comprobante.consecutivo,
       fecha: resultado.comprobante.fecha.toISOString().slice(0, 10),
       concepto: resultado.comprobante.concepto,
+      estado: resultado.comprobante.estado,
       totalDebito: num(resultado.comprobante.totalDebito),
       totalCredito: num(resultado.comprobante.totalCredito),
       numAsientos: resultado.comprobante.asientos.length,
@@ -742,6 +749,81 @@ export async function provisionar(req: Request, res: Response): Promise<void> {
       })),
     },
     total: provisiones.reduce((s, p) => s + p.total, 0),
+  });
+}
+
+export async function contabilizarProvision(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
+  const periodoId = Number(req.params.periodoId);
+  if (!Number.isInteger(periodoId)) {
+    res.status(400).json({ error: "Periodo inválido" });
+    return;
+  }
+  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId } });
+  if (!periodo) {
+    res.status(404).json({ error: `No existe el periodo ${periodoId}` });
+    return;
+  }
+  if (periodo.estado !== EstadoPeriodo.ABIERTO) {
+    res.status(400).json({ error: "El periodo está cerrado" });
+    return;
+  }
+  const lineas = await prisma.provisionNomina.findMany({
+    where: { periodoId },
+    include: { comprobante: true },
+  });
+  if (lineas.length === 0) {
+    res.status(400).json({ error: "Primero calcule la provisión del periodo (queda en borrador)" });
+    return;
+  }
+  const comprobante = lineas[0].comprobante;
+  if (!comprobante) {
+    res.status(400).json({ error: "La provisión no tiene comprobante asociado; vuelva a calcularla" });
+    return;
+  }
+  if (comprobante.estado === EstadoComprobante.CONTABILIZADO) {
+    res.status(400).json({ error: "La provisión del periodo ya está contabilizada" });
+    return;
+  }
+  if (comprobante.estado !== EstadoComprobante.BORRADOR) {
+    res.status(400).json({ error: "El comprobante de provisión no está en borrador" });
+    return;
+  }
+
+  const usuarioId = req.user!.sub;
+  const resultado = await prisma.$transaction(async (tx) => {
+    const c = await tx.comprobante.update({
+      where: { id: comprobante.id },
+      data: { estado: EstadoComprobante.CONTABILIZADO },
+      include: { asientos: { include: { cuenta: { select: { codigo: true } } } }, periodo: true },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId,
+      empresaId,
+      accion: AccionAuditoria.CONTABILIZAR,
+      entidad: "Comprobante",
+      entidadId: comprobante.id,
+      detalle: { consecutivo: c.consecutivo, concepto: c.concepto, origen: "provision-nomina", periodo: periodo.nombre },
+    });
+    await marcarActividadProceso(tx, empresaId, periodo.fechaFin.getFullYear(), TipoActividadProceso.NOMINA);
+    return c;
+  });
+
+  res.status(200).json({
+    comprobante: {
+      id: resultado.id,
+      consecutivo: resultado.consecutivo,
+      concepto: resultado.concepto,
+      estado: resultado.estado,
+      totalDebito: num(resultado.totalDebito),
+      totalCredito: num(resultado.totalCredito),
+      numAsientos: resultado.asientos.length,
+    },
+    total: redondear2(lineas.reduce((s, l) => s + num(l.total), 0)),
   });
 }
 
@@ -805,4 +887,4 @@ export async function obtenerProvision(req: Request, res: Response): Promise<voi
   });
 }
 
-export const nomina = { obtenerParametros, actualizarParametros, obtenerParametrosCuentas, actualizarParametrosCuentas, liquidar, obtenerLiquidacion, contabilizar, provisionar, obtenerProvision };
+export const nomina = { obtenerParametros, actualizarParametros, obtenerParametrosCuentas, actualizarParametrosCuentas, liquidar, obtenerLiquidacion, contabilizar, provisionar, contabilizarProvision, obtenerProvision };

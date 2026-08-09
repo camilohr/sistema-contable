@@ -149,7 +149,7 @@ describe("Activos fijos: creación", () => {
 describe("Activos fijos: depreciación", () => {
   let activoId = 0;
 
-  it("deprecia el periodo abierto y genera asiento balanceado (201)", async () => {
+  it("deprecia el periodo abierto y genera asiento balanceado en borrador (201)", async () => {
     const creado = await crearActivo({ valor: 1200000, vidaUtilMeses: 12 });
     activoId = creado.body.id;
     await dejarSoloActivo(activoId);
@@ -159,6 +159,7 @@ describe("Activos fijos: depreciación", () => {
       .set("Authorization", `Bearer ${adminToken}`);
     expect(res.status).toBe(201);
     expect(res.body.procesados).toBe(1);
+    expect(res.body.comprobante.estado).toBe("BORRADOR");
     expect(res.body.comprobante.totalDebito).toBe(100000);
     expect(res.body.comprobante.totalCredito).toBe(100000);
     expect(res.body.comprobante.numAsientos).toBe(2);
@@ -170,6 +171,16 @@ describe("Activos fijos: depreciación", () => {
     const estado = await estadoDe(activoId);
     expect(estado!.acumulada).toBe(100000);
     expect(estado!.estado).toBe("ACTIVO");
+  });
+
+  it("contabiliza la depreciación en borrador (segundo revisor)", async () => {
+    const res = await request(app)
+      .post(`/api/activos-fijos/depreciar/${periodoP1}/contabilizar`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.comprobante.estado).toBe("CONTABILIZADO");
+    expect(res.body.comprobante.totalDebito).toBe(100000);
+    expect(res.body.procesados).toBe(1);
   });
 
   it("no permite depreciar dos veces el mismo periodo (400)", async () => {

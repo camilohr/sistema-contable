@@ -76,6 +76,7 @@ interface Comprobante {
   consecutivo: number;
   fecha: string;
   concepto: string;
+  estado?: string;
   totalDebito: number;
   totalCredito: number;
   numAsientos: number;
@@ -268,10 +269,26 @@ export default function Nomina() {
     try {
       const res = await api.post<ResultadoProvisionar>(`/nomina/provisionar/${Number(periodoId)}`);
       setProvisionado(res.data);
-      setMensaje(`Provisión de prestaciones contabilizada en DIARIO ${res.data.comprobante.consecutivo}.`);
+      setMensaje(`Provisión de prestaciones en borrador (DIARIO ${res.data.comprobante.consecutivo}); debe contabilizarse por un segundo revisor.`);
     } catch (err) {
       const er = err as { response?: { data?: { error?: string } } };
       setError(er.response?.data?.error ?? "Error al provisionar prestaciones.");
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const contabilizarProvision = async () => {
+    setError("");
+    setMensaje("");
+    setEnviando(true);
+    try {
+      const res = await api.post<ResultadoProvisionar>(`/nomina/provisionar/${Number(periodoId)}/contabilizar`);
+      setProvisionado(res.data);
+      setMensaje(`Provisión de prestaciones contabilizada (DIARIO ${res.data.comprobante.consecutivo}).`);
+    } catch (err) {
+      const er = err as { response?: { data?: { error?: string } } };
+      setError(er.response?.data?.error ?? "Error al contabilizar la provisión.");
     } finally {
       setEnviando(false);
     }
@@ -468,6 +485,13 @@ export default function Nomina() {
             Provisión de prestaciones (DIARIO {provisionado.comprobante.consecutivo}) · Total {cop(provisionado.total)}
           </h3>
           <TablaAsientos comprobante={provisionado.comprobante} />
+          {provisionado.comprobante.estado === "BORRADOR" && (
+            <div className="acciones">
+              <button type="button" className="btn btn-primary" onClick={contabilizarProvision} disabled={enviando}>
+                {enviando ? "Contabilizando..." : "Contabilizar provisión"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -562,6 +586,32 @@ export default function Nomina() {
                   </tbody>
                 </table>
               </div>
+              {consultaProvision.comprobante?.estado === "BORRADOR" && (
+                <div className="acciones">
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={enviando}
+                    onClick={() => {
+                      setError("");
+                      setMensaje("");
+                      setEnviando(true);
+                      api
+                        .post<ResultadoProvisionar>(`/nomina/provisionar/${consultaProvision.periodoId}/contabilizar`)
+                        .then((r) => {
+                          setMensaje(`Provisión de prestaciones contabilizada (DIARIO ${r.data.comprobante.consecutivo}).`);
+                          setConsultaProvision({ ...consultaProvision, comprobante: { ...consultaProvision.comprobante!, estado: "CONTABILIZADO" } });
+                        })
+                        .catch((err: { response?: { data?: { error?: string } } }) => {
+                          setError(err.response?.data?.error ?? "Error al contabilizar la provisión.");
+                        })
+                        .finally(() => setEnviando(false));
+                    }}
+                  >
+                    {enviando ? "Contabilizando..." : "Contabilizar provisión"}
+                  </button>
+                </div>
+              )}
               {consultaProvision.comprobante && <TablaAsientos comprobante={consultaProvision.comprobante} />}
             </>
           )}

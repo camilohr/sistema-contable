@@ -132,10 +132,19 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
     include: { comprobante: { select: { estado: true } } },
   });
   if (existente) {
-    if (existente.comprobanteId === null || existente.comprobante?.estado === EstadoComprobante.ANULADO) {
-      await prisma.provisionCartera.delete({ where: { id: existente.id } });
+    if (existente.comprobanteId === null || existente.comprobante?.estado === EstadoComprobante.ANULADO || existente.comprobante?.estado === EstadoComprobante.BORRADOR) {
+      // BORRADOR y ANULADO se pueden recalcular (S1-15). Solo se elimina el
+      // comprobante BORRADOR; el ANULADO queda como pista de auditoría.
+      if (existente.comprobante?.estado === EstadoComprobante.BORRADOR && existente.comprobanteId) {
+        await prisma.$transaction(async (tx) => {
+          await tx.provisionCartera.delete({ where: { id: existente.id } });
+          await tx.comprobante.delete({ where: { id: existente.comprobanteId! } });
+        });
+      } else {
+        await prisma.provisionCartera.delete({ where: { id: existente.id } });
+      }
     } else {
-      res.status(400).json({ error: "La provisión de cartera para este periodo ya fue calculada; anule el comprobante para recalcular" });
+      res.status(400).json({ error: "La provisión de cartera para este periodo ya fue contabilizada; anule el comprobante para recalcular" });
       return;
     }
   }
@@ -241,6 +250,8 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
         concepto: incremental > 0 ? `Provisión de cartera ${periodo.nombre}` : `Reversión de provisión de cartera ${periodo.nombre}`,
         usuarioId,
         asientos,
+        // S1-15: queda en BORRADOR hasta que un segundo revisor lo contabilice.
+        estado: EstadoComprobante.BORRADOR,
       });
       comprobanteId = comprobante.id;
     }
@@ -287,6 +298,7 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
           consecutivo: resultado.comprobante.consecutivo,
           fecha: resultado.comprobante.fecha.toISOString().slice(0, 10),
           concepto: resultado.comprobante.concepto,
+          estado: resultado.comprobante.estado,
           totalDebito: num(resultado.comprobante.totalDebito),
           totalCredito: num(resultado.comprobante.totalCredito),
           numAsientos: resultado.comprobante.asientos.length,
@@ -299,6 +311,82 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
         }
       : null,
     lineas,
+  });
+}
+
+export async function contabilizar(req: Request, res: Response): Promise<void> {
+  const empresaId = req.empresaId;
+  if (!empresaId) {
+    res.status(403).json({ error: "Empresa no seleccionada" });
+    return;
+  }
+  const periodoId = Number(req.params.periodoId);
+  if (!Number.isInteger(periodoId)) {
+    res.status(400).json({ error: "Periodo inválido" });
+    return;
+  }
+  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId } });
+  if (!periodo) {
+    res.status(404).json({ error: `No existe el periodo ${periodoId}` });
+    return;
+  }
+  if (periodo.estado !== EstadoPeriodo.ABIERTO) {
+    res.status(400).json({ error: "El periodo está cerrado" });
+    return;
+  }
+  const provision = await prisma.provisionCartera.findUnique({
+    where: { periodoId },
+    include: { comprobante: true },
+  });
+  if (!provision) {
+    res.status(400).json({ error: "Primero calcule la provisión del periodo (queda en borrador)" });
+    return;
+  }
+  if (provision.comprobanteId === null) {
+    res.status(200).json({ ok: true, mensaje: "La provisión no generó comprobante (sin variación) y ya está registrada" });
+    return;
+  }
+  const comprobante = provision.comprobante!;
+  if (comprobante.estado === EstadoComprobante.CONTABILIZADO) {
+    res.status(400).json({ error: "La provisión del periodo ya está contabilizada" });
+    return;
+  }
+  if (comprobante.estado !== EstadoComprobante.BORRADOR) {
+    res.status(400).json({ error: "El comprobante de provisión no está en borrador" });
+    return;
+  }
+
+  const usuarioId = req.user!.sub;
+  const resultado = await prisma.$transaction(async (tx) => {
+    const c = await tx.comprobante.update({
+      where: { id: comprobante.id },
+      data: { estado: EstadoComprobante.CONTABILIZADO },
+      include: { asientos: { include: { cuenta: { select: { codigo: true } } } }, periodo: true },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId,
+      empresaId,
+      accion: AccionAuditoria.CONTABILIZAR,
+      entidad: "Comprobante",
+      entidadId: comprobante.id,
+      detalle: { consecutivo: c.consecutivo, concepto: c.concepto, origen: "provision-cartera", periodo: periodo.nombre },
+    });
+    await marcarActividadProceso(tx, empresaId, periodo.fechaFin.getFullYear(), TipoActividadProceso.PROVISION_CARTERA);
+    return c;
+  });
+
+  res.status(200).json({
+    comprobante: {
+      id: resultado.id,
+      tipo: resultado.tipo,
+      consecutivo: resultado.consecutivo,
+      concepto: resultado.concepto,
+      estado: resultado.estado,
+      totalDebito: num(resultado.totalDebito),
+      totalCredito: num(resultado.totalCredito),
+      numAsientos: resultado.asientos.length,
+    },
+    totalCalculado: num(provision.totalCalculado),
   });
 }
 
@@ -355,4 +443,4 @@ export async function obtenerProvision(req: Request, res: Response): Promise<voi
   });
 }
 
-export const provision = { obtenerParametros, actualizarParametros, calcularProvision, obtenerProvision };
+export const provision = { obtenerParametros, actualizarParametros, calcularProvision, contabilizar, obtenerProvision };

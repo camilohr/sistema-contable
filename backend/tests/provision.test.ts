@@ -32,6 +32,10 @@ function calcular(periodoId: number, token: string) {
   return request(app).post(`/api/cartera/provision/calcular/${periodoId}`).set("Authorization", `Bearer ${token}`);
 }
 
+function contabilizar(periodoId: number, token: string) {
+  return request(app).post(`/api/cartera/provision/calcular/${periodoId}/contabilizar`).set("Authorization", `Bearer ${token}`);
+}
+
 const PARAMETROS_DEFECTO = [
   { diasDesde: 1, diasHasta: 30, porcentaje: 1 },
   { diasDesde: 31, diasHasta: 60, porcentaje: 5 },
@@ -186,7 +190,7 @@ describe("Provisión de cartera: parámetros", () => {
 });
 
 describe("Provisión de cartera: cálculo", () => {
-  it("calcula la provisión del primer periodo y genera el asiento 5199/1399", async () => {
+  it("calcula la provisión del primer periodo y genera el asiento 5199/1399 en borrador", async () => {
     const res = await calcular(periodoA, adminToken);
     expect(res.status).toBe(201);
 
@@ -199,6 +203,7 @@ describe("Provisión de cartera: cálculo", () => {
     expect(comp.totalDebito).toBe(250000);
     expect(comp.totalCredito).toBe(250000);
     expect(comp.numAsientos).toBe(2);
+    expect(comp.estado).toBe(EstadoComprobante.BORRADOR);
 
     const debito = comp.asientos.find((a: { codigoCuenta: string }) => a.codigoCuenta === "5199");
     const credito = comp.asientos.find((a: { codigoCuenta: string }) => a.codigoCuenta === "1399");
@@ -210,10 +215,17 @@ describe("Provisión de cartera: cálculo", () => {
     expect(res.body.lineas.length).toBe(2);
   });
 
-  it("no permite calcular dos veces el mismo periodo", async () => {
+  it("contabiliza la provisión en borrador (segundo revisor)", async () => {
+    const res = await contabilizar(periodoA, adminToken);
+    expect(res.status).toBe(200);
+    expect(res.body.comprobante.estado).toBe(EstadoComprobante.CONTABILIZADO);
+    expect(res.body.comprobante.totalDebito).toBe(250000);
+  });
+
+  it("no permite calcular dos veces un periodo ya contabilizado", async () => {
     const res = await calcular(periodoA, adminToken);
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain("ya fue calculada");
+    expect(res.body.error).toContain("contabilizada");
   });
 
   it("calcula el incremento sobre lo ya contabilizado en el segundo periodo", async () => {
@@ -223,11 +235,16 @@ describe("Provisión de cartera: cálculo", () => {
 
     const res = await calcular(periodoB, contadorToken);
     expect(res.status).toBe(201);
+    expect(res.body.comprobante.estado).toBe(EstadoComprobante.BORRADOR);
 
     expect(res.body.resumen.requerido).toBe(360000);
     expect(res.body.resumen.balanceProvision).toBe(250000);
     expect(res.body.resumen.incremental).toBe(110000);
     expect(res.body.comprobante.totalDebito).toBe(110000);
+
+    const cont = await contabilizar(periodoB, contadorToken);
+    expect(cont.status).toBe(200);
+    expect(cont.body.comprobante.estado).toBe(EstadoComprobante.CONTABILIZADO);
   });
 
   it("si no hay ajuste, registra la provisión sin comprobante", async () => {
@@ -257,12 +274,17 @@ describe("Provisión de cartera: cálculo", () => {
 
     const res = await calcular(periodoA, adminToken);
     expect(res.status).toBe(201);
+    expect(res.body.comprobante.estado).toBe(EstadoComprobante.BORRADOR);
     expect(res.body.resumen.requerido).toBe(280000);
     expect(res.body.resumen.balanceProvision).toBe(110000);
     expect(res.body.resumen.incremental).toBe(170000);
 
     const filas = await prisma.provisionCartera.count({ where: { periodoId: periodoA } });
     expect(filas).toBe(1);
+
+    const cont = await contabilizar(periodoA, adminToken);
+    expect(cont.status).toBe(200);
+    expect(cont.body.comprobante.estado).toBe(EstadoComprobante.CONTABILIZADO);
   });
 });
 

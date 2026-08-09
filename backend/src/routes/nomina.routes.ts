@@ -14,6 +14,7 @@ router.put("/parametros-cuentas", requireRole("ADMIN", "CONTADOR"), nomina.actua
 
 router.get("/provision/:periodoId", nomina.obtenerProvision);
 router.post("/provisionar/:periodoId", requireRole("ADMIN", "CONTADOR"), nomina.provisionar);
+router.post("/provisionar/:periodoId/contabilizar", requireRole("ADMIN", "CONTADOR"), nomina.contabilizarProvision);
 router.post("/contabilizar/:periodoId", requireRole("ADMIN", "CONTADOR"), nomina.contabilizar);
 router.post("/liquidar/:periodoId", requireRole("ADMIN", "CONTADOR"), nomina.liquidar);
 

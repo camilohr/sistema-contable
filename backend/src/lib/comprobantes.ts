@@ -17,12 +17,15 @@ interface CrearComprobanteDiarioArgs {
   concepto: string;
   usuarioId: string;
   asientos: AsientoGenerado[];
+  estado?: EstadoComprobante;
 }
 
 /**
- * Crea un comprobante DIARIO CONTABILIZADO con su consecutivo, exigiendo
- * partida doble. Se usa para comprobantes generados por el sistema
- * (depreciación, baja, cierre anual, provisión de cartera).
+ * Crea un comprobante DIARIO con su consecutivo, exigiendo partida doble. Se usa
+ * para comprobantes generados por el sistema (depreciación, baja, cierre anual,
+ * provisión de cartera, nómina). Por defecto queda CONTABILIZADO; los módulos con
+ * aprobación de segundo revisor (depreciación, provisiones — S1-15) crean el
+ * comprobante en BORRADOR y lo contabilizan después con su endpoint dedicado.
  */
 export async function crearComprobanteDiario(db: DbEjecutor, data: CrearComprobanteDiarioArgs) {
   if (data.asientos.length < 2) {
@@ -54,7 +57,7 @@ export async function crearComprobanteDiario(db: DbEjecutor, data: CrearComproba
       concepto: data.concepto,
       totalDebito,
       totalCredito,
-      estado: EstadoComprobante.CONTABILIZADO,
+      estado: data.estado ?? EstadoComprobante.CONTABILIZADO,
       usuarioCreoId: data.usuarioId,
       asientos: {
         create: data.asientos.map((a) => ({

@@ -338,8 +338,9 @@ function FormaDepreciar({ onClose }: { onClose: () => void }) {
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [periodoId, setPeriodoId] = useState("");
   const [error, setError] = useState("");
-  const [resultado, setResultado] = useState<{ procesados: number; comprobante: { consecutivo: number; totalDebito: number } } | null>(null);
+  const [resultado, setResultado] = useState<{ procesados: number; comprobante: { consecutivo: number; totalDebito: number; estado: string } } | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [mensaje, setMensaje] = useState("");
 
   useEffect(() => {
     api.get<Periodo[]>("/periodos").then((r) => setPeriodos(r.data.filter((p) => p.estado === "ABIERTO"))).catch(() => {});
@@ -348,14 +349,33 @@ function FormaDepreciar({ onClose }: { onClose: () => void }) {
   const ejecutar = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    setMensaje("");
     setEnviando(true);
     try {
       const res = await api.post(`/activos-fijos/depreciar/${periodoId}`);
       setResultado(res.data);
+      setMensaje("Depreciación calculada en borrador; debe contabilizarse por un segundo revisor.");
       setEnviando(false);
     } catch (err) {
       const er = err as { response?: { data?: { error?: string } } };
       setError(er.response?.data?.error ?? "Error al depreciar el periodo.");
+      setEnviando(false);
+    }
+  };
+
+  const contabilizar = async () => {
+    if (!resultado) return;
+    setError("");
+    setMensaje("");
+    setEnviando(true);
+    try {
+      await api.post(`/activos-fijos/depreciar/${periodoId}/contabilizar`);
+      setMensaje("Depreciación contabilizada.");
+      setResultado(null);
+    } catch (err) {
+      const er = err as { response?: { data?: { error?: string } } };
+      setError(er.response?.data?.error ?? "Error al contabilizar la depreciación.");
+    } finally {
       setEnviando(false);
     }
   };
@@ -379,14 +399,20 @@ function FormaDepreciar({ onClose }: { onClose: () => void }) {
           {resultado && (
             <p className="count-hint">
               {resultado.procesados} activo{resultado.procesados === 1 ? "" : "s"} depreciado
-              {resultado.procesados === 1 ? "" : "s"} · Comprobante DIARIO {resultado.comprobante.consecutivo} por {cop(resultado.comprobante.totalDebito)}.
+              {resultado.procesados === 1 ? "" : "s"} · Comprobante DIARIO {resultado.comprobante.consecutivo} por {cop(resultado.comprobante.totalDebito)} · {resultado.comprobante.estado}.
             </p>
           )}
+          {mensaje && <p className="success-msg">{mensaje}</p>}
           {error && <p className="error-msg">{error}</p>}
           <div className="modal-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cerrar
             </button>
+            {resultado?.comprobante?.estado === "BORRADOR" && (
+              <button type="button" className="btn btn-primary" onClick={contabilizar} disabled={enviando}>
+                {enviando ? "Contabilizando..." : "Contabilizar"}
+              </button>
+            )}
             <button type="submit" className="btn btn-primary" disabled={enviando || !periodoId}>
               {enviando ? "Depreciando..." : "Depreciar"}
             </button>
