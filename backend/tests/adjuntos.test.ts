@@ -113,7 +113,7 @@ describe("Adjuntos", () => {
       .attach("archivo", Buffer.from("soporte-cliente"), "certificado.pdf");
     expect(res.status).toBe(201);
     expect(res.body.entidad).toBe("EMPRESA");
-    adjuntoEmpresaId = res.body.id;
+adjuntoEmpresaId = res.body.id;
   });
 
   it("rechaza una entidad inexistente", async () => {
@@ -124,6 +124,24 @@ describe("Adjuntos", () => {
       .field("entidadId", "999999")
       .attach("archivo", Buffer.from("x"), "x.pdf");
     expect(res.status).toBe(404);
+  });
+
+  it("rechaza un tipo de archivo no permitido (S2-12)", async () => {
+    const res = await request(app)
+      .post("/api/adjuntos")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .field("entidad", "COMPROBANTE")
+      .field("entidadId", String(comprobanteId))
+      .attach("archivo", Buffer.from("<script>alert(1)</script>"), "malicioso.html");
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("Tipo de archivo no permitido");
+  });
+
+  it("descarga forzada con Content-Type octet-stream (S2-12)", async () => {
+    const res = await request(app).get(`/api/adjuntos/${adjuntoId}/descargar`).set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toBe("application/octet-stream");
+    expect(res.headers["content-disposition"]).toContain("attachment");
   });
 
   it("lista los adjuntos de un comprobante", async () => {

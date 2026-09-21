@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { z } from "zod";
 import { upload } from "../lib/multer.js";
 import { TipoAdjuntoEntidad, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
@@ -7,6 +8,11 @@ import { registrarAuditoria } from "../lib/auditoria.js";
 import path from "node:path";
 
 export const subirAdjunto = upload.single("archivo");
+
+const subirAdjuntoSchema = z.object({
+  entidad: z.enum(["COMPROBANTE", "EMPRESA"]),
+  entidadId: z.string().min(1),
+});
 
 const TAMANO_MAX = 15 * 1024 * 1024;
 
@@ -24,14 +30,14 @@ async function validarEntidad(entidad: string, entidadId: string, empresaId: str
 }
 
 export async function subir(req: Request, res: Response): Promise<void> {
-  const entidad = String(req.body.entidad ?? "");
-  const entidadId = String(req.body.entidadId ?? "");
-  const archivo = req.file;
-
-  if (!["COMPROBANTE", "EMPRESA"].includes(entidad)) {
-    res.status(400).json({ error: "entidad inválida" });
+  const parsed = subirAdjuntoSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten().fieldErrors });
     return;
   }
+  const { entidad, entidadId } = parsed.data;
+  const archivo = req.file;
+
   if (!archivo) {
     res.status(400).json({ error: "No se recibió ningún archivo (campo 'archivo')" });
     return;
@@ -109,7 +115,9 @@ export async function descargar(req: Request, res: Response): Promise<void> {
     entidadId: adjunto.entidadId,
     detalle: { nombre: adjunto.nombreOriginal, tamanoBytes: adjunto.tamanoBytes },
   });
-  res.download(path.join(adjuntosDir, adjunto.nombreArchivo), adjunto.nombreOriginal);
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(adjunto.nombreOriginal)}`);
+  res.sendFile(path.join(adjuntosDir, adjunto.nombreArchivo));
 }
 
 export async function eliminar(req: Request, res: Response): Promise<void> {
