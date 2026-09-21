@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { z } from "zod";
 import ExcelJS from "exceljs";
 import { prisma } from "../lib/prisma.js";
 import { crearZip } from "../lib/zip.js";
@@ -23,6 +24,13 @@ import {
 
 export type TipoReporte = "libro-diario" | "libro-mayor" | "balance-comprobacion" | "balance-general" | "estado-resultados" | "indicadores";
 export type FormatoExportacion = "csv" | "xlsx";
+
+const paqueteSchema = z
+  .object({
+    periodoId: z.number().int().positive().optional(),
+    anio: z.number().int().nonnegative().optional(),
+  })
+  .refine((d) => d.periodoId || d.anio, { message: "Se requiere 'periodoId' o 'anio'" });
 
 export interface TablaDatos {
   hoja: string;
@@ -237,12 +245,12 @@ export async function paqueteParaEmpresa(
 }
 
 export async function paqueteInformes(req: Request, res: Response): Promise<void> {
-  const periodoId = req.body?.periodoId ? Number(req.body.periodoId) : undefined;
-  const anio = req.body?.anio ? Number(req.body.anio) : undefined;
-  if (!periodoId && !anio) {
-    res.status(400).json({ error: "Se requiere 'periodoId' o 'anio'" });
+  const parsed = paqueteSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten().fieldErrors });
     return;
   }
+  const { periodoId, anio } = parsed.data;
 
   const resultado = await paqueteParaEmpresa(req.empresaId!, periodoId, anio);
   if (!resultado) {
@@ -257,12 +265,12 @@ export async function paqueteInformes(req: Request, res: Response): Promise<void
 }
 
 export async function paqueteFinalBaja(req: Request, res: Response): Promise<void> {
-  const periodoId = req.body?.periodoId ? Number(req.body.periodoId) : undefined;
-  const anio = req.body?.anio ? Number(req.body.anio) : undefined;
-  if (!periodoId && !anio) {
-    res.status(400).json({ error: "Se requiere 'periodoId' o 'anio'" });
+  const parsed = paqueteSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten().fieldErrors });
     return;
   }
+  const { periodoId, anio } = parsed.data;
   const empresa = await prisma.empresa.findUnique({ where: { id: req.params.empresaId } });
   if (!empresa) {
     res.status(404).json({ error: "Empresa no encontrada" });

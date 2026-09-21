@@ -45,6 +45,9 @@
     "typescript": "^5.7.3",
     "vitest": "^3.0.5"
   },
+  "overrides": {
+    "uuid": "^11.1.1"
+  },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },

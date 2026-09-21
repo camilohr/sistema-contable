@@ -1,12 +1,29 @@
 import { Request, Response } from "express";
+import { z } from "zod";
 import { EstadoComprobante, EstadoConciliacion, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
-import { upload } from "../lib/multer.js";
+import { uploadCsv } from "../lib/multer.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
 import { marcarActividadProceso } from "../lib/procesos.js";
 import { parsearExtractoCsv, cruzarMovimientos, hashMovimiento, MapaColumnas } from "../lib/conciliacion.js";
 
-export const importarExtractoUpload = upload.single("archivo");
+const crearConciliacionSchema = z.object({
+  periodoId: z.coerce.number().int().positive(),
+  cuentaId: z.coerce.number().int().positive().optional(),
+});
+
+const importarConciliacionSchema = z.object({
+  periodoId: z.coerce.number().int().positive(),
+  cuentaId: z.coerce.number().int().positive().optional(),
+  fechaCol: z.coerce.number().int().nonnegative().optional(),
+  referenciaCol: z.coerce.number().int().nonnegative().optional(),
+  descripcionCol: z.coerce.number().int().nonnegative().optional(),
+  debitoCol: z.coerce.number().int().nonnegative().optional(),
+  creditoCol: z.coerce.number().int().nonnegative().optional(),
+  saldoCol: z.coerce.number().int().nonnegative().optional(),
+});
+
+export const importarExtractoUpload = uploadCsv.single("archivo");
 
 async function resolverCuentaBanco(empresaId: string, cuentaId?: number): Promise<number | null> {
   if (cuentaId) {
@@ -85,12 +102,12 @@ export async function detalle(req: Request, res: Response): Promise<void> {
 }
 
 export async function crear(req: Request, res: Response): Promise<void> {
-  const periodoId = Number(req.body.periodoId);
-  const cuentaIdProp = req.body.cuentaId ? Number(req.body.cuentaId) : undefined;
-  if (!Number.isInteger(periodoId)) {
-    res.status(400).json({ error: "periodoId inválido" });
+  const parsed = crearConciliacionSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten().fieldErrors });
     return;
   }
+  const { periodoId, cuentaId: cuentaIdProp } = parsed.data;
   const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId: req.empresaId } });
   if (!periodo) {
     res.status(404).json({ error: "Periodo no encontrado" });
@@ -112,14 +129,14 @@ export async function crear(req: Request, res: Response): Promise<void> {
 }
 
 export async function importar(req: Request, res: Response): Promise<void> {
-  const periodoId = Number(req.body.periodoId);
-  const cuentaIdProp = req.body.cuentaId ? Number(req.body.cuentaId) : undefined;
-  const archivo = req.file;
-
-  if (!Number.isInteger(periodoId)) {
-    res.status(400).json({ error: "periodoId inválido" });
+  const parsed = importarConciliacionSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten().fieldErrors });
     return;
   }
+  const { periodoId, cuentaId: cuentaIdProp, fechaCol, referenciaCol, descripcionCol, debitoCol, creditoCol, saldoCol } = parsed.data;
+  const archivo = req.file;
+
   if (!archivo) {
     res.status(400).json({ error: "No se recibió el archivo CSV (campo 'archivo')" });
     return;
@@ -136,12 +153,12 @@ export async function importar(req: Request, res: Response): Promise<void> {
   }
 
   const mapa: MapaColumnas = {
-    fecha: req.body.fechaCol !== undefined ? Number(req.body.fechaCol) : undefined,
-    referencia: req.body.referenciaCol !== undefined ? Number(req.body.referenciaCol) : undefined,
-    descripcion: req.body.descripcionCol !== undefined ? Number(req.body.descripcionCol) : undefined,
-    debito: req.body.debitoCol !== undefined ? Number(req.body.debitoCol) : undefined,
-    credito: req.body.creditoCol !== undefined ? Number(req.body.creditoCol) : undefined,
-    saldo: req.body.saldoCol !== undefined ? Number(req.body.saldoCol) : undefined,
+    fecha: fechaCol,
+    referencia: referenciaCol,
+    descripcion: descripcionCol,
+    debito: debitoCol,
+    credito: creditoCol,
+    saldo: saldoCol,
   };
 
   const texto = archivo.buffer.toString("utf8").replace(/^\uFEFF/, "");

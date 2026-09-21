@@ -10,7 +10,7 @@ const SECRET = (() => {
   return s;
 })();
 
-export const TOKEN_TTL = "12h";
+export const TOKEN_TTL = "4h";
 
 export interface TokenPayload {
   sub: string;

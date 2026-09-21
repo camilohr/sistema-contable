@@ -46,10 +46,17 @@ export function createApp(): express.Express {
           upgradeInsecureRequests: null,
         },
       },
+      // En HTTP, HSTS puede ser cacheado por el navegador y romper el acceso LAN.
+      hsts: false,
     })
   );
-  app.use(cors());
-  app.use(express.json());
+  const origenesPermitidos = process.env.CORS_ORIGIN?.split(",").map((o) => o.trim()) ?? [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://192.168.18.232:3000",
+  ];
+  app.use(cors({ origin: origenesPermitidos, credentials: false }));
+  app.use(express.json({ limit: "256kb" }));
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });
