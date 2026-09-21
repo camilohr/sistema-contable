@@ -118,11 +118,17 @@ Bloque prioritario (no cubierto por auditorías anteriores). Se revisó contra `
 ### Validación de entradas (Zod)
 - **S2-07 (Medio) — Rutas de escritura sin Zod.** `conciliacion.controller.ts:88-89` (`crear`) y `:115-145` (`importar`) parsean con `Number(...)` 6 mapeos de columnas sin schema (NaN puede llegar a Prisma). `exportacion.controller.ts:240-241,260-261` (`paqueteInformes`/`paqueteFinalBaja`) usan `Number(req.body?.periodoId)` sin schema. `adjuntos.controller.ts:26-27` (`subir`) lee `entidad`/`entidadId` con `String(...)` sin schema (`entidad` se valida contra lista fija en `:30`, pero `entidadId` no en tipo). Recomendación: definir `.*Schema` y aplicar `.safeParse` en esos endpoints; unificar el patrón.
 
+  **Corregido en la Fase 5 S2-07** — Schemas Zod añadidos y aplicados con `.safeParse`: `crearConciliacionSchema`/`importarConciliacionSchema` (`conciliacion.controller.ts`, con `z.coerce.number()` porque el multipart entrega strings), `paqueteSchema` (+ `.refine` periodoId|anio) en `exportacion.controller.ts`, `subirAdjuntoSchema` (`entidad` en `z.enum`, `entidadId` string) en `adjuntos.controller.ts`. Endpoints responden 400 con el detalle de Zod.
+
 ### Dependencias (`npm audit`)
 - **S2-08 (Bajo) — `backend`: 2 vulnerabilidades moderadas.** `uuid <11.1.1` (vía `exceljs >=3.5.0`, GHSA-w5hq-g745-h8pq, falta de bounds-check en `uuid` v3/v5/v6). Fix disponible implica breaking change (`exceljs@3.4.0`). `frontend`: 0 vulnerabilidades. Recomendación: actualizar `exceljs` (validar breaking) o evaluar reemplazo; vigilar advisory.
 
+  **Corregido en la Fase 5 S2-08** — `exceljs@4.4.0` usa `uuid.v4()` (compatible); se añadió `overrides: { "uuid": "^11.1.1" }` en `backend/package.json` (Node 20% tiene `crypto.randomUUID`, sin dependencia vulnerable). `npm audit` ya no reporta `uuid`. Quedan avisos fuera del alcance S2-08: multer ≤2.2.0, deepmerge-ts (vía @prisma/config), nanoid, quill (frontend, dev de @quill...).
+
 ### CORS
 - **S2-09 (Alto) — CORS sin restricciones.** `backend/src/app.ts:51` — `app.use(cors())` refleja cualquier `Origin`. Aunque el JWT no viaja por cookie (el riesgo de CSRF se reduce), los endpoints públicos (`/api/health`, `/api/auth/login`) quedan cross-origin. Recomendación: `cors({ origin: process.env.CORS_ORIGIN?.split(",") ?? ["http://localhost:3000","http://192.168.18.219:3000"], credentials: false })`.
+
+  **Corregido en la Fase 5 S2-09** — `app.ts` monta `cors({ origin: ... })` con lista por defecto `["http://localhost:3000","http://127.0.0.1:3000","http://192.168.18.232:3000"]` (IP LAN real) o `process.env.CORS_ORIGIN` (coma-separada); `credentials: false`. Cualquier otro `Origin` recibe 403.
 
 ### Control de acceso por rol
 - **S2-10 (Medio) — Adjuntos POST/GET sin `requireRole`.** `backend/src/routes/adjuntos.routes.ts:10-12` — solo `requireAuth`+`requireEmpresa`. Un `AUXILIAR` puede **subir** adjuntos (archivos de 15 MB, ver S2-12) y **listar/descargar** todos los de la empresa (posibles soportes con datos personales, ver S1-11). `DELETE` sí está protegido (`:13`). Recomendación: `requireRole("ADMIN","CONTADOR")` al menos en POST;(acotar GET por entidad.
@@ -134,14 +140,24 @@ Bloque prioritario (no cubierto por auditorías anteriores). Se revisó contra `
 
 ### Subida de archivos (adjuntos)
 - **S2-12 (Alto) — Sin whitelist de tipos MIME.** `backend/src/lib/multer.ts` sin `fileFilter`; `adjuntos.controller.ts:30-37` solo valida `entidad`, no `mimetype`/extensión. Se permite subir `.exe`, `.html`, `.svg` con JS, `.js`. El nombre guardado es UUID (sin path traversal — `lib/adjuntos.ts:18-21`, ✓), pero `res.download` (`adjuntos.controller.ts:~98`) envía `Content-Type` derivado del MIME guardado, lo que puede inducir al navegador a previsualizar HTML/JS y generar XSS. Recomendación: `fileFilter` con whitelist (imágenes, PDF, Word/Excel, texto, zip); forzar `Content-Disposition: attachment` y `application/octet-stream` al descargar.
+
+  **Corregido en la Fase 5 S2-12** — `fileFilter` con whitelist de MIME (imágenes, PDF, Word/Excel/ODS, texto, CSV, ZIP) + ampliación por extensión para clientes que envían `application/octet-stream` (navegadores Windows y supertest); `.html`, `.svg`, `.js`, `.exe` → 400 "Tipo de archivo no permitido". La descarga sirve con `Content-Type: application/octet-stream` y `Content-Disposition: attachment; filename*=UTF-8''...` (kernel antixss). Tests en `adjuntos.test.ts` (rechazo de html y descarga forzada).
 - **S2-13 (Medio) — `multer.memoryStorage()` + 15 MB → DoS.** `lib/multer.ts:4` carga cada subida en RAM; combinado con ausencia de rate-limit y AUXILIAR permitido a subir, varias subidas concurrentes pueden agotar memoria. Recomendación: `diskStorage` y/o limitar concurrencia; bajar el límite si no se requieren 15 MB.
+
+  **Corregido en la Fase 5 S2-13 (mitigación)** — Se mantiene `memoryStorage()` (el workflow firma/sube el hash antes de persistir, ver `lib/adjuntos.ts`); se acotó el riesgo-fuente: POST de adjuntos restringido a `ADMIN`/`CONTADOR` (S2-10) y subida limitada por rol; límite de 15 MB sin cambios.
 - **S2-14 (Informativo) — Path traversal controlado.** `lib/adjuntos.ts:18-21,32` y `adjuntos.controller.ts:98` usan UUID y `path.basename`; nombre original solo en BD. ✓
 - **S2-15 (Informativo) — Carpeta destino sugerida fuera del repo.** `adjuntos.ts:8` usa `ADJUNTOS_DIR` o `backend/adjuntos`. No se sirve estáticamente (no viaja por `express.static`). Recomendar configurar ruta fuera del árbol git.
 
 ### Body parser y headers
 - **S2-16 (Bajo) — `express.json()` sin `limit` explícito.** `app.ts:52` — `app.use(express.json())`. El límite por defecto (~100 KB) protege a los endpoints JSON, pero está implícito y sin `consola` de error; con `multer` aparte. Recomendación: `express.json({ limit: "256kb" })` y definir el comportamiento para payloads grandes.
+
+  **Corregido en la Fase 5 S2-16** — `express.json({ limit: "256kb" })` en `app.ts`; payloads mayores responden 413 (entity.too.large) manejado por el `errorHandler`.
 - **S2-17 (Bajo) — HSTS en HTTP LAN.** `app.ts:40-50` (helmet) aplica `Strict-Transport-Security` aun sirviendo por HTTP; los navegadores pueden cachear políticas y romper la LAN. Recomendación: `helmet({ hsts: false })` en despliegues no-TLS, o servir por HTTPS.
+
+  **Corregido en la Fase 5 S2-17** — `helmet({ hsts: false, upgradeInsecureRequests: null })` en `app.ts`: no se emite `Strict-Transport-Security` en el despliegue HTTP LAN. Si se habilita HTTPS (ver S2-01 en `despliegue.md`) se recomienda reactivar HSTS.
 - **S2-18 (Medio) — Token en `localStorage` (XSS).** `frontend/src/context/AuthContext.tsx:31,45`; `frontend/src/api/client.ts:6,8` guardan/leen el JWT en `localStorage` y lo envían como `Authorization: Bearer`. Cualquier XSS (incluido un adjunto HTML/SVG servido, ver S2-12) roba el token de 12h. No hay cookie `HttpOnly`. Recomendación: migrar a cookie `HttpOnly; Secure; SameSite=Strict` o mitigar XSS fuerte (CSP estricta + sanear todo lo renderizado desde datos) y reducir el TTL del token.
+
+  **Corregido en la Fase 5 S2-18 (mitigación parcial)** — TTL del JWT reducido de 12h a **4h** (`lib/jwt.ts: TOKEN_TTL`); se mantiene `localStorage` mientras el despliegue sea HTTP LAN (una cookie `HttpOnly; Secure` sin TLS no agrega seguridad real). El robo de token queda mitigado por el TTL acortado + la eliminación del vector adjunto XSS (S2-12). Migrar a cookie `HttpOnly` queda como recomendación para cuando se habilite HTTPS.
 
 ---
 
