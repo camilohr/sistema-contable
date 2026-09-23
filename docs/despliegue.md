@@ -113,7 +113,18 @@ nunca se sube al repositorio**: la clave privada es sensible (ver `.gitignore`).
 
 > Alternativa sin TLS: mantener HTTP restringiendo la red (segmento confiable, sin
 > equipos desconocidos) y asumir el riesgo residual documentado en la auditoría
-> (S1-09).
+> (S1-09). El backend imprime un **warning en el arranque** cuando corre por HTTP desde
+> una IP distinta de `localhost`/`127.0.0.1` recordando habilitar TLS.
+
+## Cabeceras y proxy (auditoría 2026-09, B5/B7)
+
+- `trust proxy` está fijado a `1`: `req.ip` (rate-limit y auditoría de login) es
+  correcto cuando el backend va detrás de un proxy (por ejemplo, si se publica con
+  Caddy/nginx). No configura un proxy adicional.
+- El backend emite `Permissions-Policy: geolocation=(), microphone=(), camera=()`.
+- La lista de `CORS_ORIGIN` permite por defecto solo `http://localhost:3000` y
+  `http://127.0.0.1:3000`; si se accede por otra IP, definir `CORS_ORIGIN` con la
+  lista separada por comas (por ejemplo `http://192.168.18.219:3000`).
 
 ## Solución de problemas
 

@@ -11,7 +11,12 @@ export async function listar(req: Request, res: Response): Promise<void> {
   const limite = Math.min(Number(req.query.limite) || 100, 500);
   const antesDeId = req.query.antesDeId ? Number(req.query.antesDeId) : undefined;
 
-  const where: Prisma.AuditoriaWhereInput = { OR: [{ empresaId: null }, { empresaId: req.empresaId }] };
+  // M4: los eventos globales (empresaId: null → LOGIN_OK/FALLIDO/CAMBIAR_PASSWORD/BLOQUEADO)
+  // son de seguridad corporativa y solo los ve el ADMIN global; el resto ve lo suyo.
+  const verEventosGlobales = req.user?.rol === "ADMIN";
+  const where: Prisma.AuditoriaWhereInput = verEventosGlobales
+    ? { OR: [{ empresaId: null }, { empresaId: req.empresaId }] }
+    : { empresaId: req.empresaId };
   if (usuarioId) where.usuarioId = usuarioId;
   if (entidad) where.entidad = entidad;
   if (accion && (Object.values(AccionAuditoria) as string[]).includes(accion)) {

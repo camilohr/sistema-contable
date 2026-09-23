@@ -38,8 +38,8 @@ export async function cifrarArchivo(origen, destino, passphrase) {
   await writeFile(destino, Buffer.concat([MAGIC, salt, iv, tag, cifrado]));
 }
 
-// Devuelve la ruta del archivo descifrado (archivo temporal) y una función para limpiarlo.
-export async function descifrarArchivo(origen, passphrase, destino) {
+// Devuelve el contenido plano descifrado (en memoria; M8: sin archivo temporal).
+export async function descifrarBuffer(origen, passphrase) {
   const buf = await readFile(origen);
   if (buf.length < MAGIC.length + SALT_LEN + IV_LEN + TAG_LEN || !buf.subarray(0, MAGIC.length).equals(MAGIC)) {
     throw new Error(`No es un respaldo cifrado válido: ${origen}`);
@@ -50,7 +50,11 @@ export async function descifrarArchivo(origen, passphrase, destino) {
   const tag = buf.subarray(off, (off += TAG_LEN));
   const decipher = createDecipheriv("aes-256-gcm", clave(passphrase, salt), iv);
   decipher.setAuthTag(tag);
-  const plano = Buffer.concat([decipher.update(buf.subarray(off)), decipher.final()]);
+  return Buffer.concat([decipher.update(buf.subarray(off)), decipher.final()]);
+}
+
+export async function descifrarArchivo(origen, passphrase, destino) {
+  const plano = await descifrarBuffer(origen, passphrase);
   await writeFile(destino, plano);
   return destino;
 }

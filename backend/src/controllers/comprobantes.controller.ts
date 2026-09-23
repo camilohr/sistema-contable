@@ -201,6 +201,20 @@ export async function listar(req: Request, res: Response): Promise<void> {
   const fechaHasta = req.query.fechaHasta ? String(req.query.fechaHasta) : undefined;
   const busqueda = req.query.busqueda ? String(req.query.busqueda).trim() : undefined;
 
+  // A1: rechazar valores inválidos en filtros (enums y enteros) en lugar de ignorarlos.
+  if (req.query.periodoId !== undefined && !Number.isInteger(periodoId)) {
+    res.status(400).json({ error: "periodoId debe ser un número entero" });
+    return;
+  }
+  if (tipo && !(Object.values(TipoComprobante) as string[]).includes(tipo)) {
+    res.status(400).json({ error: `tipo inválido: ${tipo}` });
+    return;
+  }
+  if (estado && !(Object.values(EstadoComprobante) as string[]).includes(estado)) {
+    res.status(400).json({ error: `estado inválido: ${estado}` });
+    return;
+  }
+
   const where: Prisma.ComprobanteWhereInput = { empresaId: req.empresaId };
   if (tipo && (Object.values(TipoComprobante) as string[]).includes(tipo)) where.tipo = tipo as TipoComprobante;
   if (estado && (Object.values(EstadoComprobante) as string[]).includes(estado)) where.estado = estado as EstadoComprobante;

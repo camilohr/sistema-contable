@@ -3,6 +3,9 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { signToken } from "../lib/jwt.js";
+import { redondeosBcrypt, hashDummy } from "../lib/seguridad.js";
+import { registrarAuditoria } from "../lib/auditoria.js";
+import { AccionAuditoria } from "@prisma/client";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -16,17 +19,39 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
   const { email, password } = parsed.data;
-  const usuario = await prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
-  if (!usuario || !usuario.activo) {
+  const ip = req.ip ?? "desconocida";
+  const usuario = await prisma.usuario.findUnique({ where: { email: email.toLowerCase().trim() } });
+  // B2: comparación incluso cuando el usuario no existe (hash ficticio),
+  // para no revelar por tiempo de respuesta si un correo está registrado.
+  const credencialesValidas = usuario
+    ? await bcrypt.compare(password, usuario.passwordHash)
+    : await bcrypt.compare(password, hashDummy());
+  if (!usuario || !usuario.activo || !credencialesValidas) {
+    if (usuario) {
+      await registrarAuditoria(prisma, {
+        usuarioId: usuario.id,
+        accion: AccionAuditoria.LOGIN_FALLIDO,
+        entidad: "Usuario",
+        entidadId: usuario.id,
+        detalle: { ip, ruta: req.originalUrl },
+      }).catch(() => undefined);
+    }
     res.status(401).json({ error: "Credenciales inválidas" });
     return;
   }
-  const ok = await bcrypt.compare(password, usuario.passwordHash);
-  if (!ok) {
-    res.status(401).json({ error: "Credenciales inválidas" });
-    return;
-  }
-  const token = signToken({ sub: usuario.id, rol: usuario.rol, nombre: usuario.nombre });
+  const token = signToken({
+    sub: usuario.id,
+    rol: usuario.rol,
+    nombre: usuario.nombre,
+    tokenVersion: usuario.tokenVersion,
+  });
+  await registrarAuditoria(prisma, {
+    usuarioId: usuario.id,
+    accion: AccionAuditoria.LOGIN_OK,
+    entidad: "Usuario",
+    entidadId: usuario.id,
+    detalle: { ip },
+  }).catch(() => undefined);
   res.json({
     token,
     usuario: {
@@ -90,10 +115,20 @@ export async function cambiarPassword(req: Request, res: Response): Promise<void
     res.status(400).json({ error: "La contraseña actual es incorrecta" });
     return;
   }
-  const passwordHash = await bcrypt.hash(parsed.data.passwordNueva, Number(process.env.BCRYPT_ROUNDS) || 12);
-  await prisma.usuario.update({
-    where: { id: usuario.id },
-    data: { passwordHash, debeCambiarPassword: false },
+  const passwordHash = await bcrypt.hash(parsed.data.passwordNueva, redondeosBcrypt());
+  await prisma.$transaction(async (tx) => {
+    await tx.usuario.update({
+      where: { id: usuario.id },
+      // M1: invalidar todos los tokens emitidos con la contraseña anterior.
+      data: { passwordHash, debeCambiarPassword: false, tokenVersion: { increment: 1 } },
+    });
+    await registrarAuditoria(tx, {
+      usuarioId: usuario.id,
+      accion: AccionAuditoria.CAMBIAR_PASSWORD,
+      entidad: "Usuario",
+      entidadId: usuario.id,
+      detalle: { ip: req.ip ?? "desconocida" },
+    });
   });
   res.json({ ok: true });
 }

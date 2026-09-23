@@ -56,7 +56,15 @@ async function obtenerEmpresa(empresaId: string): Promise<DatosEmpresa> {
 }
 
 async function datosTabulares(tipo: TipoReporte, req: Request): Promise<TablaDatos> {
+  // A1: guards de enteros para filtros de exportación (rechazar "abc" con 400).
+  if (req.query.periodoId !== undefined && !Number.isInteger(Number(req.query.periodoId))) {
+    throw Object.assign(new Error("periodoId debe ser un número entero"), { status: 400 });
+  }
+  if (req.query.cuentaId !== undefined && !Number.isInteger(Number(req.query.cuentaId))) {
+    throw Object.assign(new Error("cuentaId debe ser un número entero"), { status: 400 });
+  }
   const where = whereFiltros(req);
+  const cuentaId = req.query.cuentaId ? Number(req.query.cuentaId) : undefined;
   switch (tipo) {
     case "libro-diario": {
       const d = await datosLibroDiario(where);
@@ -76,7 +84,6 @@ async function datosTabulares(tipo: TipoReporte, req: Request): Promise<TablaDat
       };
     }
     case "libro-mayor": {
-      const cuentaId = req.query.cuentaId ? Number(req.query.cuentaId) : undefined;
       const d = await datosLibroMayor(where, cuentaId);
       return {
         hoja: "Libro mayor",

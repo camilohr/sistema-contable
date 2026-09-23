@@ -43,7 +43,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   try {
     usuario = await prisma.usuario.findUnique({
       where: { id: payload.sub },
-      select: { activo: true, debeCambiarPassword: true, rol: true, nombre: true },
+      select: { activo: true, debeCambiarPassword: true, rol: true, nombre: true, tokenVersion: true },
     });
   } catch (err) {
     next(err);
@@ -51,6 +51,11 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
   if (!usuario) {
     res.status(401).json({ error: "Usuario no encontrado" });
+    return;
+  }
+  // M1: si el usuario cambió su contraseña, los tokens anteriores quedan sin efecto.
+  if (payload.tokenVersion !== usuario.tokenVersion) {
+    res.status(401).json({ error: "Sesión invalidada; inicie sesión nuevamente", codigo: "SESION_INVALIDADA" });
     return;
   }
   if (!usuario.activo) {

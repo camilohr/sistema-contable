@@ -564,3 +564,9 @@ respaldo por empresa probado contra la base real (`npm run backup` → 1 cliente
 - Los módulos de V1.1 quedan funcionalmente congelados; los cambios de V2.0 son de
   scoping (multientidad), integración, seguimiento y exportación, no de reglas
   contables nuevas.
+- **Seguridad diferida (de la auditoría 2026-09, Fase 3):** bloqueo de cuenta por
+  intentos fallidos (lockout, ítem M11), autenticación de dos factores para ADMIN
+  (MFA, ítem B8) y habilitar TLS por defecto con fallback a HTTP solo en localhost
+  (ítem B6, hoy documentado en `docs/despliegue.md`). Son cambios de mecanismo que no
+  alteran el modelo contable y se incorporan como mejora cuando se defina el despliegue
+  definitivo del despacho.

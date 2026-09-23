@@ -40,6 +40,35 @@ dotenv.config({ path: path.join(backendDir, ".env") });
 
 const exec = promisify(execFile);
 
+// M6: pasar credenciales por variables de entorno (PGPASSWORD etc.) en lugar de
+// incrustarlas en la URI visible en la línea de comandos del proceso.
+function parseUrlPg(uri) {
+  try {
+    const u = new URL(String(uri).split("?")[0].replace(/\/$/, ""));
+    if (!u.hostname || !u.pathname || !u.pathname.startsWith("/")) return null;
+    return {
+      host: u.hostname,
+      port: u.port ? Number(u.port) : 5432,
+      user: u.username ? decodeURIComponent(u.username) : undefined,
+      password: u.password ? decodeURIComponent(u.password) : undefined,
+      database: u.pathname.replace(/^\//, ""),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function envPg(props) {
+  const env = { ...process.env };
+  if (props) {
+    if (props.password !== undefined) env.PGPASSWORD = props.password;
+    env.PGHOST = props.host;
+    env.PGPORT = String(props.port);
+    if (props.user !== undefined) env.PGUSER = props.user;
+  }
+  return env;
+}
+
 // Conteos por cliente (tablas con scoping directo por empresaId). Se ejecutan sobre
 // la BD viva inmediatamente después del dump verificado: el respaldo es una copia
 // íntegra, así que estos totales son los que debe contener el archivo.
@@ -202,10 +231,11 @@ async function verificar(pgRestore, archivo) {
 }
 
 async function verificarPorEmpresa(pg, dbUri, logFile) {
-  const db = String(dbUri).split("?")[0];
+  const props = parseUrlPg(dbUri);
+  const args = props ? ["-At", "-F", "\t", "-c", SQL_POR_EMPRESA, "-d", props.database] : ["-At", "-F", "\t", "-c", SQL_POR_EMPRESA, dbUri];
   let stdout;
   try {
-    ({ stdout } = await exec(pg, ["-At", "-F", "\t", "-c", SQL_POR_EMPRESA, db], { encoding: "utf8" }));
+    ({ stdout } = await exec(pg, args, { encoding: "utf8", env: envPg(props) }));
   } catch (err) {
     const msg = err.stderr?.trim() || err.message;
     console.warn(`AVISO: no se generó el informe por empresa (${msg}). El respaldo sigue siendo válido.`);
@@ -309,10 +339,12 @@ async function main() {
   const ruta = path.join(opt.dir, nombre);
   const logFile = path.join(opt.dir, "backup.log");
   const dbUri = String(process.env.DATABASE_URL).split("?")[0];
+  const props = parseUrlPg(dbUri);
 
   console.log(`Creando respaldo: ${ruta}`);
+  const argsDump = props ? ["-Fc", "-f", ruta, "-d", props.database] : ["-Fc", "-f", ruta, dbUri];
   try {
-    await exec(pgDump, ["-Fc", "-f", ruta, dbUri], { encoding: "utf8" });
+    await exec(pgDump, argsDump, { encoding: "utf8", env: envPg(props) });
   } catch (err) {
     await unlink(ruta).catch(() => {});
     await registrar(logFile, `ERROR respaldo ${ruta}: ${err.stderr?.trim() || err.message}`);
@@ -331,6 +363,11 @@ async function main() {
   console.log(`Respaldo verificado: OK (${verif.objetos} objetos)`);
 
   const claveCifrado = process.env.BACKUP_ENCRYPT_KEY;
+  // M7: en producción el respaldo en claro no es aceptable (S1-10).
+  if (!claveCifrado && process.env.NODE_ENV === "production") {
+    console.error("ERROR: en producción (NODE_ENV=production) se exige BACKUP_ENCRYPT_KEY para cifrar el respaldo.");
+    process.exit(1);
+  }
   const rutaAdjuntos = ruta.replace(/\.dump$/, ".adjuntos.zip");
   const adjuntosDir = process.env.ADJUNTOS_DIR ? path.resolve(process.env.ADJUNTOS_DIR) : path.join(backendDir, "adjuntos");
   if (await existe(adjuntosDir)) {

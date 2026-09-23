@@ -1,8 +1,13 @@
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../src/lib/prisma.js";
 import { PUC } from "./seed/puc.js";
 import { derivarPuc } from "../src/lib/puc.js";
+
+function generarPassword(): string {
+  return randomBytes(6).toString("base64").replace(/[/+=]/g, "").slice(0, 12) || "Inicial$2026";
+}
 
 async function importarPuc(): Promise<void> {
   const codes = new Set(PUC.map(([c]) => c));
@@ -64,13 +69,18 @@ async function seedEmpresa(): Promise<string> {
 
 async function seedUsuarioAdmin(empresaId: string): Promise<void> {
   const adminEmail = "admin@sistema.local";
+  // M10: no hay credencial hardcodeada en el código; se usa ADMIN_INITIAL_PASSWORD
+  // o una contraseña aleatoria generada en el momento (se imprime una sola vez).
+  const passwordInicial = process.env.ADMIN_INITIAL_PASSWORD || generarPassword();
+  const rounds = Number(process.env.BCRYPT_ROUNDS) > 0 ? Math.max(12, Number(process.env.BCRYPT_ROUNDS)) : 12;
   let admin = await prisma.usuario.findUnique({ where: { email: adminEmail } });
   if (!admin) {
-    const passwordHash = await bcrypt.hash("Admin123!", 10);
+    const passwordHash = await bcrypt.hash(passwordInicial, rounds);
     admin = await prisma.usuario.create({
       data: { nombre: "Administrador", email: adminEmail, passwordHash, rol: "ADMIN", debeCambiarPassword: true },
     });
-    console.log("Usuario administrador creado: admin@sistema.local / Admin123!  (deberá cambiar la contraseña en el primer ingreso)");
+    console.log(`Usuario administrador creado: ${adminEmail}`);
+    console.log(`  Contraseña inicial: ${passwordInicial}  (cambie la contraseña en el primer ingreso)`);
   } else {
     console.log("El usuario administrador ya existe.");
   }

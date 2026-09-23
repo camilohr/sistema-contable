@@ -42,7 +42,7 @@ Copy-Item .env.example .env
 
 # 3. Crear la base y aplicar migraciones
 npm run db:migrate
-npm run db:seed          # crea admin@sistema.local / Admin123! y el PUC
+npm run db:seed          # crea admin@sistema.local (ADMIN_INITIAL_PASSWORD o aleatoria impresa una vez) y el PUC
 
 # 4. Compilar backend y frontend
 npm run build

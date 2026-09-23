@@ -8,6 +8,17 @@ import path from "node:path";
 
 const TIPO_ZIP = "contabilidad-adjuntos";
 
+// M9: evita zip-slip — ninguna entrada puede escribirse fuera del directorio destino
+// (nombres absolutos, ".." o rutas que escapen del destino).
+function rutaSegura(destino, nombre) {
+  const base = path.resolve(destino);
+  const candidata = path.resolve(base, nombre.replace(/\//g, path.sep));
+  if (candidata !== base && !candidata.startsWith(base + path.sep)) {
+    throw new Error(`ZIP inválido: la entrada "${nombre}" escapa del directorio destino (zip-slip)`);
+  }
+  return candidata;
+}
+
 function crc32(buf) {
   let c;
   const table = crcTable();
@@ -124,15 +135,16 @@ export async function crearZipDesdeCarpeta(carpeta) {
   return Buffer.concat([...partes, centralBuf, finCentral]);
 }
 
-export async function extraerZip(carpetaZip, destino) {
-  const buf = await readFile(carpetaZip);
+// Acepta una ruta de archivo o un Buffer del ZIP.
+export async function extraerZip(entrada, destino) {
+  const buf = typeof entrada === "string" ? await readFile(entrada) : entrada;
   const zip = leerZip(buf);
   await mkdir(destino, { recursive: true });
-  for (const entrada of zip.entradas) {
-    if (!entrada.nombre || entrada.nombre.endsWith("/")) continue;
-    const ruta = path.join(destino, entrada.nombre);
+  for (const entrada_ of zip.entradas) {
+    if (!entrada_.nombre || entrada_.nombre.endsWith("/")) continue;
+    const ruta = rutaSegura(destino, entrada_.nombre);
     await mkdir(path.dirname(ruta), { recursive: true });
-    await writeFile(ruta, entrada.contenido);
+    await writeFile(ruta, entrada_.contenido);
   }
   return zip;
 }

@@ -7,6 +7,9 @@ const SECRET = (() => {
       "JWT_SECRET no está definido en el entorno (o es el valor por defecto 'dev-secret'). El servidor no arranca por seguridad."
     );
   }
+  if (s.length < 32) {
+    throw new Error(`JWT_SECRET demasiado corto (${s.length} caracteres); exige al menos 32.`);
+  }
   return s;
 })();
 
@@ -16,6 +19,7 @@ export interface TokenPayload {
   sub: string;
   rol: string;
   nombre: string;
+  tokenVersion: number;
 }
 
 const OPCIONES: jwt.SignOptions = { expiresIn: TOKEN_TTL, algorithm: "HS256" };

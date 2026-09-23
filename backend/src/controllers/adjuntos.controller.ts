@@ -86,6 +86,11 @@ export async function subir(req: Request, res: Response): Promise<void> {
 export async function listar(req: Request, res: Response): Promise<void> {
   const entidad = String(req.query.entidad ?? "");
   const entidadId = String(req.query.entidadId ?? "");
+  // A1: si se filtra por entidad, el valor debe ser un enum válido.
+  if (entidad && !(Object.values(TipoAdjuntoEntidad) as string[]).includes(entidad)) {
+    res.status(400).json({ error: `entidad inválida: ${entidad}` });
+    return;
+  }
   const where = { empresaId: req.empresaId!, entidad: entidad as TipoAdjuntoEntidad, entidadId };
   const adjuntos = await prisma.adjunto.findMany({
     where,

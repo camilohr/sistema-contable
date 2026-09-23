@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
 import { AccionAuditoria } from "@prisma/client";
+import { redondeosBcrypt } from "../lib/seguridad.js";
 
 const createSchema = z.object({
   nombre: z.string().min(1),
@@ -51,7 +52,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
     res.status(409).json({ error: "El correo ya está registrado" });
     return;
   }
-  const passwordHash = await bcrypt.hash(password, Number(process.env.BCRYPT_ROUNDS) || 12);
+  const passwordHash = await bcrypt.hash(password, redondeosBcrypt());
   const usuario = await prisma.$transaction(async (tx) => {
     const u = await tx.usuario.create({
       data: { nombre, email: email.toLowerCase(), passwordHash, rol, debeCambiarPassword: true },
@@ -74,12 +75,19 @@ export async function crear(req: Request, res: Response): Promise<void> {
 }
 
 export async function disponibles(req: Request, res: Response): Promise<void> {
+  // M5: solo cuentan como "disponibles" los usuarios SIN vínculo activo con ninguna
+  // otra empresa; así no se enumeran (ni se muestran) usuarios de otros tenants.
   const vinculados = await prisma.usuarioEmpresa.findMany({
     where: { empresaId: req.empresaId },
     select: { usuarioId: true },
   });
+  const conOtroVinculo = await prisma.usuarioEmpresa.findMany({
+    where: { empresaId: { not: req.empresaId }, activo: true },
+    select: { usuarioId: true },
+  });
+  const excluidos = [...new Set([...vinculados.map((v) => v.usuarioId), ...conOtroVinculo.map((v) => v.usuarioId)])];
   const usuarios = await prisma.usuario.findMany({
-    where: { id: { notIn: vinculados.map((v) => v.usuarioId) } },
+    where: { id: { notIn: excluidos } },
     orderBy: { nombre: "asc" },
     select: { id: true, nombre: true, email: true, rol: true, activo: true },
   });

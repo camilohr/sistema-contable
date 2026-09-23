@@ -134,6 +134,9 @@ enum TipoAdjuntoEntidad {
 
 enum AccionAuditoria {
   LOGIN_BLOQUEADO
+  LOGIN_FALLIDO
+  LOGIN_OK
+  CAMBIAR_PASSWORD
   CONTABILIZAR
   ANULAR
   ELIMINAR_COMPROBANTE
@@ -238,6 +241,7 @@ model Usuario {
   rol                  Rol           @default(AUXILIAR)
   activo               Boolean       @default(true)
   debeCambiarPassword  Boolean       @default(false)
+  tokenVersion         Int           @default(0)
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 

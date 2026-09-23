@@ -1,3 +1,4 @@
+import "express-async-errors";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -50,10 +51,20 @@ export function createApp(): express.Express {
       hsts: false,
     })
   );
+  // B5: tras un proxy/balanceador, req.ip debe salir de la cabecera X-Forwarded-For
+  // (necesario para los límites por IP y la auditoría de login).
+  app.set("trust proxy", 1);
+
+  // B9: la SPA no usa geolocalización, cámara ni micrófono.
+  app.use((_req, res, next) => {
+    res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+    next();
+  });
+
+  // B3: sin CORS_ORIGIN explícito, solo se acepta la interfaz local (localhost/127.0.0.1).
   const origenesPermitidos = process.env.CORS_ORIGIN?.split(",").map((o) => o.trim()) ?? [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://192.168.18.232:3000",
   ];
   app.use(cors({ origin: origenesPermitidos, credentials: false }));
   app.use(express.json({ limit: "256kb" }));

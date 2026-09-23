@@ -13,8 +13,9 @@ node scripts/seed-demo.mjs
 ```
 
 El script se conecta a `http://localhost:3000` (configurable con la variable `API_URL`) e inicia sesión
-como el administrador (`admin@sistema.local` / `Admin123!`). Se puede cambiar con `DEMO_EMAIL` y
-`DEMO_PASSWORD`. **Es idempotente**: si el dato ya existe, lo omite; se puede ejecutar varias veces.
+como el administrador (`admin@sistema.local` por defecto, cambiable con `DEMO_EMAIL`). **Es necesario
+proveer la contraseña con `DEMO_PASSWORD`** (no hay credencial por defecto; el primer ingreso obliga a
+cambiar la contraseña). **Es idempotente**: si el dato ya existe, lo omite; se puede ejecutar varias veces.
 
 ## Qué crea
 

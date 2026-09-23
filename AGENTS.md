@@ -20,7 +20,7 @@ Backend (workdir `backend/`):
 - `npm run start` — ejecuta el build (`node dist/index.js`)
 - `npm test` — Vitest (`backend/tests`). Usa una base de datos separada (`contabilidad_test`), derivada de `DATABASE_URL` con sufijo `_test` o sobreescrita con `DATABASE_URL_TEST`; el global setup la crea, aplica migraciones y siembra el PUC automáticamente. Nunca toca la base de producción.
 - `npm run db:migrate` — Prisma migrate dev
-- `npm run db:seed` — crea `admin@sistema.local` / `Admin123!` y catálogo PUC
+- `npm run db:seed` — crea el usuario `admin@sistema.local` (contraseña de `ADMIN_INITIAL_PASSWORD` o aleatoria impresa una vez) y catálogo PUC
 - `npm run db:seed:demo` — datos demo idempotentes
 - `npm run backup`, `backup:list`, `restore` — respaldos
 
