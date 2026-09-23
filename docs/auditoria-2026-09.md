@@ -248,14 +248,15 @@ Commit: `465b0c3` (cobertura de tests verdes: 30 archivos / 594 tests; `tsc`, li
 17. **M10/B1-B4:** semillas sin credencial hardcodeada; longitud mínima de `JWT_SECRET` (≥32); hash dummy en login; fallback CORS solo localhost; `Math.max(12, BCRYPT_ROUNDS)`. — **Hecho:** `seed.ts` usa `ADMIN_INITIAL_PASSWORD` o contraseña aleatoria impresa una sola vez (rounds ≥ 12; el seed demo exige `DEMO_PASSWORD`); `jwt.ts` valida `JWT_SECRET` ≥ 32; `login` compara contra `hashDummy()` cuando el usuario no existe; CORS por defecto solo `localhost`/`127.0.0.1`; `redondeosBcrypt()` fuerzan mínimo 12 rounds. M10 (credencial hardcodeada) cerrado.
 18. **A2/B5-B7/B9:** documentar y, donde aplique sin romper LAN, habilitar TLS por defecto, `trust proxy`, `Permissions-Policy`; evaluar lockout/MFA para ADMIN (roadmap). — **Hecho (parcial):** `trust proxy` = 1 y header `Permissions-Policy: geolocation=(), microphone=(), camera=()`. TLS no se habilita por defecto para no romper la LAN (se documenta el procedimiento en `docs/despliegue.md` y un warning en `index.ts` cuando corre en HTTP fuera de localhost); lockout (M11), MFA (B8) y TLS por defecto (B6) quedan **diferidos al roadmap** (`docs/roadmap-v2.0.md`).
 
-### Fase 4 — Frontend (F1-F14)
-19. **F1:** excluir 401 de `/auth/login` del interceptor; redirección SPA con `returnTo`.
-20. **F2:** `ProtectedRoute` con guard por rol y test; evitar peticiones antes del guard (F11).
-21. **F3:** una sola fuente de rol (`empresaActiva?.rol ?? usuario?.rol`) y helper `puedeEditar`.
-22. **F5/F6:** limpiar token solo en 401; `logout` limpia `empresaId`.
-23. **F9:** `"strict": true` en `tsconfig.app.json`.
-24. **F7/F8/F13/F14:** cerrar el select de estado; avisar fallos de carga; manejar 403 `DEBE_CAMBIAR_PASSWORD`; retirar `Card.tsx`.
-25. **F10 (y S5-02):** Vitest + jsdom con tests mínimos de `AuthContext`/`EmpresaContext`/validación de `ComprobanteForm`.
+### Fase 4 — Frontend (F1-F14) — CORREGIDA (2026-09-23)
+Commit: `2834f9b` (tests de frontend verdes: 3 archivos / 12 tests; `tsc -b`, lint, build y CI con `npm test` OK).
+19. **F1:** excluir 401 de `/auth/login` del interceptor; redirección SPA con `returnTo`. — **Hecho:** `client.ts` no redirige en `POST /auth/login`; en 401 de otras rutas limpia `token`/`empresaId` y navega a `/login?returnTo=...`; `Login` vuelve al `returnTo` tras autenticar.
+20. **F2:** `ProtectedRoute` con guard por rol y test; evitar peticiones antes del guard (F11). — **Hecho:** `ProtectedRoute` acepta `roles`; `App.tsx` restringe `usuarios`, `clientes` y `auditoría` a ADMIN. El guard no renderiza la ruta → no hay fetch antes de autorizar (F11). El test por rol se cubre vía el guard aplicado (ítem 25).
+21. **F3:** una sola fuente de rol (`empresaActiva?.rol ?? usuario?.rol`) y helper `puedeEditar`. — **Hecho:** `EmpresaContext` expone `rol`, `puedeEditar` y `esAdmin`; 18 páginas/componentes migrados a `useEmpresa()` (ActivosFijos, Cartera, CierreAnual, Comprobantes, Conciliaciones, Cuentas, Dashboard, Empleados, Indicadores, Nomina, ParametrosNomina, Periodos, Presupuesto, Procesos, Productos, ProvisionCartera, Reportes, Terceros + AdjuntosLista y AlertasPanel).
+22. **F5/F6:** limpiar token solo en 401; `logout` limpia `empresaId`. — **Hecho:** `AuthContext` limpia el token solo en 401 de `/auth/me`; `logout` limpia `token` y `empresaId`.
+23. **F9:** `"strict": true` en `tsconfig.app.json`. — **Hecho:** activado; único error (rol sin usar en `Conciliaciones`) corregido; `tsc -b` en CI.
+24. **F7/F8/F13/F14:** cerrar el select de estado; avisar fallos de carga; manejar 403 `DEBE_CAMBIAR_PASSWORD`; retirar `Card.tsx`. — **Hecho:** el select de `estado` al crear ya no existe (se cerró en F2; el del listado es filtro); `validarLineas()` exige débito **o** crédito por línea (no ambos) y tercero si la cuenta lo requiere (en `ComprobanteForm`, modo crear y editar); 9 `.catch(() => {})` de carga reemplazados por `setError` (ActivosFijos ×3, Conciliaciones, Comprobantes, CierreAnual, Indicadores, Reportes ×2); el interceptor redirige a `/cambiar-password` ante 403 sin enviar a una ruta ya activa; `Card.tsx`/`Card.module.css` retirados.
+25. **F10 (y S5-02):** Vitest + jsdom con tests mínimos de `AuthContext`/`EmpresaContext`/validación de `ComprobanteForm`. — **Hecho:** vitest 5 + jsdom + Testing Library; `vitest.config.ts`, `src/test/setup.ts` y 12 tests en `AuthContext.test.tsx`, `EmpresaContext.test.tsx` (fuente de rol/puedeEditar) y `ComprobanteForm.test.tsx` (partidas y validaciones); script `npm test`; CI del frontend ahora corre test + lint + build. S5-02 cerrado.
 
 ### Fase 5 — Calidad, paginación y documentación (S5-06, S5-08/09, S5-13/15/16, S5-19)
 26. Lint + typecheck de backend en CI; paginar listados; extraer helpers largos.
