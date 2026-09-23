@@ -26,7 +26,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await prisma.cuenta.deleteMany({ where: { codigo: { in: ["11050501", "11050502", "11050503"] } } });
+  await prisma.cuenta.deleteMany({ where: { codigo: { in: ["11050501", "11050502", "11050503", "1955", "195501", "19550101", "1956", "1957", "1999", "199901"] } } });
   await prisma.auditoria.deleteMany({ where: { usuario: { email: { in: emails } } } });
   await prisma.usuario.deleteMany({ where: { email: { in: emails } } });
   await prisma.$disconnect();
@@ -67,10 +67,12 @@ describe("GET /api/cuentas", () => {
 
 describe("Creación de cuentas", () => {
   it("crea una subcuenta hija válida", async () => {
+    await request(app).post("/api/cuentas").set("Authorization", `Bearer ${adminToken}`).send({ codigo: "1955", nombre: "Padre privado" });
+    await request(app).post("/api/cuentas").set("Authorization", `Bearer ${adminToken}`).send({ codigo: "195501", nombre: "Subcuenta privada" });
     const res = await request(app)
       .post("/api/cuentas")
       .set("Authorization", `Bearer ${adminToken}`)
-      .send({ codigo: "11050501", nombre: "Caja general - sucursal norte" });
+      .send({ codigo: "19550101", nombre: "Caja general - sucursal norte" });
     expect(res.status).toBe(201);
     expect(res.body.nivel).toBe(5);
   });
@@ -113,7 +115,7 @@ describe("Actualización y eliminación", () => {
     const creada = await request(app)
       .post("/api/cuentas")
       .set("Authorization", `Bearer ${adminToken}`)
-      .send({ codigo: "11050502", nombre: "Temporal" });
+      .send({ codigo: "1956", nombre: "Temporal" });
     const res = await request(app)
       .patch(`/api/cuentas/${creada.body.id}`)
       .set("Authorization", `Bearer ${adminToken}`)
@@ -128,10 +130,10 @@ describe("Actualización y eliminación", () => {
     const creada = await request(app)
       .post("/api/cuentas")
       .set("Authorization", `Bearer ${adminToken}`)
-      .send({ codigo: "11050503", nombre: "Hija a eliminar" });
+      .send({ codigo: "1957", nombre: "Hija a eliminar" });
     const res = await request(app).delete(`/api/cuentas/${creada.body.id}`).set("Authorization", `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
-    const inexistente = await request(app).get(`/api/cuentas?busqueda=11050503`).set("Authorization", `Bearer ${adminToken}`);
+    const inexistente = await request(app).get(`/api/cuentas?busqueda=1957`).set("Authorization", `Bearer ${adminToken}`);
     expect(inexistente.body.length).toBe(0);
   });
 

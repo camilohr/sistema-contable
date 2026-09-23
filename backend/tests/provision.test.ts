@@ -276,8 +276,10 @@ describe("Provisión de cartera: cálculo", () => {
     expect(res.status).toBe(201);
     expect(res.body.comprobante.estado).toBe(EstadoComprobante.BORRADOR);
     expect(res.body.resumen.requerido).toBe(280000);
-    expect(res.body.resumen.balanceProvision).toBe(110000);
-    expect(res.body.resumen.incremental).toBe(170000);
+    // M6: el saldo 1399 se corta a la fecha fin del periodo; la provisión
+    // contabilizada de un periodo posterior (2026-09) no figura en agosto.
+    expect(res.body.resumen.balanceProvision).toBe(0);
+    expect(res.body.resumen.incremental).toBe(280000);
 
     const filas = await prisma.provisionCartera.count({ where: { periodoId: periodoA } });
     expect(filas).toBe(1);
@@ -296,7 +298,7 @@ describe("Provisión de cartera: consultas", () => {
     expect(res.body.comprobante).toBeTruthy();
     expect(res.body.comprobante.estado).toBe(EstadoComprobante.CONTABILIZADO);
     const asiento1399 = res.body.comprobante.asientos.find((a: { codigoCuenta: string }) => a.codigoCuenta === "1399");
-    expect(asiento1399.credito).toBe(170000);
+    expect(asiento1399.credito).toBe(280000);
   });
 
   it("un periodo sin provisión responde 404", async () => {

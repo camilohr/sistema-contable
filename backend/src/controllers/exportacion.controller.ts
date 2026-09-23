@@ -127,8 +127,10 @@ async function datosTabulares(tipo: TipoReporte, req: Request): Promise<TablaDat
       const filas = [
         ...seccion("INGRESOS", d.ingresos),
         ["TOTAL INGRESOS", "", d.totalIngresos],
-        ...seccion("COSTOS", d.costos),
-        ["TOTAL COSTOS", "", d.totalCostos],
+        ...seccion("COSTOS DE VENTAS", d.costos),
+        ["TOTAL COSTOS DE VENTAS", "", d.totalCostos],
+        ...seccion("COSTOS DE PRODUCCIÓN", d.costosProduccion),
+        ["TOTAL COSTOS DE PRODUCCIÓN", "", d.totalCostosProduccion],
         ...seccion("GASTOS", d.gastos),
         ["TOTAL GASTOS", "", d.totalGastos],
         ["RESULTADO DEL EJERCICIO", "", d.resultado],

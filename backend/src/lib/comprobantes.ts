@@ -1,4 +1,4 @@
-import { Prisma, EstadoComprobante, PrismaClient } from "@prisma/client";
+import { Prisma, EstadoComprobante, EstadoPeriodo, PrismaClient } from "@prisma/client";
 import { obtenerSiguienteConsecutivo } from "./consecutivo.js";
 
 type DbEjecutor = Prisma.TransactionClient | PrismaClient;
@@ -18,6 +18,8 @@ interface CrearComprobanteDiarioArgs {
   usuarioId: string;
   asientos: AsientoGenerado[];
   estado?: EstadoComprobante;
+  verificarPeriodoAbierto?: boolean;
+  verificarCuentas?: boolean;
 }
 
 /**
@@ -43,6 +45,30 @@ export async function crearComprobanteDiario(db: DbEjecutor, data: CrearComproba
   }
   if (data.fecha < periodo.fechaInicio || data.fecha > periodo.fechaFin) {
     throw new Error(`La fecha ${data.fecha.toISOString().slice(0, 10)} no está dentro del periodo ${periodo.nombre}`);
+  }
+  if ((data.verificarPeriodoAbierto ?? true) && periodo.estado !== EstadoPeriodo.ABIERTO) {
+    throw new Error(`El periodo ${periodo.nombre} no está abierto`);
+  }
+
+  if (data.verificarCuentas ?? true) {
+    const ids = [...new Set(data.asientos.map((a) => a.cuentaId))];
+    const cuentas = await db.cuenta.findMany({ where: { id: { in: ids } } });
+    const porId = new Map(cuentas.map((c) => [c.id, c]));
+    for (const a of data.asientos) {
+      const act = porId.get(a.cuentaId);
+      if (!act) {
+        throw new Error(`No existe la cuenta ${a.cuentaId}`);
+      }
+      if (!act.activa) {
+        throw new Error(`La cuenta ${act.codigo} está inactiva`);
+      }
+      if (!act.permiteMovimiento) {
+        throw new Error(`La cuenta ${act.codigo} no permite movimiento directo`);
+      }
+      if (act.requiereTercero) {
+        throw new Error(`La cuenta ${act.codigo} requiere tercero y no se asocia en los comprobantes generados`);
+      }
+    }
   }
 
   const consecutivo = await obtenerSiguienteConsecutivo(db, data.empresaId, "DIARIO");

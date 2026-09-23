@@ -61,6 +61,8 @@ export async function crear(req: Request, res: Response): Promise<void> {
     return;
   }
   const { nombre, fechaInicio, fechaFin } = parsed.data;
+  const inicio = new Date(fechaInicio);
+  const fin = new Date(fechaFin);
 
   const duplicado = await prisma.periodo.findFirst({
     where: { empresaId, nombre },
@@ -70,8 +72,20 @@ export async function crear(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  const solape = await prisma.periodo.findFirst({
+    where: {
+      empresaId,
+      fechaInicio: { lte: fin },
+      fechaFin: { gte: inicio },
+    },
+  });
+  if (solape) {
+    res.status(400).json({ error: `El periodo se solapa con "${solape.nombre}" (${solape.fechaInicio.toISOString().slice(0, 10)} a ${solape.fechaFin.toISOString().slice(0, 10)})` });
+    return;
+  }
+
   const periodo = await prisma.periodo.create({
-    data: { empresaId, nombre, fechaInicio: new Date(fechaInicio), fechaFin: new Date(fechaFin) },
+    data: { empresaId, nombre, fechaInicio: inicio, fechaFin: fin },
   });
   res.status(201).json(periodo);
 }

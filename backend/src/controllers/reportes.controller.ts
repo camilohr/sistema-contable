@@ -30,6 +30,8 @@ export function whereFiltros(req: Request): Prisma.ComprobanteWhereInput {
 
 const ref = (tipo: string, consecutivo: number) => `${tipo[0]}-${String(consecutivo).padStart(4, "0")}`;
 
+const redondear2 = (n: number) => Math.round(n * 100) / 100;
+
 export interface SaldoCuenta {
   codigo: string;
   nombre: string;
@@ -72,7 +74,7 @@ export async function saldosPorCuenta(where: Prisma.ComprobanteWhereInput): Prom
   }
 
   for (const c of porCuenta.values()) {
-    c.saldo = c.naturaleza === "DEUDORA" ? c.debitos - c.creditos : c.creditos - c.debitos;
+    c.saldo = redondear2(c.naturaleza === "DEUDORA" ? c.debitos - c.creditos : c.creditos - c.debitos);
   }
   return [...porCuenta.values()].filter((c) => c.saldo !== 0).sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
 }
@@ -89,7 +91,9 @@ function construirSeccion(saldos: SaldoCuenta[], nombreGrupos: Map<string, strin
     act.total += c.saldo;
     grupos.set(c.grupo, act);
   }
-  return [...grupos.values()].sort((a, b) => a.grupo.localeCompare(b.grupo, undefined, { numeric: true }));
+  return [...grupos.values()]
+    .map((g) => ({ ...g, total: redondear2(g.total) }))
+    .sort((a, b) => a.grupo.localeCompare(b.grupo, undefined, { numeric: true }));
 }
 
 export interface DatosLibroDiario {
@@ -128,8 +132,8 @@ export async function datosLibroDiario(where: Prisma.ComprobanteWhereInput): Pro
     }
   }
 
-  const totalDebitos = lineas.reduce((s, l) => s + l.debito, 0);
-  const totalCreditos = lineas.reduce((s, l) => s + l.credito, 0);
+  const totalDebitos = redondear2(lineas.reduce((s, l) => s + l.debito, 0));
+  const totalCreditos = redondear2(lineas.reduce((s, l) => s + l.credito, 0));
 
   return { lineas, totalDebitos, totalCreditos, numComprobantes: comprobantes.length, numLineas: lineas.length };
 }
@@ -192,15 +196,15 @@ export async function datosLibroMayor(where: Prisma.ComprobanteWhereInput, cuent
       codigo: c.codigo,
       nombre: c.nombre,
       naturaleza: c.naturaleza,
-      debitos: c.debitos,
-      creditos: c.creditos,
-      saldo: c.naturaleza === "DEUDORA" ? c.debitos - c.creditos : c.creditos - c.debitos,
+      debitos: redondear2(c.debitos),
+      creditos: redondear2(c.creditos),
+      saldo: redondear2(c.naturaleza === "DEUDORA" ? c.debitos - c.creditos : c.creditos - c.debitos),
     }))
     .sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
 
   return {
-    totalDebitos: cuentas.reduce((s, c) => s + c.debitos, 0),
-    totalCreditos: cuentas.reduce((s, c) => s + c.creditos, 0),
+    totalDebitos: redondear2(cuentas.reduce((s, c) => s + c.debitos, 0)),
+    totalCreditos: redondear2(cuentas.reduce((s, c) => s + c.creditos, 0)),
     cuentas,
   };
 }
@@ -275,15 +279,21 @@ export async function datosBalanceComprobacion(where: Prisma.ComprobanteWhereInp
         nombre: c.nombre,
         clase: c.clase,
         naturaleza: c.naturaleza,
-        debitos: c.debitos,
-        creditos: c.creditos,
-        saldoDeudor,
-        saldoAcreedor,
+        debitos: redondear2(c.debitos),
+        creditos: redondear2(c.creditos),
+        saldoDeudor: redondear2(saldoDeudor),
+        saldoAcreedor: redondear2(saldoAcreedor),
       };
     })
     .sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
 
-  return { totalDebitos, totalCreditos, saldosDeudores, saldosAcreedores, cuentas };
+  return {
+    totalDebitos: redondear2(totalDebitos),
+    totalCreditos: redondear2(totalCreditos),
+    saldosDeudores: redondear2(saldosDeudores),
+    saldosAcreedores: redondear2(saldosAcreedores),
+    cuentas,
+  };
 }
 
 export async function balanceComprobacion(req: Request, res: Response): Promise<void> {
@@ -335,18 +345,19 @@ export async function datosBalanceGeneral(where: Prisma.ComprobanteWhereInput, e
   const pasivo = construirSeccion(agruparPorClase(saldos, [2]), nombres);
   const patrimonio = construirSeccion(agruparPorClase(saldos, [3]), nombres);
 
-  const resultado =
+  const resultado = redondear2(
     saldos.reduce((s, c) => s + (c.clase === 4 ? c.saldo : 0), 0) -
-    saldos.reduce((s, c) => s + (c.clase === 5 || c.clase === 6 ? c.saldo : 0), 0);
+      saldos.reduce((s, c) => s + (c.clase === 5 || c.clase === 6 || c.clase === 7 ? c.saldo : 0), 0)
+  );
 
   if (resultado !== 0) {
     patrimonio.push({ grupo: "99", nombre: "Resultados del ejercicio", cuentas: [], total: resultado });
     patrimonio.sort((a, b) => a.grupo.localeCompare(b.grupo, undefined, { numeric: true }));
   }
 
-  const totalActivo = activo.reduce((s, g) => s + g.total, 0);
-  const totalPasivo = pasivo.reduce((s, g) => s + g.total, 0);
-  const totalPatrimonio = patrimonio.reduce((s, g) => s + g.total, 0);
+  const totalActivo = redondear2(activo.reduce((s, g) => s + g.total, 0));
+  const totalPasivo = redondear2(pasivo.reduce((s, g) => s + g.total, 0));
+  const totalPatrimonio = redondear2(patrimonio.reduce((s, g) => s + g.total, 0));
 
   return {
     activo,
@@ -356,7 +367,7 @@ export async function datosBalanceGeneral(where: Prisma.ComprobanteWhereInput, e
     totalPasivo,
     totalPatrimonio,
     resultado,
-    ecuacionOK: totalActivo === totalPasivo + totalPatrimonio,
+    ecuacionOK: Math.abs(totalActivo - (totalPasivo + totalPatrimonio)) < 0.005,
   };
 }
 
@@ -368,9 +379,11 @@ export async function balanceGeneral(req: Request, res: Response): Promise<void>
 export interface DatosEstadoResultados {
   ingresos: GrupoBalance[];
   costos: GrupoBalance[];
+  costosProduccion: GrupoBalance[];
   gastos: GrupoBalance[];
   totalIngresos: number;
   totalCostos: number;
+  totalCostosProduccion: number;
   totalGastos: number;
   resultado: number;
 }
@@ -381,20 +394,24 @@ export async function datosEstadoResultados(where: Prisma.ComprobanteWhereInput,
 
   const ingresos = construirSeccion(agruparPorClase(saldos, [4]), nombres);
   const costos = construirSeccion(agruparPorClase(saldos, [6]), nombres);
+  const costosProduccion = construirSeccion(agruparPorClase(saldos, [7]), nombres);
   const gastos = construirSeccion(agruparPorClase(saldos, [5]), nombres);
 
-  const totalIngresos = ingresos.reduce((s, g) => s + g.total, 0);
-  const totalCostos = costos.reduce((s, g) => s + g.total, 0);
-  const totalGastos = gastos.reduce((s, g) => s + g.total, 0);
+  const totalIngresos = redondear2(ingresos.reduce((s, g) => s + g.total, 0));
+  const totalCostos = redondear2(costos.reduce((s, g) => s + g.total, 0));
+  const totalCostosProduccion = redondear2(costosProduccion.reduce((s, g) => s + g.total, 0));
+  const totalGastos = redondear2(gastos.reduce((s, g) => s + g.total, 0));
 
   return {
     ingresos,
     costos,
+    costosProduccion,
     gastos,
     totalIngresos,
     totalCostos,
+    totalCostosProduccion,
     totalGastos,
-    resultado: totalIngresos - totalCostos - totalGastos,
+    resultado: redondear2(totalIngresos - totalCostos - totalCostosProduccion - totalGastos),
   };
 }
 

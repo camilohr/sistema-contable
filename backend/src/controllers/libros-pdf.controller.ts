@@ -205,9 +205,13 @@ export async function generarPdfEstadoResultados(empresa: DatosEmpresa, req: Req
   pdf.tabla(columnasSaldo, filasBalance(datos.ingresos), { resaltar });
   pdf.filaTotal(columnasSaldo, { nombre: "TOTAL INGRESOS", saldo: datos.totalIngresos }, { fondo: "#e2e8f0" });
 
-  pdf.tituloSeccion("COSTOS");
+  pdf.tituloSeccion("COSTOS DE VENTAS");
   pdf.tabla(columnasSaldo, filasBalance(datos.costos), { resaltar });
-  pdf.filaTotal(columnasSaldo, { nombre: "TOTAL COSTOS", saldo: datos.totalCostos }, { fondo: "#e2e8f0" });
+  pdf.filaTotal(columnasSaldo, { nombre: "TOTAL COSTOS DE VENTAS", saldo: datos.totalCostos }, { fondo: "#e2e8f0" });
+
+  pdf.tituloSeccion("COSTOS DE PRODUCCIÓN");
+  pdf.tabla(columnasSaldo, filasBalance(datos.costosProduccion), { resaltar });
+  pdf.filaTotal(columnasSaldo, { nombre: "TOTAL COSTOS DE PRODUCCIÓN", saldo: datos.totalCostosProduccion }, { fondo: "#e2e8f0" });
 
   pdf.tituloSeccion("GASTOS");
   pdf.tabla(columnasSaldo, filasBalance(datos.gastos), { resaltar });

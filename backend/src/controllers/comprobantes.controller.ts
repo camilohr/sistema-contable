@@ -260,6 +260,8 @@ export async function crear(req: Request, res: Response): Promise<void> {
   const estado = EstadoComprobante.BORRADOR;
 
   const comprobante = await prisma.$transaction(async (tx) => {
+    const estadoPeriodo = await bloquearPeriodo(tx, periodo.id);
+    if (estadoPeriodo !== EstadoPeriodo.ABIERTO) return null;
     const consecutivo = await obtenerSiguienteConsecutivo(tx, req.empresaId!, data.tipo);
     const creado = await tx.comprobante.create({
       data: {
@@ -288,6 +290,11 @@ export async function crear(req: Request, res: Response): Promise<void> {
     });
     return creado;
   });
+
+  if (!comprobante) {
+    res.status(400).json({ error: "El periodo está cerrado" });
+    return;
+  }
 
   res.status(201).json(serializarComprobante(comprobante));
 }

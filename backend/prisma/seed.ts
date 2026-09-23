@@ -9,6 +9,27 @@ async function importarPuc(): Promise<void> {
   const esHoja = (codigo: string) =>
     ![...codes].some((c) => c.length > codigo.length && c.startsWith(codigo));
 
+  // B1: el catálogo oficial retiró estos códigos; se quitan de instalaciones
+  // existentes para que no sigan activos (o se desactivan si ya tienen asientos).
+  const RETIRADOS_PUC = ["63", "6305", "4155"];
+  for (const codigo of RETIRADOS_PUC) {
+    const obsoleta = await prisma.cuenta.findFirst({ where: { codigo, empresaId: null } });
+    if (!obsoleta) continue;
+    const conAsientos = await prisma.asiento.count({ where: { cuentaId: obsoleta.id } });
+    if (conAsientos > 0) {
+      await prisma.cuenta.update({ where: { id: obsoleta.id }, data: { activa: false } });
+      console.log(`PUC: la cuenta obsoleta ${codigo} tiene asientos; se desactiva.`);
+    } else {
+      try {
+        await prisma.cuenta.delete({ where: { id: obsoleta.id } });
+        console.log(`PUC: cuenta obsoleta retirada: ${codigo}.`);
+      } catch {
+        await prisma.cuenta.update({ where: { id: obsoleta.id }, data: { activa: false } });
+        console.log(`PUC: la cuenta obsoleta ${codigo} está referenciada; se desactiva.`);
+      }
+    }
+  }
+
   let creadas = 0;
   for (const [codigo, nombre] of PUC) {
     const derivado = derivarPuc(codigo);

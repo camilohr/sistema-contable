@@ -464,7 +464,6 @@ export const PUC: PucEntry[] = [
   ["413510", "Arrendamiento de bienes inmuebles"],
   ["4140", "Ingresos por servicios"],
   ["4145", "Ingresos por salud"],
-  ["4155", "Utilidad en venta de propiedades, planta y equipo"],
   ["4160", "Utilidad en venta de inversiones"],
   ["4165", "Utilidad en venta de bienes recibidos en pago"],
   ["4170", "Utilidad en venta de activos de origen biológico"],
@@ -726,8 +725,6 @@ export const PUC: PucEntry[] = [
   ["629005", "Devoluciones en compras"],
   ["629010", "Rebajas y descuentos en compras"],
   ["6295", "Provisión para protección de inventarios"],
-  ["63", "Costos de producción"],
-  ["6305", "Costos de producción"],
 
   // ============ CLASE 7: COSTOS DE PRODUCCIÓN ============
   ["7", "Costos de producción"],

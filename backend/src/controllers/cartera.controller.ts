@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { FormaPago } from "@prisma/client";
+import { FormaPago, EstadoCartera } from "@prisma/client";
 import { asegurarSecuencia, obtenerSiguienteNumeroSecuencia, type EntidadSecuencia } from "../lib/secuencia.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -31,6 +31,13 @@ const abonoSchema = z.object({
 });
 
 const num = (v: { toNumber(): number } | number): number => (typeof v === "number" ? v : v.toNumber());
+
+async function sincronizarVencidas(empresaId: string): Promise<void> {
+  const hoy = new Date();
+  const condicion = { empresaId, estado: { in: [EstadoCartera.PENDIENTE, EstadoCartera.ABONADA] }, fechaVencimiento: { lt: hoy }, saldo: { gt: 0 } };
+  await prisma.cuentaPorCobrar.updateMany({ where: condicion, data: { estado: EstadoCartera.VENCIDA } });
+  await prisma.cuentaPorPagar.updateMany({ where: condicion, data: { estado: EstadoCartera.VENCIDA } });
+}
 
 function estadoEfectivo(doc: { saldo: { toNumber(): number }; valor: { toNumber(): number }; fechaVencimiento: Date; estado: string }): string {
   const saldo = num(doc.saldo);
@@ -62,6 +69,7 @@ function crearControlador(kind: TipoCartera) {
   };
 
   async function listar(req: Request, res: Response): Promise<void> {
+    await sincronizarVencidas(req.empresaId!);
     const busqueda = req.query.busqueda ? String(req.query.busqueda).trim() : undefined;
     const estado = req.query.estado ? String(req.query.estado) : undefined;
     const terceroId = req.query.terceroId ? String(req.query.terceroId) : undefined;
@@ -131,6 +139,7 @@ function crearControlador(kind: TipoCartera) {
   }
 
   async function detalle(req: Request, res: Response): Promise<void> {
+    await sincronizarVencidas(req.empresaId!);
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
       res.status(400).json({ error: "Id inválido" });

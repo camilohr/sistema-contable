@@ -62,9 +62,11 @@ interface BalanceGeneral {
 interface EstadoResultados {
   ingresos: SeccionCuentas[];
   costos: SeccionCuentas[];
+  costosProduccion: SeccionCuentas[];
   gastos: SeccionCuentas[];
   totalIngresos: number;
   totalCostos: number;
+  totalCostosProduccion: number;
   totalGastos: number;
   resultado: number;
 }
@@ -460,9 +462,14 @@ export default function Reportes() {
             <p className={styles.estadoTotal}>Total ingresos: {cop(resultados.totalIngresos)}</p>
           </div>
           <div className={styles.estadoSeccion}>
-            <h3 className={styles.estadoTitulo}>Costos</h3>
+            <h3 className={styles.estadoTitulo}>Costos de ventas</h3>
             <SeccionTable seccion={resultados.costos} />
-            <p className={styles.estadoTotal}>Total costos: {cop(resultados.totalCostos)}</p>
+            <p className={styles.estadoTotal}>Total costos de ventas: {cop(resultados.totalCostos)}</p>
+          </div>
+          <div className={styles.estadoSeccion}>
+            <h3 className={styles.estadoTitulo}>Costos de producción</h3>
+            <SeccionTable seccion={resultados.costosProduccion} />
+            <p className={styles.estadoTotal}>Total costos de producción: {cop(resultados.totalCostosProduccion)}</p>
           </div>
           <div className={styles.estadoSeccion}>
             <h3 className={styles.estadoTitulo}>Gastos</h3>

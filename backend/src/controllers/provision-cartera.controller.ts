@@ -95,11 +95,15 @@ export async function actualizarParametros(req: Request, res: Response): Promise
   res.json(guardados.map(serializarParametro));
 }
 
-async function saldoCuenta(codigo: string, empresaId: string): Promise<number> {
+async function saldoCuenta(codigo: string, empresaId: string, fechaHasta?: Date): Promise<number> {
   const asientos = await prisma.asiento.findMany({
     where: {
       cuenta: { codigo },
-      comprobante: { estado: EstadoComprobante.CONTABILIZADO, empresaId },
+      comprobante: {
+        estado: EstadoComprobante.CONTABILIZADO,
+        empresaId,
+        ...(fechaHasta ? { fecha: { lte: fechaHasta } } : {}),
+      },
     },
     select: { debito: true, credito: true },
   });
@@ -225,7 +229,7 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
   }
   requerido = redondear2(requerido);
 
-  const balanceProvision = await saldoCuenta(CUENTA_PROVISION, empresaId);
+  const balanceProvision = await saldoCuenta(CUENTA_PROVISION, empresaId, periodo.fechaFin);
   const incremental = redondear2(requerido - balanceProvision);
 
   const usuarioId = req.user!.sub;
@@ -240,7 +244,7 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
           { cuentaId: cuentaGasto.id, debito: 0, credito: Math.abs(incremental), detalle: `Reversión de provisión de cartera ${periodo.nombre}` },
         ];
 
-  const resultado = await prisma.$transaction(async (tx) => {
+  const provisionCarteraTx = async (tx: Prisma.TransactionClient) => {
     let comprobanteId: number | null = null;
     if (incremental !== 0) {
       const comprobante = await crearComprobanteDiario(tx, {
@@ -281,7 +285,18 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
     });
     await marcarActividadProceso(tx, empresaId, periodo.fechaFin.getFullYear(), TipoActividadProceso.PROVISION_CARTERA);
     return provision;
-  });
+  }
+
+  let resultado: Awaited<ReturnType<typeof provisionCarteraTx>>;
+  try {
+    resultado = await prisma.$transaction(provisionCarteraTx);
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      res.status(400).json({ error: "La provisión de cartera para este periodo ya fue calculada; verifique e intente nuevamente" });
+      return;
+    }
+    throw e;
+  }
 
   res.status(201).json({
     provision: {

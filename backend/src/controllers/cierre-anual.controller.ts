@@ -141,8 +141,8 @@ export async function cerrarAnio(req: Request, res: Response): Promise<void> {
     const porDefecto = await prisma.cuenta.findFirst({
       where: { codigo: "3605", OR: [{ empresaId: null }, { empresaId }] },
     });
-    if (!porDefecto || porDefecto.clase !== 3) {
-      res.status(400).json({ error: "No se encontró la cuenta 3605 (Utilidad del ejercicio); indique una cuenta de utilidades" });
+    if (!porDefecto || porDefecto.clase !== 3 || !porDefecto.activa || !porDefecto.permiteMovimiento) {
+      res.status(400).json({ error: "La cuenta 3605 no es válida (debe ser patrimonio clase 3, activa y con movimiento); indique una cuenta de utilidades" });
       return;
     }
     cuentaUtilidadId = porDefecto.id;
@@ -227,15 +227,20 @@ export async function cerrarAnio(req: Request, res: Response): Promise<void> {
     where: { id: cuentaUtilidadId, OR: [{ empresaId: null }, { empresaId }] },
   });
 
-  const resultadoTransaccion = await prisma.$transaction(async (tx) => {
-    const comprobante = await crearComprobanteDiario(tx, {
-      empresaId,
-      periodoId: ultimoPeriodo.id,
-      fecha: fechaCierre,
-      concepto: `Cierre de ejercicio ${anio}`,
-      usuarioId: req.user!.sub,
-      asientos,
-    });
+  try {
+    const resultadoTransaccion = await prisma.$transaction(async (tx) => {
+      const comprobante = await crearComprobanteDiario(tx, {
+        empresaId,
+        periodoId: ultimoPeriodo.id,
+        fecha: fechaCierre,
+        concepto: `Cierre de ejercicio ${anio}`,
+        usuarioId: req.user!.sub,
+        asientos,
+        verificarPeriodoAbierto: false,
+        // A3 valida cuentas por defecto; aquí ya se validó 3605 (A4) y las cuentas
+        // de resultado vienen posteadas, así que se omite la re-validación.
+        verificarCuentas: false,
+      });
     const cierre = await tx.cierreAnual.create({
       data: {
         empresaId,
@@ -268,32 +273,36 @@ export async function cerrarAnio(req: Request, res: Response): Promise<void> {
     return { comprobante, cierre };
   });
 
-  res.status(201).json({
-    cierre: {
-      id: resultadoTransaccion.cierre.id,
-      anio,
-      fecha: resultadoTransaccion.cierre.fecha.toISOString(),
-      comprobanteId: resultadoTransaccion.comprobante.id,
-      cuentaUtilidadId,
-      codigoCuentaUtilidad: resultadoTransaccion.cierre.cuentaUtilidad.codigo,
-      nombreCuentaUtilidad: resultadoTransaccion.cierre.cuentaUtilidad.nombre,
-    },
-    comprobante: {
-      id: resultadoTransaccion.comprobante.id,
-      tipo: resultadoTransaccion.comprobante.tipo,
-      consecutivo: resultadoTransaccion.comprobante.consecutivo,
-      fecha: resultadoTransaccion.comprobante.fecha.toISOString().slice(0, 10),
-      concepto: resultadoTransaccion.comprobante.concepto,
-      totalDebito: resultadoTransaccion.comprobante.totalDebito.toNumber(),
-      totalCredito: resultadoTransaccion.comprobante.totalCredito.toNumber(),
-      numAsientos: resultadoTransaccion.comprobante.asientos.length,
-    },
-    resumen: { debitoIngresos, creditoGastos, resultado },
-    asientos: resultadoTransaccion.comprobante.asientos.map((a) => ({
-      codigoCuenta: (a as { cuenta?: { codigo: string } }).cuenta?.codigo,
-      debito: a.debito.toNumber(),
-      credito: a.credito.toNumber(),
-      detalle: a.detalle,
-    })),
-  });
+    const { comprobante, cierre } = resultadoTransaccion;
+    res.status(201).json({
+      cierre: {
+        id: cierre.id,
+        anio,
+        fecha: cierre.fecha.toISOString(),
+        comprobanteId: comprobante.id,
+        cuentaUtilidadId,
+        codigoCuentaUtilidad: cierre.cuentaUtilidad.codigo,
+        nombreCuentaUtilidad: cierre.cuentaUtilidad.nombre,
+      },
+      comprobante: {
+        id: comprobante.id,
+        tipo: comprobante.tipo,
+        consecutivo: comprobante.consecutivo,
+        fecha: comprobante.fecha.toISOString().slice(0, 10),
+        concepto: comprobante.concepto,
+        totalDebito: comprobante.totalDebito.toNumber(),
+        totalCredito: comprobante.totalCredito.toNumber(),
+        numAsientos: comprobante.asientos.length,
+      },
+      resumen: { debitoIngresos, creditoGastos, resultado },
+      asientos: comprobante.asientos.map((a) => ({
+        codigoCuenta: (a as { cuenta?: { codigo: string } }).cuenta?.codigo,
+        debito: a.debito.toNumber(),
+        credito: a.credito.toNumber(),
+        detalle: a.detalle,
+      })),
+    });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : "No se pudo cerrar el año" });
+  }
 }

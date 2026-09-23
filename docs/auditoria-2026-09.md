@@ -228,15 +228,15 @@ Orden propuesto (cada fase termina con `npm test` en `backend/` y `npm run lint`
 2. **C2:** eliminar `estado` de `guardarSchema` y del form; todo comprobante nace `BORRADOR`; `contabilizar` es el único promotor. Tests: crear con `estado` → campos ignorados/400; consecutivos de auditoría `CONTABILIZAR` siempre presentes.
 3. **C4:** en `abonar`, validar el saldo dentro de la tx (decremento atómico con `updateMany` o `FOR UPDATE`); `@@unique` sobre `numero` (o consecutivo `FOR UPDATE`). Tests: abonos concurrentes → sin sobrepago, sin números duplicados.
 
-### Fase 2 — Corrección contable alta/baja (C5, A1-A5, M1, M3, M5, M6, B1)
-4. **C5:** validar asientos previos antes de eliminar cuenta (400 en lugar de FK 500) y manejar P2002 en `crear`.
-5. **A1:** incluir clase 7 en balance general y estado de resultados; redondear totales y comparar `ecuacionOK` con tolerancia/Decimal.
-6. **A2:** exponer `permiteMovimiento` (solo para hojas sin `tieneHijas`) en crear/actualizar cuentas.
-7. **A3:** validar `periodo.estado === ABIERTO` (paramétrico) y cuentas en `crearComprobanteDiario`.
-8. **A4:** validar 3605 por defecto con activa + `permiteMovimiento`.
-9. **A5:** rechazar periodos con rangos solapados en `crear`.
-10. **M1/M3/M5/M6:** mover validación de periodo dentro de la tx de crear; persistir `VENCIDA` (o evaluar por fecha de corte); redondeo final en totales; manejar P2002 en provisión y cortar saldo 1399 por fecha.
-11. **B1:** contrastar el seed PUC contra el catálogo oficial (1380 vs 1390, etc.).
+### Fase 2 — Corrección contable alta/baja (C5, A1-A5, M1, M3, M5, M6, B1) — CORREGIDA (2026-09-23)
+4. **C5:** validar asientos previos antes de eliminar cuenta (400 en lugar de FK 500) y manejar P2002 en `crear`. — **Hecho:** `cuentas.controller.ts`; test en `auditoria-fase2.test.ts`.
+5. **A1:** incluir clase 7 en balance general y estado de resultados; redondear totales y comparar `ecuacionOK` con tolerancia/Decimal. — **Hecho:** `reportes.controller.ts`, `Reportes.tsx`, exportación y libros PDF; tests en `auditoria-fase2.test.ts`.
+6. **A2:** exponer `permiteMovimiento` (solo para hojas sin `tieneHijas`) en crear/actualizar cuentas. — **Hecho:** ya se calculaba al importar el PUC; se valida al crear/actualizar subcuentas. Tests en `auditoria-fase2.test.ts`.
+7. **A3:** validar `periodo.estado === ABIERTO` (paramétrico) y cuentas en `crearComprobanteDiario`. — **Hecho:** `verificarPeriodoAbierto`/`verificarCuentas` en `comprobantes.ts` (default `true`). Tests en `auditoria-fase2.test.ts`.
+8. **A4:** validar 3605 por defecto con activa + `permiteMovimiento`. — **Hecho:** cierre anual valida `3605` (activa, `permiteMovimiento`) en el operando por defecto. Tests en `auditoria-fase2.test.ts`.
+9. **A5:** rechazar periodos con rangos solapados en `crear`. — **Hecho:** `periodos.controller.ts`; test en `auditoria-fase2.test.ts`.
+10. **M1/M3/M5/M6:** mover validación de periodo dentro de la tx de crear; persistir `VENCIDA` (o evaluar por fecha de corte); redondeo final en totales; manejar P2002 en provisión y cortar saldo 1399 por fecha. — **Hecho:** `bloquearPeriodo` re-valida dentro de la tx (M1); `sincronizarVencidas` persiste `VENCIDA` (M3); redondeo final en reportes (M5); `saldoCuenta(..., fechaHasta)` corta el saldo de provisión a la fecha fin del periodo y la tx maneja P2002 → 400 (M6). Tests: M3/M5/M6 en `auditoria-fase2.test.ts` y `provision.test.ts` (M6 corta el balance esperado a 0 para agosto). El test de carrera de `crear` contra el cierre de periodo (M1) queda pendiente (Fase 5).
+11. **B1:** contrastar el seed PUC contra el catálogo oficial (1380 vs 1390, etc.). — **Hecho:** se eliminaron `["63"]`, `["6305"]` y `["4155"]` del seed; la clase 7 ahora es "Costos de producción" en reportes. Validado en `auditoria-fase2.test.ts`.
 
 ### Fase 3 — Seguridad backend (A1, A2, M1-M11, B1-B9)
 12. **A1:** `express-async-errors` (o wrapper + `unhandledRejection`) y guards `Number.isInteger`/enums en comprobantes/adjuntos/exportación, con tests 400 para `abc`.
