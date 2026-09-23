@@ -50,3 +50,15 @@ Frontend (workdir `frontend/`):
 
 - `postgres` — consultas e inspección de la base de datos del proyecto.
 - `playwright` — navegador para validar flujos del frontend.
+
+## Comandos personalizados de opencode (`.opencode/commands/`)
+
+- `/test` — tests del backend + lint del frontend, corrigiendo fallos.
+- `/build` — compila backend y frontend.
+- `/backup` — genera y lista respaldos de la base de datos.
+- `/deploy` — build + restart PM2 + verificación del health check.
+- `/dev` — levanta backend y frontend en modo desarrollo.
+
+## Agente revisor contable (`.opencode/agents/revisor-contable.md`)
+
+Subagente que valida cambios de lógica contable (partida doble, PUC, normas colombianas) leyendo `docs/normatividad.md`, `docs/modelo-datos.md` y `backend/tests/comprobantes.test.ts`. Úsalo pidiendo "revisa esto con el revisor contable" antes de tocar asientos o cuentas.

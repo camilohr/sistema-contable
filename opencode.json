@@ -2,18 +2,28 @@
   "$schema": "https://opencode.ai/config.json",
   "instructions": ["AGENTS.md"],
   "lsp": true,
+  "formatter": true,
+  "subagent_depth": 2,
+  "experimental": {
+    "mcp_timeout": 30000
+  },
   "mcp": {
     "postgres": {
       "type": "local",
       "command": ["node", ".opencode/mcp/postgres.cjs"],
       "enabled": true,
-      "timeout": 10000
+      "timeout": 30000
     },
     "playwright": {
       "type": "local",
       "command": ["npx", "-y", "@playwright/mcp"],
       "enabled": true,
-      "timeout": 15000
+      "timeout": 30000
+    },
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "enabled": true
     }
   }
 }
