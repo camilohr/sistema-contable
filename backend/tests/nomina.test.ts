@@ -140,6 +140,7 @@ async function limpiar(): Promise<void> {
   await prisma.nomina.deleteMany({});
   await prisma.provisionNomina.deleteMany({});
   await prisma.empleado.deleteMany({});
+  await prisma.comprobante.deleteMany({ where: { comprobanteOrigenId: { not: null } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Nómina periodo" } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Provisión de prestaciones" } } });
   await prisma.periodo.deleteMany({ where: { nombre: { startsWith: `NOM-${suf}` } } });

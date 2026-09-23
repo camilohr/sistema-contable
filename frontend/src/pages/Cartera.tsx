@@ -3,6 +3,8 @@ import type { FormEvent } from "react";
 import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import { cop } from "../lib/formato";
+import { extraerPaginado, type RespuestaPaginada } from "../lib/paginado";
+import Paginador from "../components/Paginador";
 
 export type TipoCartera = "cxc" | "cxp";
 
@@ -85,6 +87,11 @@ export default function Cartera({ tipo }: { tipo: TipoCartera }) {
   const [busqueda, setBusqueda] = useState("");
   const [estado, setEstado] = useState("");
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
+
   const [creando, setCreando] = useState(false);
   const [detalle, setDetalle] = useState<DocumentoCartera | null>(null);
   const [eliminando, setEliminando] = useState<DocumentoCartera | null>(null);
@@ -96,14 +103,19 @@ export default function Cartera({ tipo }: { tipo: TipoCartera }) {
       const params = new URLSearchParams();
       if (busqueda.trim()) params.set("busqueda", busqueda.trim());
       if (estado) params.set("estado", estado);
-      const res = await api.get<DocumentoCartera[]>(`/${tipo}${params.toString() ? `?${params}` : ""}`);
-      setDocs(res.data);
+      params.set("page", String(page));
+      params.set("pageSize", String(pageSize));
+      const res = await api.get<DocumentoCartera[] | RespuestaPaginada<DocumentoCartera>>(`/${tipo}?${params}`);
+      const resultado = extraerPaginado(res.data);
+      setDocs(resultado.items);
+      setTotal(resultado.total);
+      setPages(resultado.pages);
     } catch {
       setError(`No se pudieron cargar las ${cfg.titulo.toLowerCase()}.`);
     } finally {
       setCargando(false);
     }
-  }, [tipo, busqueda, estado, cfg.titulo]);
+  }, [tipo, busqueda, estado, page, pageSize, cfg.titulo]);
 
   const cargarTerceros = useCallback(async () => {
     try {
@@ -148,9 +160,19 @@ export default function Cartera({ tipo }: { tipo: TipoCartera }) {
           type="search"
           placeholder="Buscar número de documento o tercero..."
           value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
+          onChange={(e) => {
+            setBusqueda(e.target.value);
+            setPage(1);
+          }}
         />
-        <select value={estado} onChange={(e) => setEstado(e.target.value)} className="filter-input">
+        <select
+          value={estado}
+          onChange={(e) => {
+            setEstado(e.target.value);
+            setPage(1);
+          }}
+          className="filter-input"
+        >
           <option value="">Todos los estados</option>
           <option value="PENDIENTE">Pendientes</option>
           <option value="ABONADA">Abonadas</option>
@@ -159,15 +181,30 @@ export default function Cartera({ tipo }: { tipo: TipoCartera }) {
         </select>
       </div>
 
-      {docs.length > 0 && (
+      {total > 0 && (
         <p className="count-hint">
-          {docs.length} documento{docs.length === 1 ? "" : "s"} · Saldo total: <strong>{cop(totalSaldo)}</strong>
+          {total} documento{total === 1 ? "" : "s"} · Saldo total: <strong>{cop(totalSaldo)}</strong>
           {totalVencidas > 0 && <> · Vencidas: <strong>{totalVencidas}</strong></>}
         </p>
       )}
       {error && <p className="error-msg">{error}</p>}
       {cargando && <p className="count-hint">Cargando...</p>}
       {!cargando && docs.length === 0 && <p className="count-hint">Sin resultados.</p>}
+
+      {!cargando && total > 0 && (
+        <Paginador
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          pages={pages}
+          onCambiarPagina={setPage}
+          onCambiarPageSize={(ps) => {
+            setPageSize(ps);
+            setPage(1);
+          }}
+          etiqueta="documentos"
+        />
+      )}
 
       {!cargando && docs.length > 0 && (
         <div className="table-wrap">
@@ -224,6 +261,21 @@ export default function Cartera({ tipo }: { tipo: TipoCartera }) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {!cargando && total > 0 && (
+        <Paginador
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          pages={pages}
+          onCambiarPagina={setPage}
+          onCambiarPageSize={(ps) => {
+            setPageSize(ps);
+            setPage(1);
+          }}
+          etiqueta="documentos"
+        />
       )}
 
       {creando && (

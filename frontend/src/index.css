@@ -309,6 +309,29 @@ input:focus {
   margin-bottom: 0.75rem;
 }
 
+.paginador {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+}
+
+.paginador p {
+  margin: 0;
+}
+
+.paginador-controles {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.paginador-controles .filter-input {
+  min-width: 7rem;
+}
+
 .table-wrap {
   background: var(--card);
   border: 1px solid var(--border);

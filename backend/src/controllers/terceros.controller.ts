@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { TipoDocumento, TipoTercero, AccionAuditoria } from "@prisma/client";
 import { registrarAuditoria } from "../lib/auditoria.js";
+import { parsearPaginacion, respuestaPaginada, type Paginacion } from "../lib/paginacion.js";
 
 function regexPorTipo(tipo: TipoDocumento): RegExp {
   switch (tipo) {
@@ -67,11 +68,21 @@ export async function listar(req: Request, res: Response): Promise<void> {
     ];
   }
 
+  let paginacion: Paginacion | undefined;
+  try {
+    paginacion = parsearPaginacion(req.query);
+  } catch {
+    res.status(400).json({ error: "Parámetros de paginación inválidos" });
+    return;
+  }
+
+  const total = paginacion ? await prisma.tercero.count({ where }) : 0;
   const terceros = await prisma.tercero.findMany({
     where,
     orderBy: { nombreRazonSocial: "asc" },
+    ...(paginacion ? { skip: (paginacion.pagina - 1) * paginacion.porPagina, take: paginacion.porPagina } : {}),
   });
-  res.json(terceros);
+  res.json(respuestaPaginada(terceros, total, paginacion?.pagina, paginacion?.porPagina));
 }
 
 export async function crear(req: Request, res: Response): Promise<void> {

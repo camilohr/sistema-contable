@@ -7,11 +7,14 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "lint": "oxlint",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:demo": "node scripts/seed-demo.mjs",
+    "db:backfill-contrasientos": "tsx scripts/backfill-contrasientos.ts",
     "backup": "node scripts/backup.mjs",
     "backup:list": "node scripts/backup.mjs --list",
     "restore": "node scripts/restore.mjs"
@@ -40,11 +43,12 @@
     "@types/node": "^24.0.0",
     "@types/pdfkit": "^0.17.6",
     "@types/supertest": "^6.0.2",
+    "oxlint": "^1.85.0",
     "prisma": "^6.2.1",
     "supertest": "^7.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
-    "vitest": "^3.0.5"
+    "vitest": "^5.0.1"
   },
   "overrides": {
     "uuid": "^11.1.1"

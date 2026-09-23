@@ -1,193 +1,19 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Prisma, EstadoPeriodo, EstadoNomina, EstadoComprobante, TipoActividadProceso, AccionAuditoria } from "@prisma/client";
+import { Prisma, EstadoPeriodo, EstadoComprobante, TipoActividadProceso, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
-import { crearComprobanteDiario } from "../lib/comprobantes.js";
 import { marcarActividadProceso } from "../lib/procesos.js";
+import { num, redondear2 } from "../lib/decimal.js";
 import {
-  liquidarEmpleado,
-  provisionarEmpleado,
-  asientosDeNomina,
-  asientosDeProvision,
-  redondear2,
-  LineaNominaContable,
-  ParametrosNominaCalculo,
+  CONCEPTOS,
+  INCLUDE_NOMINA,
+  serializarLinea,
+  calcularTotales,
+  liquidarOrquestado,
+  contabilizarOrquestado,
+  provisionarOrquestado,
 } from "../lib/nomina.js";
-
-const CONCEPTOS = [
-  "SUELDO", "HORAS_EXTRAS", "COMISIONES", "BONIFICACIONES", "AUXILIO_TRANSPORTE", "OTROS_DEVENGADOS",
-  "SALUD_GASTO", "SALUD_PASIVO", "PENSION_GASTO", "PENSION_PASIVO", "ARL_GASTO", "ARL_PASIVO",
-  "CAJA_GASTO", "CAJA_PASIVO", "ICBF_GASTO", "ICBF_PASIVO", "SENA_GASTO", "SENA_PASIVO",
-  "SOLIDARIDAD", "RETEFUENTE", "LIBRANZAS", "EMBARGOS", "OTROS_DESCUENTOS", "NETO_POR_PAGAR",
-  "CESANTIAS_GASTO", "CESANTIAS_PASIVO", "INTERESES_CESANTIAS_GASTO", "INTERESES_CESANTIAS_PASIVO",
-  "PRIMA_GASTO", "PRIMA_PASIVO", "VACACIONES_GASTO", "VACACIONES_PASIVO",
-];
-
-const CONCEPTOS_NOMINA = CONCEPTOS.filter((c) => !c.includes("CESANTIAS") && !c.includes("PRIMA") && !c.includes("VACACIONES"));
-const CONCEPTOS_PROVISION = ["CESANTIAS_GASTO", "CESANTIAS_PASIVO", "INTERESES_CESANTIAS_GASTO", "INTERESES_CESANTIAS_PASIVO", "PRIMA_GASTO", "PRIMA_PASIVO", "VACACIONES_GASTO", "VACACIONES_PASIVO"];
-
-function num(x: Prisma.Decimal | null | undefined): number {
-  return x ? x.toNumber() : 0;
-}
-
-const INCLUDE_NOMINA = {
-  empleado: { include: { tercero: { select: { nombreRazonSocial: true, documento: true } } } },
-  periodo: { select: { nombre: true, estado: true } },
-} satisfies Prisma.NominaInclude;
-
-type NominaConRel = Prisma.NominaGetPayload<{ include: typeof INCLUDE_NOMINA }>;
-
-function serializarLinea(n: NominaConRel) {
-  return {
-    id: n.id,
-    empleadoId: n.empleadoId,
-    documento: n.empleado.tercero.documento,
-    nombre: n.empleado.tercero.nombreRazonSocial,
-    diasTrabajados: n.diasTrabajados,
-    sueldo: num(n.sueldo),
-    horasExtras: num(n.horasExtras),
-    comisiones: num(n.comisiones),
-    bonificaciones: num(n.bonificaciones),
-    auxilioTransporte: num(n.auxilioTransporte),
-    otrosDevengados: num(n.otrosDevengados),
-    ibc: num(n.ibc),
-    saludEmpleado: num(n.saludEmpleado),
-    pensionEmpleado: num(n.pensionEmpleado),
-    solidaridad: num(n.solidaridad),
-    retefuente: num(n.retefuente),
-    libranzas: num(n.libranzas),
-    embargos: num(n.embargos),
-    otrosDescuentos: num(n.otrosDescuentos),
-    aporteSalud: num(n.aporteSalud),
-    aportePension: num(n.aportePension),
-    aporteArl: num(n.aporteArl),
-    aporteCaja: num(n.aporteCaja),
-    aporteIcbf: num(n.aporteIcbf),
-    aporteSena: num(n.aporteSena),
-    totalDevengado: num(n.totalDevengado),
-    totalDeducciones: num(n.totalDeducciones),
-    netoPagar: num(n.netoPagar),
-    estado: n.estado,
-    comprobanteId: n.comprobanteId,
-  };
-}
-
-function aContable(n: NominaConRel): LineaNominaContable {
-  return {
-    sueldo: num(n.sueldo),
-    horasExtras: num(n.horasExtras),
-    comisiones: num(n.comisiones),
-    bonificaciones: num(n.bonificaciones),
-    auxilioTransporte: num(n.auxilioTransporte),
-    otrosDevengados: num(n.otrosDevengados),
-    ibc: num(n.ibc),
-    saludEmpleado: num(n.saludEmpleado),
-    pensionEmpleado: num(n.pensionEmpleado),
-    solidaridad: num(n.solidaridad),
-    retefuente: num(n.retefuente),
-    libranzas: num(n.libranzas),
-    embargos: num(n.embargos),
-    otrosDescuentos: num(n.otrosDescuentos),
-    totalDevengado: num(n.totalDevengado),
-    totalDeducciones: num(n.totalDeducciones),
-    netoPagar: num(n.netoPagar),
-    aporteSalud: num(n.aporteSalud),
-    aportePension: num(n.aportePension),
-    aporteArl: num(n.aporteArl),
-    aporteCaja: num(n.aporteCaja),
-    aporteIcbf: num(n.aporteIcbf),
-    aporteSena: num(n.aporteSena),
-  };
-}
-
-function calcularTotales(lineas: NominaConRel[]) {
-  const suma = (get: (l: NominaConRel) => Prisma.Decimal) => redondear2(lineas.reduce((s, l) => s + num(get(l)), 0));
-  return {
-    totalDevengado: suma((l) => l.totalDevengado),
-    totalDeducciones: suma((l) => l.totalDeducciones),
-    netoPagar: suma((l) => l.netoPagar),
-    aportes: {
-      salud: suma((l) => l.aporteSalud),
-      pension: suma((l) => l.aportePension),
-      arl: suma((l) => l.aporteArl),
-      caja: suma((l) => l.aporteCaja),
-      icbf: suma((l) => l.aporteIcbf),
-      sena: suma((l) => l.aporteSena),
-    },
-  };
-}
-
-function parametrosCalculo(p: {
-  smmlv: Prisma.Decimal; auxilioTransporte: Prisma.Decimal; topeAuxilioTransporteSalarios: Prisma.Decimal;
-  topeIbcSalarios: Prisma.Decimal; saludEmpleado: Prisma.Decimal; pensionEmpleado: Prisma.Decimal;
-  saludEmpleador: Prisma.Decimal; pensionEmpleador: Prisma.Decimal; cajaCompensacion: Prisma.Decimal;
-  icbf: Prisma.Decimal; sena: Prisma.Decimal; umbralParafiscales: number; solidaridadUmbralSalarios: Prisma.Decimal;
-}): ParametrosNominaCalculo {
-  return {
-    smmlv: num(p.smmlv),
-    auxilioTransporte: num(p.auxilioTransporte),
-    topeAuxilioTransporteSalarios: num(p.topeAuxilioTransporteSalarios),
-    topeIbcSalarios: num(p.topeIbcSalarios),
-    saludEmpleado: num(p.saludEmpleado),
-    pensionEmpleado: num(p.pensionEmpleado),
-    saludEmpleador: num(p.saludEmpleador),
-    pensionEmpleador: num(p.pensionEmpleador),
-    cajaCompensacion: num(p.cajaCompensacion),
-    icbf: num(p.icbf),
-    sena: num(p.sena),
-    umbralParafiscales: p.umbralParafiscales,
-    solidaridadUmbralSalarios: num(p.solidaridadUmbralSalarios),
-  };
-}
-
-async function cargarMapaCuentas(conceptos: string[], empresaId: string): Promise<Map<string, number>> {
-  const filas = await prisma.parametroCuentaNomina.findMany({ where: { concepto: { in: conceptos }, empresaId } });
-  const mapa = new Map<string, number>();
-  for (const f of filas) mapa.set(f.concepto, f.cuentaId);
-  const ids = [...new Set(mapa.values())];
-  const cuentas = await prisma.cuenta.findMany({ where: { id: { in: ids }, OR: [{ empresaId: null }, { empresaId }] } });
-  const porId = new Map(cuentas.map((c) => [c.id, c]));
-  for (const [concepto, cuentaId] of mapa) {
-    const c = porId.get(cuentaId);
-    if (!c) throw new Error(`No existe la cuenta ${cuentaId} para el concepto ${concepto}`);
-    if (!c.activa || !c.permiteMovimiento) {
-      throw new Error(`La cuenta ${c.codigo} (${c.nombre}) debe estar activa y permitir movimiento para el concepto ${concepto}`);
-    }
-  }
-  return mapa;
-}
-
-function serializarParametro(p: {
-  anio: number; smmlv: Prisma.Decimal; auxilioTransporte: Prisma.Decimal; topeAuxilioTransporteSalarios: Prisma.Decimal;
-  topeIbcSalarios: Prisma.Decimal; saludEmpleado: Prisma.Decimal; pensionEmpleado: Prisma.Decimal;
-  saludEmpleador: Prisma.Decimal; pensionEmpleador: Prisma.Decimal; arlEmpleador: Prisma.Decimal;
-  cajaCompensacion: Prisma.Decimal; icbf: Prisma.Decimal; sena: Prisma.Decimal; umbralParafiscales: number;
-  solidaridadUmbralSalarios: Prisma.Decimal; interesesCesantias: Prisma.Decimal;
-  cesantias: Prisma.Decimal; prima: Prisma.Decimal; vacaciones: Prisma.Decimal;
-}) {
-  return {
-    anio: p.anio,
-    smmlv: num(p.smmlv),
-    auxilioTransporte: num(p.auxilioTransporte),
-    topeAuxilioTransporteSalarios: num(p.topeAuxilioTransporteSalarios),
-    topeIbcSalarios: num(p.topeIbcSalarios),
-    saludEmpleado: num(p.saludEmpleado),
-    pensionEmpleado: num(p.pensionEmpleado),
-    saludEmpleador: num(p.saludEmpleador),
-    pensionEmpleador: num(p.pensionEmpleador),
-    arlEmpleador: num(p.arlEmpleador),
-    cajaCompensacion: num(p.cajaCompensacion),
-    icbf: num(p.icbf),
-    sena: num(p.sena),
-    umbralParafiscales: p.umbralParafiscales,
-    solidaridadUmbralSalarios: num(p.solidaridadUmbralSalarios),
-    interesesCesantias: num(p.interesesCesantias),
-    cesantias: num(p.cesantias),
-    prima: num(p.prima),
-    vacaciones: num(p.vacaciones),
-  };
-}
 
 // ---------------- Parámetros ----------------
 
@@ -223,6 +49,37 @@ const parametroSchema = z.object({
   prima: z.number().min(0).max(100).optional(),
   vacaciones: z.number().min(0).max(100).optional(),
 });
+
+function serializarParametro(p: {
+  anio: number; smmlv: Prisma.Decimal; auxilioTransporte: Prisma.Decimal; topeAuxilioTransporteSalarios: Prisma.Decimal;
+  topeIbcSalarios: Prisma.Decimal; saludEmpleado: Prisma.Decimal; pensionEmpleado: Prisma.Decimal;
+  saludEmpleador: Prisma.Decimal; pensionEmpleador: Prisma.Decimal; arlEmpleador: Prisma.Decimal;
+  cajaCompensacion: Prisma.Decimal; icbf: Prisma.Decimal; sena: Prisma.Decimal; umbralParafiscales: number;
+  solidaridadUmbralSalarios: Prisma.Decimal; interesesCesantias: Prisma.Decimal;
+  cesantias: Prisma.Decimal; prima: Prisma.Decimal; vacaciones: Prisma.Decimal;
+}) {
+  return {
+    anio: p.anio,
+    smmlv: num(p.smmlv),
+    auxilioTransporte: num(p.auxilioTransporte),
+    topeAuxilioTransporteSalarios: num(p.topeAuxilioTransporteSalarios),
+    topeIbcSalarios: num(p.topeIbcSalarios),
+    saludEmpleado: num(p.saludEmpleado),
+    pensionEmpleado: num(p.pensionEmpleado),
+    saludEmpleador: num(p.saludEmpleador),
+    pensionEmpleador: num(p.pensionEmpleador),
+    arlEmpleador: num(p.arlEmpleador),
+    cajaCompensacion: num(p.cajaCompensacion),
+    icbf: num(p.icbf),
+    sena: num(p.sena),
+    umbralParafiscales: p.umbralParafiscales,
+    solidaridadUmbralSalarios: num(p.solidaridadUmbralSalarios),
+    interesesCesantias: num(p.interesesCesantias),
+    cesantias: num(p.cesantias),
+    prima: num(p.prima),
+    vacaciones: num(p.vacaciones),
+  };
+}
 
 export async function actualizarParametros(req: Request, res: Response): Promise<void> {
   const anio = Number(req.params.anio);
@@ -355,150 +212,14 @@ export async function actualizarParametrosCuentas(req: Request, res: Response): 
 
 // ---------------- Liquidación ----------------
 
-const ajusteSchema = z.object({
-  empleadoId: z.string().uuid(),
-  diasTrabajados: z.number().int().min(1).max(31).optional(),
-  horasExtras: z.number().min(0).optional(),
-  comisiones: z.number().min(0).optional(),
-  bonificaciones: z.number().min(0).optional(),
-  otrosDevengados: z.number().min(0).optional(),
-  retefuente: z.number().min(0).optional(),
-  libranzas: z.number().min(0).optional(),
-  embargos: z.number().min(0).optional(),
-  otrosDescuentos: z.number().min(0).optional(),
-});
-
-const liquidarSchema = z.object({
-  ajustes: z.array(ajusteSchema).default([]),
-});
-
 export async function liquidar(req: Request, res: Response): Promise<void> {
-  const periodoId = Number(req.params.periodoId);
-  if (!Number.isInteger(periodoId)) {
-    res.status(400).json({ error: "Periodo inválido" });
-    return;
-  }
-  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId: req.empresaId } });
-  if (!periodo) {
-    res.status(404).json({ error: `No existe el periodo ${periodoId}` });
-    return;
-  }
-  if (periodo.estado !== EstadoPeriodo.ABIERTO) {
-    res.status(400).json({ error: "El periodo está cerrado" });
-    return;
-  }
-  const anio = periodo.fechaFin.getFullYear();
-  const parametros =
-    (await prisma.parametroNomina.findUnique({ where: { empresaId_anio: { empresaId: req.empresaId!, anio } } })) ??
-    (await prisma.parametroNomina.findFirst({ where: { anio, empresaId: null } }));
-  if (!parametros) {
-    res.status(400).json({ error: `No hay parámetros de nómina configurados para el año ${anio}` });
-    return;
-  }
-
-  const contabilizadas = await prisma.nomina.count({ where: { periodoId, estado: EstadoNomina.CONTABILIZADO } });
-  if (contabilizadas > 0) {
-    res.status(400).json({ error: "La nómina del periodo ya está contabilizada; anule el comprobante para reliquidar" });
-    return;
-  }
-
-  const parsed = liquidarSchema.safeParse(req.body ?? {});
-  if (!parsed.success) {
-    res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
-    return;
-  }
-
-  const empleados = await prisma.empleado.findMany({
-    where: { activo: true, tercero: { empresaId: req.empresaId } },
-    orderBy: { createdAt: "asc" },
+  const r = await liquidarOrquestado({
+    empresaId: req.empresaId!,
+    usuarioId: req.user!.sub,
+    periodoId: Number(req.params.periodoId),
+    body: req.body,
   });
-  if (empleados.length === 0) {
-    res.status(400).json({ error: "No hay empleados activos para liquidar" });
-    return;
-  }
-  const porId = new Map(empleados.map((e) => [e.id, e]));
-  const ajustesPorId = new Map(parsed.data.ajustes.map((a) => [a.empleadoId, a]));
-  for (const a of parsed.data.ajustes) {
-    if (!porId.has(a.empleadoId)) {
-      res.status(400).json({ error: `El empleado ${a.empleadoId} no existe o no está activo` });
-      return;
-    }
-  }
-
-  const p = parametrosCalculo(parametros);
-
-  const creadas = await prisma.$transaction(async (tx) => {
-    await tx.nomina.deleteMany({ where: { periodoId, estado: { not: EstadoNomina.CONTABILIZADO } } });
-    const creadas: NominaConRel[] = [];
-    for (const e of empleados) {
-      const ajuste = ajustesPorId.get(e.id) ?? ({} as z.infer<typeof ajusteSchema>);
-      const r = liquidarEmpleado(p, {
-        salarioBase: num(e.salarioBase),
-        arlEmpleador: num(e.arlEmpleador),
-        ibcAjuste: num(e.ibcAjuste),
-        auxilioTransporteManual: e.auxilioTransporteManual,
-        numEmpleadosActivos: empleados.length,
-        diasTrabajados: ajuste.diasTrabajados ?? 30,
-        horasExtras: ajuste.horasExtras ?? 0,
-        comisiones: ajuste.comisiones ?? 0,
-        bonificaciones: ajuste.bonificaciones ?? 0,
-        otrosDevengados: ajuste.otrosDevengados ?? 0,
-        retefuente: ajuste.retefuente ?? 0,
-        libranzas: ajuste.libranzas ?? 0,
-        embargos: ajuste.embargos ?? 0,
-        otrosDescuentos: ajuste.otrosDescuentos ?? 0,
-      });
-      const n = await tx.nomina.create({
-        data: {
-          empleadoId: e.id,
-          periodoId,
-          diasTrabajados: r.diasTrabajados,
-          sueldo: new Prisma.Decimal(r.sueldo),
-          horasExtras: new Prisma.Decimal(r.horasExtras),
-          comisiones: new Prisma.Decimal(r.comisiones),
-          bonificaciones: new Prisma.Decimal(r.bonificaciones),
-          auxilioTransporte: new Prisma.Decimal(r.auxilioTransporte),
-          otrosDevengados: new Prisma.Decimal(r.otrosDevengados),
-          saludEmpleado: new Prisma.Decimal(r.saludEmpleado),
-          pensionEmpleado: new Prisma.Decimal(r.pensionEmpleado),
-          solidaridad: new Prisma.Decimal(r.solidaridad),
-          retefuente: new Prisma.Decimal(r.retefuente),
-          libranzas: new Prisma.Decimal(r.libranzas),
-          embargos: new Prisma.Decimal(r.embargos),
-          otrosDescuentos: new Prisma.Decimal(r.otrosDescuentos),
-          ibc: new Prisma.Decimal(r.ibc),
-          aporteSalud: new Prisma.Decimal(r.aporteSalud),
-          aportePension: new Prisma.Decimal(r.aportePension),
-          aporteArl: new Prisma.Decimal(r.aporteArl),
-          aporteCaja: new Prisma.Decimal(r.aporteCaja),
-          aporteIcbf: new Prisma.Decimal(r.aporteIcbf),
-          aporteSena: new Prisma.Decimal(r.aporteSena),
-          totalDevengado: new Prisma.Decimal(r.totalDevengado),
-          totalDeducciones: new Prisma.Decimal(r.totalDeducciones),
-          netoPagar: new Prisma.Decimal(r.netoPagar),
-          estado: EstadoNomina.BORRADOR,
-        },
-        include: INCLUDE_NOMINA,
-      });
-      creadas.push(n);
-    }
-    await registrarAuditoria(tx, {
-      usuarioId: req.user!.sub,
-      empresaId: req.empresaId,
-      accion: AccionAuditoria.LIQUIDAR_NOMINA,
-      entidad: "Periodo",
-      entidadId: periodoId,
-      detalle: { periodo: periodo.nombre, empleados: empleados.length },
-    });
-    return creadas;
-  });
-
-  res.status(201).json({
-    periodo: periodo.nombre,
-    empleados: creadas.length,
-    lineas: creadas.map((n) => serializarLinea(n)),
-    totales: calcularTotales(creadas),
-  });
+  res.status(r.status).json(r.body);
 }
 
 export async function obtenerLiquidacion(req: Request, res: Response): Promise<void> {
@@ -532,224 +253,23 @@ export async function obtenerLiquidacion(req: Request, res: Response): Promise<v
 // ---------------- Contabilización ----------------
 
 export async function contabilizar(req: Request, res: Response): Promise<void> {
-  const empresaId = req.empresaId;
-  if (!empresaId) {
-    res.status(403).json({ error: "Empresa no seleccionada" });
-    return;
-  }
-  const periodoId = Number(req.params.periodoId);
-  if (!Number.isInteger(periodoId)) {
-    res.status(400).json({ error: "Periodo inválido" });
-    return;
-  }
-  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId } });
-  if (!periodo) {
-    res.status(404).json({ error: `No existe el periodo ${periodoId}` });
-    return;
-  }
-  if (periodo.estado !== EstadoPeriodo.ABIERTO) {
-    res.status(400).json({ error: "El periodo está cerrado" });
-    return;
-  }
-  const lineas = await prisma.nomina.findMany({ where: { periodoId }, orderBy: { empleado: { createdAt: "asc" } }, include: INCLUDE_NOMINA });
-  if (lineas.length === 0) {
-    res.status(400).json({ error: "No hay nómina liquidada para este periodo" });
-    return;
-  }
-  if (lineas.some((l) => l.estado === EstadoNomina.CONTABILIZADO)) {
-    res.status(400).json({ error: "La nómina del periodo ya está contabilizada" });
-    return;
-  }
-  if (lineas.some((l) => l.estado === EstadoNomina.ANULADO)) {
-    res.status(400).json({ error: "Hay liquidaciones anuladas; vuelva a liquidar el periodo" });
-    return;
-  }
-
-  let mapa: Map<string, number>;
-  try {
-    mapa = await cargarMapaCuentas(CONCEPTOS_NOMINA, empresaId);
-  } catch (err) {
-    res.status(400).json({ error: (err as Error).message });
-    return;
-  }
-  const asientos = asientosDeNomina(lineas.map((l) => aContable(l)), mapa);
-  if (asientos.length < 2) {
-    res.status(400).json({ error: "El asiento de nómina no tiene movimientos" });
-    return;
-  }
-
-  const usuarioId = req.user!.sub;
-  const resultado = await prisma.$transaction(async (tx) => {
-    const comprobante = await crearComprobanteDiario(tx, {
-      empresaId,
-      periodoId,
-      fecha: periodo.fechaFin,
-      concepto: `Nómina periodo ${periodo.nombre}`,
-      usuarioId,
-      asientos,
-    });
-    await tx.nomina.updateMany({ where: { periodoId }, data: { estado: EstadoNomina.CONTABILIZADO, comprobanteId: comprobante.id } });
-    await registrarAuditoria(tx, {
-      usuarioId,
-      empresaId,
-      accion: AccionAuditoria.CONTABILIZAR_NOMINA,
-      entidad: "Periodo",
-      entidadId: periodoId,
-      detalle: { periodo: periodo.nombre, consecutivo: comprobante.consecutivo, comprobanteId: comprobante.id },
-    });
-    await marcarActividadProceso(tx, empresaId, periodo.fechaFin.getFullYear(), TipoActividadProceso.NOMINA);
-    return comprobante;
+  const r = await contabilizarOrquestado({
+    empresaId: req.empresaId,
+    usuarioId: req.user!.sub,
+    periodoId: Number(req.params.periodoId),
   });
-
-  res.status(201).json({
-    comprobante: {
-      id: resultado.id,
-      consecutivo: resultado.consecutivo,
-      fecha: resultado.fecha.toISOString().slice(0, 10),
-      concepto: resultado.concepto,
-      totalDebito: num(resultado.totalDebito),
-      totalCredito: num(resultado.totalCredito),
-      numAsientos: resultado.asientos.length,
-      asientos: resultado.asientos.map((a) => ({
-        codigoCuenta: (a as { cuenta?: { codigo: string } }).cuenta?.codigo,
-        debito: num(a.debito),
-        credito: num(a.credito),
-        detalle: a.detalle,
-      })),
-    },
-    totales: calcularTotales(lineas),
-  });
+  res.status(r.status).json(r.body);
 }
 
 // ---------------- Provisión de prestaciones ----------------
 
 export async function provisionar(req: Request, res: Response): Promise<void> {
-  const periodoId = Number(req.params.periodoId);
-  if (!Number.isInteger(periodoId)) {
-    res.status(400).json({ error: "Periodo inválido" });
-    return;
-  }
-  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId: req.empresaId } });
-  if (!periodo) {
-    res.status(404).json({ error: `No existe el periodo ${periodoId}` });
-    return;
-  }
-  if (periodo.estado !== EstadoPeriodo.ABIERTO) {
-    res.status(400).json({ error: "El periodo está cerrado" });
-    return;
-  }
-  const anio = periodo.fechaFin.getFullYear();
-  const parametros =
-    (await prisma.parametroNomina.findUnique({ where: { empresaId_anio: { empresaId: req.empresaId!, anio } } })) ??
-    (await prisma.parametroNomina.findFirst({ where: { anio, empresaId: null } }));
-  if (!parametros) {
-    res.status(400).json({ error: `No hay parámetros de nómina configurados para el año ${anio}` });
-    return;
-  }
-
-  const lineas = await prisma.nomina.findMany({ where: { periodoId, estado: EstadoNomina.CONTABILIZADO }, orderBy: { empleado: { createdAt: "asc" } }, include: INCLUDE_NOMINA });
-  if (lineas.length === 0) {
-    res.status(400).json({ error: "Debe contabilizar la nómina del periodo antes de provisionar" });
-    return;
-  }
-
-  const existentes = await prisma.provisionNomina.findMany({
-    where: { periodoId },
-    include: { comprobante: { select: { estado: true } } },
+  const r = await provisionarOrquestado({
+    empresaId: req.empresaId!,
+    usuarioId: req.user!.sub,
+    periodoId: Number(req.params.periodoId),
   });
-  const vigentes = existentes.filter((p) => p.comprobanteId !== null && p.comprobante?.estado !== "ANULADO" && p.comprobante?.estado !== "BORRADOR");
-  if (vigentes.length > 0) {
-    res.status(400).json({ error: "La provisión de prestaciones del periodo ya fue contabilizada; anule el comprobante para recalcular" });
-    return;
-  }
-
-  const intereses = num(parametros.interesesCesantias);
-  const tasasPrestaciones = {
-    cesantias: num(parametros.cesantias),
-    prima: num(parametros.prima),
-    vacaciones: num(parametros.vacaciones),
-  };
-  const provisiones = lineas.map((l) => provisionarEmpleado(aContable(l), intereses, tasasPrestaciones));
-
-  let mapa: Map<string, number>;
-  try {
-    mapa = await cargarMapaCuentas(CONCEPTOS_PROVISION, req.empresaId!);
-  } catch (err) {
-    res.status(400).json({ error: (err as Error).message });
-    return;
-  }
-  const asientos = asientosDeProvision(
-    provisiones.map((p) => ({ cesantias: p.cesantias, interesesCesantias: p.interesesCesantias, prima: p.prima, vacaciones: p.vacaciones })),
-    mapa
-  );
-
-  const usuarioId = req.user!.sub;
-  const resultado = await prisma.$transaction(async (tx) => {
-    const borradorAnterior = existentes.find((p) => p.comprobanteId !== null && p.comprobante?.estado === "BORRADOR");
-    await tx.provisionNomina.deleteMany({ where: { periodoId } });
-    if (borradorAnterior?.comprobanteId) {
-      await tx.comprobante.delete({ where: { id: borradorAnterior.comprobanteId } });
-    }
-    const comprobante = await crearComprobanteDiario(tx, {
-      empresaId: req.empresaId!,
-      periodoId,
-      fecha: periodo.fechaFin,
-      concepto: `Provisión de prestaciones ${periodo.nombre}`,
-      usuarioId,
-      asientos,
-      // S1-15: queda en BORRADOR hasta que un segundo revisor lo contabilice.
-      estado: EstadoComprobante.BORRADOR,
-    });
-    const creadas = [];
-    for (let i = 0; i < lineas.length; i++) {
-      const p = provisiones[i];
-      creadas.push(
-        await tx.provisionNomina.create({
-          data: {
-            empleadoId: lineas[i].empleadoId,
-            periodoId,
-            baseCesantias: new Prisma.Decimal(p.baseCesantias),
-            cesantias: new Prisma.Decimal(p.cesantias),
-            interesesCesantias: new Prisma.Decimal(p.interesesCesantias),
-            prima: new Prisma.Decimal(p.prima),
-            baseVacaciones: new Prisma.Decimal(p.baseVacaciones),
-            vacaciones: new Prisma.Decimal(p.vacaciones),
-            total: new Prisma.Decimal(p.total),
-            comprobanteId: comprobante.id,
-          },
-        })
-      );
-    }
-    await registrarAuditoria(tx, {
-      usuarioId,
-      empresaId: req.empresaId,
-      accion: AccionAuditoria.PROVISIONAR_NOMINA,
-      entidad: "Periodo",
-      entidadId: periodoId,
-      detalle: { periodo: periodo.nombre, empleados: creadas.length, consecutivo: comprobante.consecutivo },
-    });
-    return { comprobante, creadas };
-  });
-
-  res.status(201).json({
-    comprobante: {
-      id: resultado.comprobante.id,
-      consecutivo: resultado.comprobante.consecutivo,
-      fecha: resultado.comprobante.fecha.toISOString().slice(0, 10),
-      concepto: resultado.comprobante.concepto,
-      estado: resultado.comprobante.estado,
-      totalDebito: num(resultado.comprobante.totalDebito),
-      totalCredito: num(resultado.comprobante.totalCredito),
-      numAsientos: resultado.comprobante.asientos.length,
-      asientos: resultado.comprobante.asientos.map((a) => ({
-        codigoCuenta: (a as { cuenta?: { codigo: string } }).cuenta?.codigo,
-        debito: num(a.debito),
-        credito: num(a.credito),
-        detalle: a.detalle,
-      })),
-    },
-    total: provisiones.reduce((s, p) => s + p.total, 0),
-  });
+  res.status(r.status).json(r.body);
 }
 
 export async function contabilizarProvision(req: Request, res: Response): Promise<void> {

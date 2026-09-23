@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { TipoMovimientoInventario } from "@prisma/client";
+import { num } from "../lib/decimal.js";
+import { parsearPaginacion, respuestaPaginada, type Paginacion } from "../lib/paginacion.js";
 
 const crearSchema = z.object({
   codigo: z.string().min(1),
@@ -25,8 +27,6 @@ const movimientoSchema = z.object({
   comprobanteId: z.number().int().positive().optional().nullable(),
 });
 
-const num = (v: { toNumber(): number } | number): number => (typeof v === "number" ? v : v.toNumber());
-
 const serializarProducto = (p: any) => ({ ...p, costoPromedio: num(p.costoPromedio), cantidadActual: num(p.cantidadActual) });
 
 const serializarMovimiento = (m: any) => ({ ...m, cantidad: num(m.cantidad), costoUnitario: num(m.costoUnitario) });
@@ -45,12 +45,22 @@ export async function listarProductos(req: Request, res: Response): Promise<void
     ];
   }
 
+  let paginacion: Paginacion | undefined;
+  try {
+    paginacion = parsearPaginacion(req.query);
+  } catch {
+    res.status(400).json({ error: "Parámetros de paginación inválidos" });
+    return;
+  }
+
+  const total = paginacion ? await prisma.producto.count({ where }) : 0;
   const productos = await prisma.producto.findMany({
     where,
     orderBy: { nombre: "asc" },
     include: { _count: { select: { movimientos: true } } },
+    ...(paginacion ? { skip: (paginacion.pagina - 1) * paginacion.porPagina, take: paginacion.porPagina } : {}),
   });
-  res.json(productos.map(serializarProducto));
+  res.json(respuestaPaginada(productos.map(serializarProducto), total, paginacion?.pagina, paginacion?.porPagina));
 }
 
 export async function crearProducto(req: Request, res: Response): Promise<void> {

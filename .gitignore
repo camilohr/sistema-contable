@@ -33,5 +33,8 @@ desktop.ini
 # Respaldos generados por el sistema
 backups/
 
+# Reproducciones temporales de diagnósticos
+*.ts.ignored
+
 # Artefactos del navegador MCP (playwright)
 .playwright-mcp/

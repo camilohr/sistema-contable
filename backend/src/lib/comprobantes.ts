@@ -1,4 +1,4 @@
-import { Prisma, EstadoComprobante, EstadoPeriodo, PrismaClient } from "@prisma/client";
+import { Prisma, EstadoComprobante, EstadoPeriodo, PrismaClient, TipoComprobante } from "@prisma/client";
 import { obtenerSiguienteConsecutivo } from "./consecutivo.js";
 
 type DbEjecutor = Prisma.TransactionClient | PrismaClient;
@@ -8,6 +8,26 @@ export interface AsientoGenerado {
   debito: number;
   credito: number;
   detalle?: string;
+}
+
+export interface ComprobanteOrigenParaContrasiento {
+  id: number;
+  empresaId: string;
+  tipo: TipoComprobante;
+  consecutivo: number;
+  fecha: Date;
+  periodoId: number;
+  terceroId: string | null;
+  concepto: string;
+  totalDebito: Prisma.Decimal;
+  totalCredito: Prisma.Decimal;
+  asientos: Array<{
+    cuentaId: number;
+    terceroId: string | null;
+    debito: Prisma.Decimal;
+    credito: Prisma.Decimal;
+    detalle: string | null;
+  }>;
 }
 
 interface CrearComprobanteDiarioArgs {
@@ -91,6 +111,43 @@ export async function crearComprobanteDiario(db: DbEjecutor, data: CrearComproba
           debito: a.debito,
           credito: a.credito,
           detalle: a.detalle ?? null,
+        })),
+      },
+    },
+    include: { asientos: { include: { cuenta: { select: { codigo: true } } } }, periodo: true },
+  });
+}
+
+/**
+ * Crea el contrasiento (asiento inverso) de un comprobante al anularlo. El
+ * contrasiento queda CONTABILIZADO para que el libro muestre el original y su
+ * reversión; por eso los reportes suman CONTABILIZADO y ANULADO (se cancelan).
+ */
+export async function crearContrasiento(db: DbEjecutor, data: { origen: ComprobanteOrigenParaContrasiento; usuarioId: string }) {
+  const origen = data.origen;
+  const consecutivo = await obtenerSiguienteConsecutivo(db, origen.empresaId, origen.tipo);
+
+  return db.comprobante.create({
+    data: {
+      empresaId: origen.empresaId,
+      tipo: origen.tipo,
+      consecutivo,
+      fecha: origen.fecha,
+      periodoId: origen.periodoId,
+      terceroId: origen.terceroId,
+      concepto: `Anulación de ${origen.tipo[0]}-${String(origen.consecutivo).padStart(4, "0")}: ${origen.concepto}`,
+      totalDebito: origen.totalDebito,
+      totalCredito: origen.totalCredito,
+      estado: EstadoComprobante.CONTABILIZADO,
+      usuarioCreoId: data.usuarioId,
+      comprobanteOrigenId: origen.id,
+      asientos: {
+        create: origen.asientos.map((a) => ({
+          cuentaId: a.cuentaId,
+          terceroId: a.terceroId,
+          debito: a.credito,
+          credito: a.debito,
+          detalle: a.detalle,
         })),
       },
     },

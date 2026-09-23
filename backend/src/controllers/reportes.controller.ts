@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { Prisma, EstadoComprobante, Naturaleza } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
+import { redondear2 } from "../lib/decimal.js";
 
 interface Linea {
   comprobanteId: number;
@@ -15,7 +16,9 @@ interface Linea {
 }
 
 export function whereFiltros(req: Request): Prisma.ComprobanteWhereInput {
-  const where: Prisma.ComprobanteWhereInput = { estado: EstadoComprobante.CONTABILIZADO, empresaId: req.empresaId };
+  // S1-06: los reportes suman CONTABILIZADO y ANULADO; una anulación genera un
+  // contrasiento que cancela al original, manteniendo el libro completo.
+  const where: Prisma.ComprobanteWhereInput = { estado: { in: [EstadoComprobante.CONTABILIZADO, EstadoComprobante.ANULADO] }, empresaId: req.empresaId };
   const periodoId = req.query.periodoId ? Number(req.query.periodoId) : undefined;
   const fechaDesde = req.query.fechaDesde ? String(req.query.fechaDesde) : undefined;
   const fechaHasta = req.query.fechaHasta ? String(req.query.fechaHasta) : undefined;
@@ -29,8 +32,6 @@ export function whereFiltros(req: Request): Prisma.ComprobanteWhereInput {
 }
 
 const ref = (tipo: string, consecutivo: number) => `${tipo[0]}-${String(consecutivo).padStart(4, "0")}`;
-
-const redondear2 = (n: number) => Math.round(n * 100) / 100;
 
 export interface SaldoCuenta {
   codigo: string;

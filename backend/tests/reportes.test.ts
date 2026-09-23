@@ -68,7 +68,23 @@ beforeAll(async () => {
   await crearComprobante({ fecha: "2026-10-02", concepto: "Venta A", estado: "CONTABILIZADO", asientos: [{ cuentaId: cajaId, debito: 100000 }, { cuentaId: ingresosId, credito: 100000 }] });
   await crearComprobante({ fecha: "2026-10-05", concepto: "Venta B", estado: "CONTABILIZADO", asientos: [{ cuentaId: bancoId, debito: 50000 }, { cuentaId: ingresosId, credito: 50000 }] });
   await crearComprobante({ fecha: "2026-10-08", concepto: "Borrador excluido", asientos: [{ cuentaId: cajaId, debito: 70000 }, { cuentaId: ingresosId, credito: 70000 }] });
-  await crearComprobante({ fecha: "2026-10-10", concepto: "Anulado excluido", estado: "ANULADO", asientos: [{ cuentaId: cajaId, debito: 90000 }, { cuentaId: ingresosId, credito: 90000 }] });
+  const anulado = await crearComprobante({ fecha: "2026-10-09", concepto: "Anulado excluido", estado: "CONTABILIZADO", asientos: [{ cuentaId: cajaId, debito: 90000 }, { cuentaId: ingresosId, credito: 90000 }] });
+  const consecutivoContra = (await prisma.comprobante.count({ where: { tipo: "DIARIO" } })) + 1;
+  await prisma.comprobante.create({
+    data: {
+      tipo: "DIARIO",
+      consecutivo: consecutivoContra,
+      fecha: new Date("2026-10-09"),
+      periodoId,
+      concepto: `Anulación de D-${String(anulado.consecutivo).padStart(4, "0")}: Anulado excluido`,
+      estado: "CONTABILIZADO",
+      totalDebito: 90000,
+      totalCredito: 90000,
+      usuarioCreoId: adminId,
+      comprobanteOrigenId: anulado.id,
+      asientos: { create: [{ cuentaId: cajaId, credito: 90000 }, { cuentaId: ingresosId, debito: 90000 }] },
+    },
+  });
 });
 
 afterAll(async () => {
@@ -80,12 +96,14 @@ afterAll(async () => {
 });
 
 describe("Libro diario", () => {
-  it("incluye solo comprobantes contabilizados", async () => {
+  it("incluye ANULADO y su contrasiento, con efecto neto cero", async () => {
     const res = await request(app).get("/api/reportes/libro-diario").set("Authorization", `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
-    expect(res.body.numComprobantes).toBe(2);
-    expect(res.body.numLineas).toBe(4);
-    expect(res.body.lineas.every((l: { concepto: string }) => !l.concepto.includes("excluido"))).toBe(true);
+    expect(res.body.numComprobantes).toBe(4);
+    expect(res.body.numLineas).toBe(8);
+    expect(res.body.lineas.some((l: { concepto: string }) => l.concepto.startsWith("Anulación de"))).toBe(true);
+    expect(res.body.lineas.some((l: { concepto: string }) => l.concepto === "Anulado excluido")).toBe(true);
+    expect(res.body.lineas.some((l: { concepto: string }) => l.concepto === "Borrador excluido")).toBe(false);
   });
 
   it("devuelve refs, cuentas y totales correctos", async () => {
@@ -94,8 +112,10 @@ describe("Libro diario", () => {
     expect(caja.debito).toBe(100000);
     expect(caja.credito).toBe(0);
     expect(caja.ref).toMatch(/^D-\d{4}$/);
-    expect(res.body.totalDebitos).toBe(150000);
-    expect(res.body.totalCreditos).toBe(150000);
+    const cajaContra = res.body.lineas.find((l: { codigoCuenta: string; credito: number }) => l.codigoCuenta === "110505" && l.credito === 90000);
+    expect(cajaContra).toBeDefined();
+    expect(res.body.totalDebitos).toBe(330000);
+    expect(res.body.totalCreditos).toBe(330000);
   });
 
   it("filtra por rango de fechas", async () => {
@@ -108,7 +128,7 @@ describe("Libro diario", () => {
 
   it("filtra por periodo", async () => {
     const res = await request(app).get(`/api/reportes/libro-diario?periodoId=${periodoId}`).set("Authorization", `Bearer ${adminToken}`);
-    expect(res.body.numComprobantes).toBe(2);
+    expect(res.body.numComprobantes).toBe(4);
   });
 
   it("exige autenticación (401)", async () => {
@@ -122,14 +142,14 @@ describe("Libro mayor", () => {
     const res = await request(app).get("/api/reportes/libro-mayor").set("Authorization", `Bearer ${adminToken}`);
     const caja = res.body.cuentas.find((c: { codigo: string }) => c.codigo === "110505");
     const ingresos = res.body.cuentas.find((c: { codigo: string }) => c.codigo === "4120");
-    expect(caja.debitos).toBe(100000);
-    expect(caja.creditos).toBe(0);
+    expect(caja.debitos).toBe(190000);
+    expect(caja.creditos).toBe(90000);
     expect(caja.saldo).toBe(100000);
-    expect(ingresos.debitos).toBe(0);
-    expect(ingresos.creditos).toBe(150000);
+    expect(ingresos.debitos).toBe(90000);
+    expect(ingresos.creditos).toBe(240000);
     expect(ingresos.saldo).toBe(150000);
-    expect(res.body.totalDebitos).toBe(150000);
-    expect(res.body.totalCreditos).toBe(150000);
+    expect(res.body.totalDebitos).toBe(330000);
+    expect(res.body.totalCreditos).toBe(330000);
   });
 
   it("filtra por cuenta", async () => {
@@ -154,8 +174,8 @@ describe("Balance de comprobación", () => {
     expect(caja.saldoAcreedor).toBe(0);
     expect(ingresos.saldoDeudor).toBe(0);
     expect(ingresos.saldoAcreedor).toBe(150000);
-    expect(res.body.totalDebitos).toBe(150000);
-    expect(res.body.totalCreditos).toBe(150000);
+    expect(res.body.totalDebitos).toBe(330000);
+    expect(res.body.totalCreditos).toBe(330000);
     expect(res.body.saldosDeudores).toBe(150000);
     expect(res.body.saldosAcreedores).toBe(150000);
   });

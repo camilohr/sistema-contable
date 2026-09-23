@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import { docLabel } from "../lib/documentos";
+import { extraerPaginado, type RespuestaPaginada } from "../lib/paginado";
+import Paginador from "../components/Paginador";
 
 interface Tercero {
   id: string;
@@ -30,6 +32,11 @@ export default function Terceros() {
   const [tipo, setTipo] = useState("");
   const [soloActivos, setSoloActivos] = useState(false);
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
+
   const [creando, setCreando] = useState(false);
   const [editando, setEditando] = useState<Tercero | null>(null);
   const [desactivando, setDesactivando] = useState<Tercero | null>(null);
@@ -42,21 +49,24 @@ export default function Terceros() {
       if (busqueda.trim()) params.set("busqueda", busqueda.trim());
       if (tipo) params.set("tipo", tipo);
       if (soloActivos) params.set("soloActivos", "true");
-      const res = await api.get<Tercero[]>(`/terceros${params.toString() ? `?${params}` : ""}`);
-      setTerceros(res.data);
+      params.set("page", String(page));
+      params.set("pageSize", String(pageSize));
+      const res = await api.get<Tercero[] | RespuestaPaginada<Tercero>>(`/terceros?${params}`);
+      const resultado = extraerPaginado(res.data);
+      setTerceros(resultado.items);
+      setTotal(resultado.total);
+      setPages(resultado.pages);
     } catch {
       setError("No se pudieron cargar los terceros.");
     } finally {
       setCargando(false);
     }
-  }, [busqueda, tipo, soloActivos]);
+  }, [busqueda, tipo, soloActivos, page, pageSize]);
 
   useEffect(() => {
     const t = setTimeout(() => cargar(), busqueda ? 300 : 0);
     return () => clearTimeout(t);
   }, [cargar, busqueda]);
-
-  const total = useMemo(() => terceros.length, [terceros]);
 
   return (
     <div className="page">
@@ -78,16 +88,33 @@ export default function Terceros() {
           type="search"
           placeholder="Buscar nombre, documento o correo..."
           value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
+          onChange={(e) => {
+            setBusqueda(e.target.value);
+            setPage(1);
+          }}
         />
-        <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="filter-input">
+        <select
+          value={tipo}
+          onChange={(e) => {
+            setTipo(e.target.value);
+            setPage(1);
+          }}
+          className="filter-input"
+        >
           <option value="">Todos los tipos</option>
           <option value="CLIENTE">Clientes</option>
           <option value="PROVEEDOR">Proveedores</option>
           <option value="AMBOS">Cliente/Proveedor</option>
         </select>
         <label className="filter-check">
-          <input type="checkbox" checked={soloActivos} onChange={(e) => setSoloActivos(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={soloActivos}
+            onChange={(e) => {
+              setSoloActivos(e.target.checked);
+              setPage(1);
+            }}
+          />
           Solo activos
         </label>
       </div>
@@ -100,6 +127,21 @@ export default function Terceros() {
       {error && <p className="error-msg">{error}</p>}
       {cargando && <p className="count-hint">Cargando...</p>}
       {!cargando && terceros.length === 0 && <p className="count-hint">Sin resultados.</p>}
+
+      {!cargando && total > 0 && (
+        <Paginador
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          pages={pages}
+          onCambiarPagina={setPage}
+          onCambiarPageSize={(ps) => {
+            setPageSize(ps);
+            setPage(1);
+          }}
+          etiqueta="terceros"
+        />
+      )}
 
       {!cargando && terceros.length > 0 && (
         <div className="table-wrap">
@@ -154,6 +196,21 @@ export default function Terceros() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {!cargando && total > 0 && (
+        <Paginador
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          pages={pages}
+          onCambiarPagina={setPage}
+          onCambiarPageSize={(ps) => {
+            setPageSize(ps);
+            setPage(1);
+          }}
+          etiqueta="terceros"
+        />
       )}
 
       {creando && <FormaNuevoTercero onClose={() => setCreando(false)} onCreado={() => { setCreando(false); cargar(); }} />}

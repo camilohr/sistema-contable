@@ -5,6 +5,7 @@ import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
 import { marcarActividadProceso } from "../lib/procesos.js";
 import { saldosPorCuenta } from "./reportes.controller.js";
+import { redondear2 } from "../lib/decimal.js";
 
 const cargarSchema = z.object({
   partidas: z
@@ -16,8 +17,6 @@ const cargarSchema = z.object({
     )
     .max(500),
 });
-
-const redondear2 = (n: number) => Math.round(n * 100) / 100;
 
 async function periodoValido(periodoId: number, empresaId: string) {
   return prisma.periodo.findFirst({ where: { id: periodoId, empresaId } });
@@ -163,7 +162,7 @@ export async function ejecucion(req: Request, res: Response): Promise<void> {
       where: { periodoId },
       include: { cuenta: { select: { codigo: true, nombre: true, clase: true, naturaleza: true } } },
     }),
-    saldosPorCuenta({ estado: EstadoComprobante.CONTABILIZADO, periodoId, empresaId: req.empresaId }),
+    saldosPorCuenta({ estado: { in: [EstadoComprobante.CONTABILIZADO, EstadoComprobante.ANULADO] }, periodoId, empresaId: req.empresaId }),
   ]);
 
   const saldoPorCodigo = new Map(saldos.map((s) => [s.codigo, s.saldo]));

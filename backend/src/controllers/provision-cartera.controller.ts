@@ -5,13 +5,10 @@ import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
 import { crearComprobanteDiario } from "../lib/comprobantes.js";
 import { marcarActividadProceso } from "../lib/procesos.js";
+import { num, redondear2 } from "../lib/decimal.js";
 
 const CUENTA_PROVISION = "1399";
 const CUENTA_GASTO = "5199";
-
-const redondear2 = (n: number) => Math.round(n * 100) / 100;
-
-const num = (v: { toNumber(): number } | number): number => (typeof v === "number" ? v : v.toNumber());
 
 const parametroSchema = z.object({
   diasDesde: z.number().int().min(0),
@@ -100,7 +97,7 @@ async function saldoCuenta(codigo: string, empresaId: string, fechaHasta?: Date)
     where: {
       cuenta: { codigo },
       comprobante: {
-        estado: EstadoComprobante.CONTABILIZADO,
+        estado: { in: [EstadoComprobante.CONTABILIZADO, EstadoComprobante.ANULADO] },
         empresaId,
         ...(fechaHasta ? { fecha: { lte: fechaHasta } } : {}),
       },

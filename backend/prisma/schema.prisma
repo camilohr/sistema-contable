@@ -413,6 +413,9 @@ model Comprobante {
   tercero        Tercero?    @relation(fields: [terceroId], references: [id])
   usuarioCreo    Usuario     @relation("Creador", fields: [usuarioCreoId], references: [id])
   usuarioAnulo   Usuario?    @relation("Anulador", fields: [usuarioAnuloId], references: [id])
+  comprobanteOrigenId Int?   @map("comprobanteOrigenId")
+  comprobanteOrigen   Comprobante? @relation("Contrasiento", fields: [comprobanteOrigenId], references: [id])
+  contrasientos       Comprobante[] @relation("Contrasiento")
   asientos       Asiento[]
   cuentasPorCobrar CuentaPorCobrar[]
   cuentasPorPagar  CuentaPorPagar[]

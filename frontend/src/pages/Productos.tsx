@@ -3,6 +3,8 @@ import type { FormEvent } from "react";
 import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import { cop } from "../lib/formato";
+import { extraerPaginado, type RespuestaPaginada } from "../lib/paginado";
+import Paginador from "../components/Paginador";
 
 interface Producto {
   id: number;
@@ -37,6 +39,11 @@ export default function Productos() {
   const [busqueda, setBusqueda] = useState("");
   const [soloActivos, setSoloActivos] = useState(false);
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
+
   const [creando, setCreando] = useState(false);
   const [editando, setEditando] = useState<Producto | null>(null);
   const [detalle, setDetalle] = useState<Producto | null>(null);
@@ -49,14 +56,19 @@ export default function Productos() {
       const params = new URLSearchParams();
       if (busqueda.trim()) params.set("busqueda", busqueda.trim());
       if (soloActivos) params.set("soloActivos", "true");
-      const res = await api.get<Producto[]>(`/productos${params.toString() ? `?${params}` : ""}`);
-      setProductos(res.data);
+      params.set("page", String(page));
+      params.set("pageSize", String(pageSize));
+      const res = await api.get<Producto[] | RespuestaPaginada<Producto>>(`/productos?${params}`);
+      const resultado = extraerPaginado(res.data);
+      setProductos(resultado.items);
+      setTotal(resultado.total);
+      setPages(resultado.pages);
     } catch {
       setError("No se pudieron cargar los productos.");
     } finally {
       setCargando(false);
     }
-  }, [busqueda, soloActivos]);
+  }, [busqueda, soloActivos, page, pageSize]);
 
   useEffect(() => {
     const t = setTimeout(() => cargar(), busqueda ? 300 : 0);
@@ -85,22 +97,47 @@ export default function Productos() {
           type="search"
           placeholder="Buscar código o nombre..."
           value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
+          onChange={(e) => {
+            setBusqueda(e.target.value);
+            setPage(1);
+          }}
         />
         <label className="filter-check">
-          <input type="checkbox" checked={soloActivos} onChange={(e) => setSoloActivos(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={soloActivos}
+            onChange={(e) => {
+              setSoloActivos(e.target.checked);
+              setPage(1);
+            }}
+          />
           Solo activos
         </label>
       </div>
 
-      {productos.length > 0 && (
+      {total > 0 && (
         <p className="count-hint">
-          {productos.length} producto{productos.length === 1 ? "" : "s"} · Valor del inventario: <strong>{cop(valorInventario)}</strong>
+          {total} producto{total === 1 ? "" : "s"} · Valor del inventario: <strong>{cop(valorInventario)}</strong>
         </p>
       )}
       {error && <p className="error-msg">{error}</p>}
       {cargando && <p className="count-hint">Cargando...</p>}
       {!cargando && productos.length === 0 && <p className="count-hint">Sin resultados.</p>}
+
+      {!cargando && total > 0 && (
+        <Paginador
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          pages={pages}
+          onCambiarPagina={setPage}
+          onCambiarPageSize={(ps) => {
+            setPageSize(ps);
+            setPage(1);
+          }}
+          etiqueta="productos"
+        />
+      )}
 
       {!cargando && productos.length > 0 && (
         <div className="table-wrap">
@@ -159,6 +196,21 @@ export default function Productos() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {!cargando && total > 0 && (
+        <Paginador
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          pages={pages}
+          onCambiarPagina={setPage}
+          onCambiarPageSize={(ps) => {
+            setPageSize(ps);
+            setPage(1);
+          }}
+          etiqueta="productos"
+        />
       )}
 
       {creando && <FormaProducto onClose={() => setCreando(false)} onGuardado={() => { setCreando(false); cargar(); }} />}

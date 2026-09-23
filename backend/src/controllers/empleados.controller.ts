@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Prisma, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
+import { num } from "../lib/decimal.js";
 
 const crearSchema = z.object({
   terceroId: z.string().uuid(),
@@ -25,10 +26,6 @@ const actualizarSchema = z.object({
 const retiroSchema = z.object({
   fechaRetiro: z.string().min(1),
 });
-
-function num(x: Prisma.Decimal | null | undefined): number {
-  return x ? x.toNumber() : 0;
-}
 
 const TERCERO = { select: { id: true, tipoDocumento: true, documento: true, nombreRazonSocial: true, email: true, telefono: true } };
 const INCLUDE = { tercero: TERCERO, _count: { select: { liquidaciones: true } } };

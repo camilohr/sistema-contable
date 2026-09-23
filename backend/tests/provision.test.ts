@@ -59,6 +59,7 @@ beforeAll(async () => {
   await prisma.parametroProvision.deleteMany({});
   await prisma.cuentaPorCobrar.deleteMany({});
   await prisma.cuentaPorPagar.deleteMany({});
+  await prisma.comprobante.deleteMany({ where: { comprobanteOrigenId: { not: null } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Provisión" } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Reversión de provisión" } } });
   await prisma.periodo.deleteMany({ where: { nombre: { startsWith: `PROV-${suf}` } } });
@@ -106,6 +107,7 @@ afterAll(async () => {
   await restaurarParametros();
   await prisma.cuentaPorCobrar.deleteMany({});
   await prisma.cuentaPorPagar.deleteMany({});
+  await prisma.comprobante.deleteMany({ where: { comprobanteOrigenId: { not: null } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Provisión" } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Reversión de provisión" } } });
   await prisma.periodo.deleteMany({ where: { nombre: { startsWith: `PROV-${suf}` } } });

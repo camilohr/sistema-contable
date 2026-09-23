@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { FormaPago, EstadoCartera } from "@prisma/client";
 import { asegurarSecuencia, obtenerSiguienteNumeroSecuencia, type EntidadSecuencia } from "../lib/secuencia.js";
+import { num } from "../lib/decimal.js";
+import { parsearPaginacion, respuestaPaginada, type Paginacion } from "../lib/paginacion.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -29,8 +31,6 @@ const abonoSchema = z.object({
   fecha: z.string().min(1).optional(),
   comprobanteId: z.number().int().positive().optional().nullable(),
 });
-
-const num = (v: { toNumber(): number } | number): number => (typeof v === "number" ? v : v.toNumber());
 
 async function sincronizarVencidas(empresaId: string): Promise<void> {
   const hoy = new Date();
@@ -76,6 +76,7 @@ function crearControlador(kind: TipoCartera) {
 
     const where: Record<string, unknown> = { empresaId: req.empresaId };
     if (terceroId) where.terceroId = terceroId;
+    if (estado) where.estado = estado;
     if (busqueda) {
       where.OR = [
         { numeroDocumento: { contains: busqueda, mode: "insensitive" } },
@@ -84,14 +85,23 @@ function crearControlador(kind: TipoCartera) {
       ];
     }
 
+    let paginacion: Paginacion | undefined;
+    try {
+      paginacion = parsearPaginacion(req.query);
+    } catch {
+      res.status(400).json({ error: "Parámetros de paginación inválidos" });
+      return;
+    }
+
+    const total = paginacion ? await modelo.count({ where }) : 0;
     const docs = await modelo.findMany({
       where,
       include: incluir,
       orderBy: [{ fechaVencimiento: "asc" }],
+      ...(paginacion ? { skip: (paginacion.pagina - 1) * paginacion.porPagina, take: paginacion.porPagina } : {}),
     });
     const conEstado = docs.map(serializar);
-    const filtrados = estado ? conEstado.filter((d: { estado: string }) => d.estado === estado) : conEstado;
-    res.json(filtrados);
+    res.json(respuestaPaginada(conEstado, total, paginacion?.pagina, paginacion?.porPagina));
   }
 
   async function crear(req: Request, res: Response): Promise<void> {

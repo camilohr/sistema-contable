@@ -74,6 +74,7 @@ beforeAll(async () => {
   await prisma.auditoria.deleteMany({ where: { usuarioId: { in: [adminId, auxId] } } });
   await prisma.depreciacion.deleteMany({});
   await prisma.activoFijo.deleteMany({});
+  await prisma.comprobante.deleteMany({ where: { comprobanteOrigenId: { not: null } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: periodoNombre } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Depreciación" } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Baja" } } });
@@ -106,6 +107,7 @@ afterAll(async () => {
   await prisma.auditoria.deleteMany({ where: { usuarioId: { in: [adminId, auxId] } } });
   await prisma.depreciacion.deleteMany({});
   await prisma.activoFijo.deleteMany({});
+  await prisma.comprobante.deleteMany({ where: { comprobanteOrigenId: { not: null } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: periodoNombre } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Depreciación" } } });
   await prisma.comprobante.deleteMany({ where: { concepto: { startsWith: "Baja" } } });

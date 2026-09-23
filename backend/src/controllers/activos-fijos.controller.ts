@@ -3,7 +3,9 @@ import { z } from "zod";
 import { Prisma, EstadoPeriodo, EstadoActivoFijo, EstadoComprobante, AccionAuditoria } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
-import { crearComprobanteDiario, AsientoGenerado } from "../lib/comprobantes.js";
+import { num } from "../lib/decimal.js";
+import { depreciarOrquestado, bajaOrquestado } from "../lib/activos-fijos.js";
+import { parsearPaginacion, respuestaPaginada, type Paginacion } from "../lib/paginacion.js";
 
 const crearSchema = z.object({
   cuentaId: z.number().int().positive(),
@@ -19,16 +21,6 @@ const crearSchema = z.object({
 const actualizarSchema = z.object({
   nombre: z.string().min(1),
 });
-
-const bajaSchema = z.object({
-  periodoId: z.number().int().positive(),
-  fecha: z.string().min(1),
-  concepto: z.string().min(1),
-});
-
-function num(x: Prisma.Decimal | null | undefined): number {
-  return x ? x.toNumber() : 0;
-}
 
 type ActivoConRel = Prisma.ActivoFijoGetPayload<{
   include: {
@@ -85,6 +77,15 @@ export async function listar(req: Request, res: Response): Promise<void> {
   const where: Prisma.ActivoFijoWhereInput = { empresaId: req.empresaId };
   if (estado && (Object.values(EstadoActivoFijo) as string[]).includes(estado)) where.estado = estado as EstadoActivoFijo;
 
+  let paginacion: Paginacion | undefined;
+  try {
+    paginacion = parsearPaginacion(req.query);
+  } catch {
+    res.status(400).json({ error: "Parámetros de paginación inválidos" });
+    return;
+  }
+
+  const total = paginacion ? await prisma.activoFijo.count({ where }) : 0;
   const activos = await prisma.activoFijo.findMany({
     where,
     orderBy: [{ fechaAdquisicion: "desc" }, { nombre: "asc" }],
@@ -94,8 +95,9 @@ export async function listar(req: Request, res: Response): Promise<void> {
       cuentaGasto: { select: { codigo: true, nombre: true } },
       _count: { select: { depreciaciones: true } },
     },
+    ...(paginacion ? { skip: (paginacion.pagina - 1) * paginacion.porPagina, take: paginacion.porPagina } : {}),
   });
-  res.json(activos.map((a) => serializarActivo(a)));
+  res.json(respuestaPaginada(activos.map((a) => serializarActivo(a)), total, paginacion?.pagina, paginacion?.porPagina));
 }
 
 export async function crear(req: Request, res: Response): Promise<void> {
@@ -192,134 +194,12 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
 }
 
 export async function depreciar(req: Request, res: Response): Promise<void> {
-  const periodoId = Number(req.params.periodoId);
-  const periodo = await prisma.periodo.findFirst({ where: { id: periodoId, empresaId: req.empresaId } });
-  if (!periodo) {
-    res.status(404).json({ error: `No existe el periodo ${periodoId}` });
-    return;
-  }
-  if (periodo.estado !== EstadoPeriodo.ABIERTO) {
-    res.status(400).json({ error: "El periodo está cerrado" });
-    return;
-  }
-  const yaGenerado = await prisma.depreciacion.findMany({
-    where: { periodoId },
-    include: { comprobante: { select: { estado: true } } },
+  const r = await depreciarOrquestado({
+    empresaId: req.empresaId!,
+    usuarioId: req.user!.sub,
+    periodoId: Number(req.params.periodoId),
   });
-  const vigente = yaGenerado.find((d) => d.comprobante && d.comprobante.estado === EstadoComprobante.CONTABILIZADO);
-  if (vigente) {
-    res.status(400).json({ error: "La depreciación para este periodo ya fue contabilizada; anule el comprobante para recalcular" });
-    return;
-  }
-  // S1-15: un comprobante BORRADOR/ANULADO se puede recalcular: se revierte la
-  // acumulada, se elimina la depreciación anterior y su comprobante.
-  if (yaGenerado.length > 0) {
-    await prisma.$transaction(async (tx) => {
-      for (const d of yaGenerado) {
-        const activo = await tx.activoFijo.findUnique({ where: { id: d.activoId } });
-        if (!activo) continue;
-        const baseDepreciable = num(activo.valor) - num(activo.valorResidual);
-        const acumulada = num(activo.depreciacionAcumulada) - num(d.valor);
-        await tx.activoFijo.update({
-          where: { id: activo.id },
-          data: {
-            depreciacionAcumulada: new Prisma.Decimal(acumulada),
-            estado: acumulada < baseDepreciable ? EstadoActivoFijo.ACTIVO : activo.estado,
-          },
-        });
-      }
-      const comprobanteId = yaGenerado[0].comprobanteId;
-      await tx.depreciacion.deleteMany({ where: { periodoId } });
-      if (comprobanteId) {
-        await tx.comprobante.delete({ where: { id: comprobanteId } });
-      }
-    });
-  }
-
-  const activos = await prisma.activoFijo.findMany({ where: { estado: EstadoActivoFijo.ACTIVO, empresaId: req.empresaId } });
-
-  interface PorDepreciar {
-    activo: typeof activos[number];
-    baseDepreciable: number;
-    valorMes: number;
-  }
-  const porDepreciar: PorDepreciar[] = [];
-  for (const activo of activos) {
-    const baseDepreciable = num(activo.valor) - num(activo.valorResidual);
-    if (baseDepreciable <= 0) continue;
-    const cuota = Math.round((baseDepreciable / activo.vidaUtilMeses) * 100) / 100;
-    const acumulada = num(activo.depreciacionAcumulada);
-    const restante = baseDepreciable - acumulada;
-    if (restante <= 0) continue;
-    const valorMes = Math.min(cuota, Math.round(restante * 100) / 100);
-    if (valorMes <= 0) continue;
-    porDepreciar.push({ activo, baseDepreciable, valorMes });
-  }
-
-  if (porDepreciar.length === 0) {
-    res.status(400).json({ error: "No hay activos vigentes por depreciar en este periodo" });
-    return;
-  }
-
-  const usuarioId = req.user!.sub;
-  const asientos: AsientoGenerado[] = porDepreciar.flatMap((p) => [
-    { cuentaId: p.activo.cuentaGastoId, debito: p.valorMes, credito: 0, detalle: `Depreciación ${p.activo.nombre}` },
-    { cuentaId: p.activo.cuentaDepreciacionId, debito: 0, credito: p.valorMes, detalle: `Depreciación ${p.activo.nombre}` },
-  ]);
-
-  const resultado = await prisma.$transaction(async (tx) => {
-    const comprobante = await crearComprobanteDiario(tx, {
-      empresaId: req.empresaId!,
-      periodoId,
-      fecha: periodo.fechaFin,
-      concepto: `Depreciación periodo ${periodo.nombre}`,
-      usuarioId,
-      asientos,
-      // S1-15: queda en BORRADOR hasta que un segundo revisor lo contabilice.
-      estado: EstadoComprobante.BORRADOR,
-    });
-    await tx.depreciacion.createMany({
-      data: porDepreciar.map((p) => ({
-        activoId: p.activo.id,
-        periodoId,
-        comprobanteId: comprobante.id,
-        valor: new Prisma.Decimal(p.valorMes),
-      })),
-    });
-    for (const p of porDepreciar) {
-      const nueva = num(p.activo.depreciacionAcumulada) + p.valorMes;
-      await tx.activoFijo.update({
-        where: { id: p.activo.id },
-        data: {
-          depreciacionAcumulada: new Prisma.Decimal(nueva),
-          estado: nueva >= p.baseDepreciable ? EstadoActivoFijo.DEPRECIADO_TOTAL : EstadoActivoFijo.ACTIVO,
-        },
-      });
-    }
-    await registrarAuditoria(tx, {
-      usuarioId,
-      empresaId: req.empresaId,
-      accion: AccionAuditoria.DEPRECIAR_ACTIVOS,
-      entidad: "Periodo",
-      entidadId: periodoId,
-      detalle: { periodo: periodo.nombre, procesados: porDepreciar.length, comprobanteId: comprobante.id },
-    });
-    return comprobante;
-  });
-
-  res.status(201).json({
-    comprobante: {
-      id: resultado.id,
-      tipo: resultado.tipo,
-      consecutivo: resultado.consecutivo,
-      concepto: resultado.concepto,
-      estado: resultado.estado,
-      totalDebito: num(resultado.totalDebito),
-      totalCredito: num(resultado.totalCredito),
-      numAsientos: resultado.asientos.length,
-    },
-    procesados: porDepreciar.length,
-  });
+  res.status(r.status).json(r.body);
 }
 
 export async function contabilizar(req: Request, res: Response): Promise<void> {
@@ -399,97 +279,13 @@ export async function contabilizar(req: Request, res: Response): Promise<void> {
 }
 
 export async function baja(req: Request, res: Response): Promise<void> {
-  const id = Number(req.params.id);
-  const activo = await prisma.activoFijo.findFirst({ where: { id, empresaId: req.empresaId } });
-  if (!activo) {
-    res.status(404).json({ error: "Activo no encontrado" });
-    return;
-  }
-  if (activo.estado === EstadoActivoFijo.DADO_DE_BAJA) {
-    res.status(400).json({ error: "El activo ya fue dado de baja" });
-    return;
-  }
-
-  const parsed = bajaSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
-    return;
-  }
-  const data = parsed.data;
-  const fecha = new Date(data.fecha);
-  if (isNaN(fecha.getTime())) {
-    res.status(400).json({ error: "Fecha inválida" });
-    return;
-  }
-  const periodo = await prisma.periodo.findFirst({ where: { id: data.periodoId, empresaId: req.empresaId } });
-  if (!periodo) {
-    res.status(404).json({ error: `No existe el periodo ${data.periodoId}` });
-    return;
-  }
-  if (periodo.estado !== EstadoPeriodo.ABIERTO) {
-    res.status(400).json({ error: "El periodo está cerrado" });
-    return;
-  }
-  if (fecha < periodo.fechaInicio || fecha > periodo.fechaFin) {
-    res.status(400).json({ error: "La fecha debe estar dentro del periodo" });
-    return;
-  }
-
-  const valor = num(activo.valor);
-  const acumulada = num(activo.depreciacionAcumulada);
-  const valorLibros = Math.round((valor - acumulada) * 100) / 100;
-
-  const asientos: AsientoGenerado[] = [];
-  if (acumulada > 0) {
-    asientos.push({ cuentaId: activo.cuentaDepreciacionId, debito: acumulada, credito: 0, detalle: `Baja ${activo.nombre}` });
-  }
-  if (valorLibros > 0) {
-    asientos.push({ cuentaId: activo.cuentaGastoId, debito: valorLibros, credito: 0, detalle: `Baja ${activo.nombre} (valor en libros)` });
-  }
-  asientos.push({ cuentaId: activo.cuentaId, debito: 0, credito: valor, detalle: `Baja ${activo.nombre}` });
-
-  const comprobante = await prisma.$transaction(async (tx) => {
-    const creado = await crearComprobanteDiario(tx, {
-      empresaId: req.empresaId!,
-      periodoId: data.periodoId,
-      fecha,
-      concepto: data.concepto,
-      usuarioId: req.user!.sub,
-      asientos,
-    });
-    await tx.activoFijo.update({
-      where: { id },
-      data: { estado: EstadoActivoFijo.DADO_DE_BAJA },
-    });
-    await registrarAuditoria(tx, {
-      usuarioId: req.user!.sub,
-      empresaId: req.empresaId,
-      accion: AccionAuditoria.BAJA_ACTIVO,
-      entidad: "ActivoFijo",
-      entidadId: id,
-      detalle: { nombre: activo.nombre, valor, depreciacionAcumulada: acumulada, valorLibros },
-    });
-    return creado;
+  const r = await bajaOrquestado({
+    empresaId: req.empresaId!,
+    usuarioId: req.user!.sub,
+    id: Number(req.params.id),
+    body: req.body,
   });
-
-  res.status(201).json({
-    comprobante: {
-      id: comprobante.id,
-      tipo: comprobante.tipo,
-      consecutivo: comprobante.consecutivo,
-      concepto: comprobante.concepto,
-      totalDebito: num(comprobante.totalDebito),
-      totalCredito: num(comprobante.totalCredito),
-      numAsientos: comprobante.asientos.length,
-    },
-    activo: {
-      id,
-      estado: EstadoActivoFijo.DADO_DE_BAJA,
-      valor: valor,
-      depreciacionAcumulada: acumulada,
-      valorLibros,
-    },
-  });
+  res.status(r.status).json(r.body);
 }
 
 export async function listarDepreciaciones(req: Request, res: Response): Promise<void> {

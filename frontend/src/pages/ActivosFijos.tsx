@@ -3,6 +3,8 @@ import type { FormEvent } from "react";
 import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import { cop } from "../lib/formato";
+import { extraerPaginado, type RespuestaPaginada } from "../lib/paginado";
+import Paginador from "../components/Paginador";
 
 interface Activo {
   id: number;
@@ -65,6 +67,11 @@ export default function ActivosFijos() {
   const [error, setError] = useState("");
   const [estado, setEstado] = useState("");
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
+
   const [creando, setCreando] = useState(false);
   const [editando, setEditando] = useState<Activo | null>(null);
   const [historial, setHistorial] = useState<Activo | null>(null);
@@ -77,14 +84,19 @@ export default function ActivosFijos() {
     try {
       const params = new URLSearchParams();
       if (estado) params.set("estado", estado);
-      const res = await api.get<Activo[]>(`/activos-fijos${params.toString() ? `?${params}` : ""}`);
-      setActivos(res.data);
+      params.set("page", String(page));
+      params.set("pageSize", String(pageSize));
+      const res = await api.get<Activo[] | RespuestaPaginada<Activo>>(`/activos-fijos?${params}`);
+      const resultado = extraerPaginado(res.data);
+      setActivos(resultado.items);
+      setTotal(resultado.total);
+      setPages(resultado.pages);
     } catch {
       setError("No se pudieron cargar los activos fijos.");
     } finally {
       setCargando(false);
     }
-  }, [estado]);
+  }, [estado, page, pageSize]);
 
   useEffect(() => {
     cargar();
@@ -117,7 +129,14 @@ export default function ActivosFijos() {
       </div>
 
       <div className="filters">
-        <select value={estado} onChange={(e) => setEstado(e.target.value)} className="filter-input">
+        <select
+          value={estado}
+          onChange={(e) => {
+            setEstado(e.target.value);
+            setPage(1);
+          }}
+          className="filter-input"
+        >
           <option value="">Todos los estados</option>
           <option value="ACTIVO">Activo</option>
           <option value="DEPRECIADO_TOTAL">Depreciado total</option>
@@ -125,14 +144,29 @@ export default function ActivosFijos() {
         </select>
       </div>
 
-      {activos.length > 0 && (
+      {total > 0 && (
         <p className="count-hint">
-          {activos.length} activo{activos.length === 1 ? "" : "s"} · Valor en libros: <strong>{cop(valorEnLibros)}</strong>
+          {total} activo{total === 1 ? "" : "s"} · Valor en libros: <strong>{cop(valorEnLibros)}</strong>
         </p>
       )}
       {error && <p className="error-msg">{error}</p>}
       {cargando && <p className="count-hint">Cargando...</p>}
       {!cargando && activos.length === 0 && <p className="count-hint">Sin resultados.</p>}
+
+      {!cargando && total > 0 && (
+        <Paginador
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          pages={pages}
+          onCambiarPagina={setPage}
+          onCambiarPageSize={(ps) => {
+            setPageSize(ps);
+            setPage(1);
+          }}
+          etiqueta="activos"
+        />
+      )}
 
       {!cargando && activos.length > 0 && (
         <div className="table-wrap">
@@ -185,6 +219,21 @@ export default function ActivosFijos() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {!cargando && total > 0 && (
+        <Paginador
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          pages={pages}
+          onCambiarPagina={setPage}
+          onCambiarPageSize={(ps) => {
+            setPageSize(ps);
+            setPage(1);
+          }}
+          etiqueta="activos"
+        />
       )}
 
       {creando && (

@@ -5,6 +5,8 @@ import { prisma } from "../lib/prisma.js";
 import { obtenerSiguienteConsecutivo } from "../lib/consecutivo.js";
 import { registrarAuditoria } from "../lib/auditoria.js";
 import { marcarActividadProceso } from "../lib/procesos.js";
+import { num } from "../lib/decimal.js";
+import { crearContrasiento } from "../lib/comprobantes.js";
 
 const asientoSchema = z.object({
   cuentaId: z.number().int().positive(),
@@ -36,10 +38,6 @@ const actualizarSchema = z.object({
   concepto: z.string().min(1).optional(),
   asientos: z.array(asientoSchema).min(2, "Un comprobante requiere al menos 2 asientos").optional(),
 });
-
-function num(x: Prisma.Decimal | null | undefined): number {
-  return x ? x.toNumber() : 0;
-}
 
 type AsientoBase = Prisma.AsientoGetPayload<{}>;
 type AsientoConRel = Prisma.AsientoGetPayload<{
@@ -486,9 +484,10 @@ export async function anular(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: "Este comprobante ya fue anulado" });
     return;
   }
-  // S1-06 (contrasiento real): pendiente — requiere cambios en cascada en
-  // provision-cartera/nómina y cleanup de tests. Se implementa el bloqueo de
-  // doble anulación para preparar el cambio (placeholder de marcado).
+  if (existe.comprobanteOrigenId) {
+    res.status(400).json({ error: "No se puede anular un asiento de reversión" });
+    return;
+  }
   const actualizado = await prisma.$transaction(async (tx) => {
     const estadoPeriodo = await bloquearPeriodo(tx, existe.periodoId);
     if (estadoPeriodo !== EstadoPeriodo.ABIERTO) return null;
@@ -507,13 +506,35 @@ export async function anular(req: Request, res: Response): Promise<void> {
     if (c.concepto.startsWith("Nómina periodo")) {
       await tx.nomina.updateMany({ where: { comprobanteId: id }, data: { estado: EstadoNomina.ANULADO } });
     }
+    const asientosOrigen = await tx.asiento.findMany({ where: { comprobanteId: id } });
+    const contrasiento = await crearContrasiento(tx, {
+      origen: {
+        id: c.id,
+        empresaId: c.empresaId,
+        tipo: c.tipo,
+        consecutivo: c.consecutivo,
+        fecha: c.fecha,
+        periodoId: c.periodoId,
+        terceroId: c.terceroId,
+        concepto: c.concepto,
+        totalDebito: c.totalDebito,
+        totalCredito: c.totalCredito,
+        asientos: asientosOrigen,
+      },
+      usuarioId: req.user!.sub,
+    });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
       empresaId,
       accion: AccionAuditoria.ANULAR,
       entidad: "Comprobante",
       entidadId: id,
-      detalle: { consecutivo: c.consecutivo, tipo: c.tipo, concepto: c.concepto },
+      detalle: {
+        consecutivo: c.consecutivo,
+        tipo: c.tipo,
+        concepto: c.concepto,
+        contrasiento: { id: contrasiento.id, consecutivo: contrasiento.consecutivo },
+      },
     });
     return c;
   });
