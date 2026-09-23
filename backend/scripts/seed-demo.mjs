@@ -7,7 +7,9 @@ import "dotenv/config";
 
 const API = process.env.API_URL || "http://localhost:3000";
 const EMAIL = process.env.DEMO_EMAIL || "admin@sistema.local";
-const PASSWORD = process.env.DEMO_PASSWORD || "Admin123!";
+// M10: no hay credencial por defecto; quien ejecute el seed demo debe conocerla
+// (first login obliga el cambio de contraseña).
+const PASSWORD = process.env.DEMO_PASSWORD || "";
 
 let token = "";
 let empresaId = process.env.DEMO_EMPRESA_ID || "";
@@ -43,6 +45,10 @@ async function api(method, path, body) {
 const ok = (label) => console.log(`  ✓ ${label}`);
 
 async function login() {
+  if (!PASSWORD) {
+    console.error("DEMO_PASSWORD no está definido. Después de `npm run db:seed`, la credencial inicial del admin se genera aleatoriamente y el primer ingreso obliga a cambiarla; defina DEMO_PASSWORD con la credencial vigente para ejecutar el seed demo.");
+    process.exit(1);
+  }
   const res = await fetch(`${API}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -158,15 +164,19 @@ async function crearComprobante(mapa, periodoId, idsTerceros, def) {
     ok(`comprobante "${def.concepto}" ya existía (${existente.tipo}-${String(existente.consecutivo).padStart(3, "0")}, ${existente.estado})`);
     return existente;
   }
+  // C2: todo comprobante nace BORRADOR (el backend ignora `estado` en crear).
   const creado = await api("POST", "/api/comprobantes", {
     tipo: def.tipo,
     fecha: def.fecha,
     periodoId,
     terceroId: def.terceroId ? idsTerceros[def.terceroId] : null,
     concepto: def.concepto,
-    estado: def.estado ?? "CONTABILIZADO",
     asientos: def.asientos.map((a) => asiento(mapa, a.codigo, a.importe, a.tipo, a.terceroId ? idsTerceros[a.terceroId] : null, a.detalle)),
   });
+  if ((def.estado ?? "CONTABILIZADO") !== "BORRADOR") {
+    await api("POST", `/api/comprobantes/${creado.id}/contabilizar`);
+    creado.estado = "CONTABILIZADO";
+  }
   ok(`comprobante "${def.concepto}" creado (${creado.tipo}-${pad(creado.consecutivo)}, ${creado.estado}, deb ${creado.totalDebito})`);
   return creado;
 }

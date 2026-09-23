@@ -200,7 +200,15 @@ function crearControlador(kind: TipoCartera) {
     if (data.fechaEmision) dataUpdate.fechaEmision = new Date(data.fechaEmision);
     if (data.fechaVencimiento) dataUpdate.fechaVencimiento = new Date(data.fechaVencimiento);
 
-    const doc = await modelo.update({ where: { id }, data: dataUpdate, include: incluir });
+    await modelo.update({ where: { id }, data: dataUpdate, include: incluir });
+    // Al cambiar fechas el estado VENCIDA puede cambiar: re-evaluar en la BD
+    // (M3) para que los reportes por estado y la provisión usen el valor vigente.
+    await sincronizarVencidas(req.empresaId!);
+    const doc = await modelo.findFirst({ where: { id, empresaId: req.empresaId }, include: incluir });
+    if (!doc) {
+      res.status(404).json({ error: "Documento no encontrado" });
+      return;
+    }
     res.json(serializar(doc));
   }
 

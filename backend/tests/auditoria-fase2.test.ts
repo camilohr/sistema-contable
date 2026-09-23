@@ -459,3 +459,62 @@ describe("B1: catálogo PUC sincronizado con el oficial", () => {
     expect(provision).toBe(1);
   });
 });
+
+describe("M1: carrera crear comprobante vs cierre de periodo", () => {
+  it("no queda ningún borrador escrito tras el cierre del periodo (validación dentro de la tx)", async () => {
+    const p = await crearPeriodo("FASE2-M1-2028", "2028-04-01", "2028-04-30", "ABIERTO");
+
+    const cuerpo = (n: number) => ({
+      tipo: "DIARIO",
+      fecha: "2028-04-15",
+      periodoId: p.id,
+      concepto: `FASE2 M1 carrera ${n}`,
+      asientos: [asiento(cajaId, { debito: 1000 }), asiento(ingresosId, { credito: 1000 })],
+    });
+    const crear = (n: number) =>
+      request(app).post("/api/comprobantes").set("Authorization", `Bearer ${adminToken}`).send(cuerpo(n));
+    const cerrar = () =>
+      request(app).patch(`/api/periodos/${p.id}`).set("Authorization", `Bearer ${adminToken}`).send({ estado: "CERRADO" });
+
+    // 10 peticiones concurrentes: crear y cerrar disputan el mismo periodo.
+    const respuestas = await Promise.all(
+      Array.from({ length: 10 }, (_, i) => (i % 2 === 0 ? crear(i) : cerrar()))
+    );
+    const creaciones = respuestas.filter((r) => r.status === 201).length;
+    expect(creaciones + respuestas.filter((r) => r.status === 400 || r.status === 200).length).toBeGreaterThan(0);
+
+    const periodoFinal = await prisma.periodo.findUniqueOrThrow({ where: { id: p.id } });
+    const cierreAudit = await prisma.auditoria.findFirst({
+      where: { accion: "CERRAR_PERIODO", entidadId: String(p.id) },
+      orderBy: { id: "desc" },
+    });
+
+    if (periodoFinal.estado === "CERRADO") {
+      // Ningún BORRADOR pudo escribirse DESPUÉS de que el cierre cometió.
+      const despuesDelCierre = await prisma.comprobante.count({
+        where: { periodoId: p.id, estado: "BORRADOR", ...(cierreAudit ? { createdAt: { gt: cierreAudit.fecha } } : {}) },
+      });
+      expect(despuesDelCierre).toBe(0);
+
+      // Posteriormente, crear sobre el periodo cerrado responde 400.
+      const posterior = await request(app)
+        .post("/api/comprobantes")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send(cuerpo(999));
+      expect(posterior.status).toBe(400);
+    } else {
+      // Si ningún cierre ganó, forzarlo y verificar que el crear siguiente falla.
+      const cierreForzado = await cerrar();
+      expect(cierreForzado.status).toBe(200);
+      const posterior = await request(app)
+        .post("/api/comprobantes")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send(cuerpo(999));
+      expect(posterior.status).toBe(400);
+    }
+
+    await prisma.comprobante.deleteMany({ where: { periodoId: p.id } });
+    await prisma.auditoria.deleteMany({ where: { entidadId: String(p.id), accion: { in: ["CERRAR_PERIODO", "REABRIR_PERIODO"] } } });
+    await prisma.periodo.deleteMany({ where: { id: p.id } });
+  });
+});

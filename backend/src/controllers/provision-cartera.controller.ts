@@ -156,8 +156,11 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
   const cuentas = await prisma.cuenta.findMany({
     where: { codigo: { in: [CUENTA_PROVISION, CUENTA_GASTO] }, OR: [{ empresaId: null }, { empresaId }] },
   });
-  const cuentaProvision = cuentas.find((c) => c.codigo === CUENTA_PROVISION);
-  const cuentaGasto = cuentas.find((c) => c.codigo === CUENTA_GASTO);
+  // Preferencia determinista: cuenta propia de la empresa antes que el PUC global.
+  const cuentaPorCodigo = (codigo: string) =>
+    cuentas.find((c) => c.codigo === codigo && c.empresaId === empresaId) ?? cuentas.find((c) => c.codigo === codigo);
+  const cuentaProvision = cuentaPorCodigo(CUENTA_PROVISION);
+  const cuentaGasto = cuentaPorCodigo(CUENTA_GASTO);
   if (!cuentaProvision || !cuentaGasto) {
     res.status(400).json({ error: `No se encontraron las cuentas ${CUENTA_PROVISION} (Provisión de cartera) y ${CUENTA_GASTO} (Gasto de provisión); verifique el catálogo` });
     return;
@@ -292,7 +295,13 @@ export async function calcularProvision(req: Request, res: Response): Promise<vo
     resultado = await prisma.$transaction(provisionCarteraTx);
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-      res.status(400).json({ error: "La provisión de cartera para este periodo ya fue calculada; verifique e intente nuevamente" });
+      const targets = (e.meta?.target as string[]) ?? [];
+      const esDuplicadoProvision = targets.some((t) => t === "periodoId" || t === "empresaId" || t === "cuentaId");
+      res.status(esDuplicadoProvision ? 400 : 409).json({
+        error: esDuplicadoProvision
+          ? "La provisión de cartera para este periodo ya fue calculada; verifique e intente nuevamente"
+          : "Conflicto de datos: ya existe un registro con ese valor",
+      });
       return;
     }
     throw e;
