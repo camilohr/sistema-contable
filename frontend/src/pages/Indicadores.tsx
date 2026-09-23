@@ -151,7 +151,7 @@ export default function Indicadores() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api.get<Periodo[]>("/periodos").then((r) => setPeriodos(r.data)).catch(() => {});
+    api.get<Periodo[]>("/periodos").then((r) => setPeriodos(r.data)).catch(() => setError("No se pudieron cargar los periodos."));
   }, []);
 
   const cargarIndividual = async () => {

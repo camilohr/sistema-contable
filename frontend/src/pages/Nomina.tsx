@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import { cop } from "../lib/formato";
 
@@ -174,8 +174,7 @@ function TablaAsientos({ comprobante }: { comprobante: { asientos: Asiento[]; co
 }
 
 export default function Nomina() {
-  const { usuario } = useAuth();
-  const puedeOperar = usuario?.rol === "ADMIN" || usuario?.rol === "CONTADOR";
+  const { puedeEditar: puedeOperar } = useEmpresa();
 
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [periodoId, setPeriodoId] = useState("");

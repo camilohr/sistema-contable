@@ -36,7 +36,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api
       .get<Usuario>("/auth/me")
       .then((res) => setUsuario(res.data))
-      .catch(() => localStorage.removeItem("token"))
+      .catch((err) => {
+        // F5: solo un 401 auténtico invalida la sesión; un fallo de red respeta la última sesión.
+        const status = (err as { response?: { status?: number } }).response?.status;
+        if (status === 401) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("empresaId");
+        }
+        setUsuario(null);
+      })
       .finally(() => setCargando(false));
   }, []);
 
@@ -49,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("empresaId");
     setUsuario(null);
   };
 

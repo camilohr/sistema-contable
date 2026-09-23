@@ -143,8 +143,8 @@ export default function Reportes() {
   const [resultados, setResultados] = useState<EstadoResultados | null>(null);
 
   useEffect(() => {
-    api.get<Periodo[]>("/periodos").then((r) => setPeriodos(r.data)).catch(() => {});
-    api.get<Cuenta[]>("/cuentas?soloMovimiento=true").then((r) => setCuentas(r.data)).catch(() => {});
+    api.get<Periodo[]>("/periodos").then((r) => setPeriodos(r.data)).catch(() => setError("No se pudieron cargar los periodos."));
+    api.get<Cuenta[]>("/cuentas?soloMovimiento=true").then((r) => setCuentas(r.data)).catch(() => setError("No se pudieron cargar las cuentas."));
   }, []);
 
   const cargar = useCallback(async () => {

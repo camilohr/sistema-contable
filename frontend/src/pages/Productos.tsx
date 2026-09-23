@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import { cop } from "../lib/formato";
 
@@ -28,8 +28,7 @@ interface Movimiento {
 const tipoLabel: Record<string, string> = { ENTRADA: "Entrada", SALIDA: "Salida" };
 
 export default function Productos() {
-  const { usuario } = useAuth();
-  const puedeEditar = usuario?.rol === "ADMIN" || usuario?.rol === "CONTADOR";
+  const { puedeEditar } = useEmpresa();
 
   const [productos, setProductos] = useState<Producto[]>([]);
   const [cargando, setCargando] = useState(true);

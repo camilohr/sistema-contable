@@ -52,9 +52,7 @@ const estadoLabel: Record<string, string> = { EN_PROCESO: "En proceso", APROBADA
 const num = (v: number | string | null | undefined): number | null => (v === null || v === undefined ? null : Number(v));
 
 export default function Conciliaciones() {
-  const { empresaActiva } = useEmpresa();
-  const rol = empresaActiva?.rol;
-  const puedeEditar = rol === "ADMIN" || rol === "CONTADOR";
+  const { puedeEditar } = useEmpresa();
 
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [conciliaciones, setConciliaciones] = useState<Conciliacion[]>([]);
@@ -87,7 +85,7 @@ export default function Conciliaciones() {
   }, [cargar]);
 
   useEffect(() => {
-    api.get<Periodo[]>("/periodos").then((r) => setPeriodos(r.data)).catch(() => {});
+    api.get<Periodo[]>("/periodos").then((r) => setPeriodos(r.data)).catch(() => setError("No se pudieron cargar los periodos."));
   }, []);
 
   const crear = async () => {

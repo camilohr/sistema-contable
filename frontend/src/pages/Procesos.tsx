@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import ConfirmModal from "../components/ConfirmModal";
 import styles from "./Procesos.module.css";
@@ -68,9 +68,7 @@ function fechaBonita(iso: string): string {
 }
 
 export default function Procesos() {
-  const { usuario } = useAuth();
-  const puedeEditar = usuario?.rol === "ADMIN" || usuario?.rol === "CONTADOR";
-  const esAdmin = usuario?.rol === "ADMIN";
+  const { puedeEditar, esAdmin } = useEmpresa();
 
   const [procesos, setProcesos] = useState<ProcesoResumen[]>([]);
   const [seleccionado, setSeleccionado] = useState<ProcesoDetalle | null>(null);

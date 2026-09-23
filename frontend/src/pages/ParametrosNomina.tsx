@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 
 interface ParametroNomina {
@@ -64,8 +64,7 @@ const camposParametro: CampoParametro[] = [
 ];
 
 export default function ParametrosNomina() {
-  const { usuario } = useAuth();
-  const puedeEditar = usuario?.rol === "ADMIN" || usuario?.rol === "CONTADOR";
+  const { puedeEditar } = useEmpresa();
 
   const [parametros, setParametros] = useState<ParametroNomina[]>([]);
   const [anio, setAnio] = useState("");

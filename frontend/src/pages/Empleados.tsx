@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import { cop } from "../lib/formato";
 
@@ -37,8 +37,7 @@ const estadoLabel = (e: Empleado) =>
   );
 
 export default function Empleados() {
-  const { usuario } = useAuth();
-  const puedeEditar = usuario?.rol === "ADMIN" || usuario?.rol === "CONTADOR";
+  const { puedeEditar } = useEmpresa();
 
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [soloActivos, setSoloActivos] = useState(true);

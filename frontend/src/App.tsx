@@ -64,9 +64,9 @@ export default function App() {
               <Route path="/empresa/:empresaId/cierre-anual" element={<CierreAnual />} />
               <Route path="/empresa/:empresaId/provision-cartera" element={<ProvisionCartera />} />
               <Route path="/empresa/:empresaId/indicadores" element={<Indicadores />} />
-              <Route path="/empresa/:empresaId/usuarios" element={<Usuarios />} />
-              <Route path="/empresa/:empresaId/clientes" element={<Clientes />} />
-              <Route path="/empresa/:empresaId/auditoria" element={<Auditoria />} />
+              <Route path="/empresa/:empresaId/usuarios" element={<ProtectedRoute roles={["ADMIN"]}><Usuarios /></ProtectedRoute>} />
+              <Route path="/empresa/:empresaId/clientes" element={<ProtectedRoute roles={["ADMIN"]}><Clientes /></ProtectedRoute>} />
+              <Route path="/empresa/:empresaId/auditoria" element={<ProtectedRoute roles={["ADMIN"]}><Auditoria /></ProtectedRoute>} />
               <Route path="/empresa/:empresaId/empleados" element={<Empleados />} />
               <Route path="/empresa/:empresaId/nomina" element={<Nomina />} />
               <Route path="/empresa/:empresaId/parametros-nomina" element={<ParametrosNomina />} />

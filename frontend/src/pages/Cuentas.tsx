@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 
 interface Cuenta {
@@ -20,8 +20,7 @@ interface Cuenta {
 const naturalezaLabel: Record<string, string> = { DEUDORA: "Deudora", ACREEDORA: "Acreedora" };
 
 export default function Cuentas() {
-  const { usuario } = useAuth();
-  const puedeEditar = usuario?.rol === "ADMIN" || usuario?.rol === "CONTADOR";
+  const { puedeEditar } = useEmpresa();
 
   const [cuentas, setCuentas] = useState<Cuenta[]>([]);
   const [cargando, setCargando] = useState(true);

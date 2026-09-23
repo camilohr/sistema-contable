@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import { cop } from "../lib/formato";
 
@@ -84,8 +84,7 @@ function filaVacia(): FilaParametro {
 }
 
 export default function ProvisionCartera() {
-  const { usuario } = useAuth();
-  const puedeCalcular = usuario?.rol === "ADMIN" || usuario?.rol === "CONTADOR";
+  const { puedeEditar: puedeCalcular } = useEmpresa();
 
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
   const [periodoId, setPeriodoId] = useState("");

@@ -8,9 +8,10 @@ Sistema contable local para contador particular, normatividad colombiana (PUC), 
 - `frontend/` — React 19 · TypeScript · Vite · React Router · axios
 - `docs/` — arquitectura.md, modelo-datos.md, normatividad.md, manual-usuario.md, manual-operacion.md, despliegue.md, respaldo.md, datos-demo.md, roadmap-v1.1.md, roadmap-v2.0.md
 - `scripts/` — utilidades de despliegue en PowerShell (`desplegar.ps1`, `abrir-puerto.ps1`)
-- `.github/workflows/ci.yml` — CI en GitHub Actions: tests + build del backend y lint + build del frontend en cada push a `master`
+- `.github/workflows/ci.yml` — CI en GitHub Actions: tests + build del backend y test + lint + build del frontend en cada push a `master`
 - `backend/prisma/schema.prisma` — fuente de verdad del modelo de datos
-- `backend/tests/*.test.ts` — tests de API (Vitest + supertest). El frontend no tiene tests.
+- `backend/tests/*.test.ts` — tests de API (Vitest + supertest)
+- `frontend/src/**/*.test.tsx` — tests del frontend (Vitest + jsdom + Testing Library)
 
 ## Comandos
 
@@ -26,6 +27,7 @@ Backend (workdir `backend/`):
 
 Frontend (workdir `frontend/`):
 - `npm run dev` — Vite dev server
+- `npm test` — Vitest + jsdom (testing-library). Sin conexión a red ni base de datos.
 - `npm run build` — `tsc -b && vite build`
 - `npm run lint` — oxlint
 

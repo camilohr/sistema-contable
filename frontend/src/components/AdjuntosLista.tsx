@@ -25,9 +25,7 @@ const tamaño = (bytes: number): string => {
 };
 
 export default function AdjuntosLista({ entidad, entidadId }: Props) {
-  const { empresaActiva } = useEmpresa();
-  const rol = empresaActiva?.rol;
-  const puedeEditar = rol === "ADMIN" || rol === "CONTADOR";
+  const { puedeEditar } = useEmpresa();
 
   const [adjuntos, setAdjuntos] = useState<Adjunto[]>([]);
   const [cargando, setCargando] = useState(false);

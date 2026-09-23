@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import { docLabel } from "../lib/documentos";
 
@@ -20,8 +20,7 @@ interface Tercero {
 const tipoLabel: Record<string, string> = { CLIENTE: "Cliente", PROVEEDOR: "Proveedor", AMBOS: "Cliente/Proveedor" };
 
 export default function Terceros() {
-  const { usuario } = useAuth();
-  const puedeEditar = usuario?.rol === "ADMIN" || usuario?.rol === "CONTADOR";
+  const { puedeEditar } = useEmpresa();
 
   const [terceros, setTerceros] = useState<Tercero[]>([]);
   const [cargando, setCargando] = useState(true);

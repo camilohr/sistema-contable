@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import styles from "./AlertasPanel.module.css";
 
@@ -41,8 +41,7 @@ function requiereDias(tipo: TipoAlerta): boolean {
 }
 
 export default function AlertasPanel() {
-  const { usuario } = useAuth();
-  const puedeEditar = usuario?.rol === "ADMIN" || usuario?.rol === "CONTADOR";
+  const { puedeEditar } = useEmpresa();
 
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [reglas, setReglas] = useState<Regla[]>([]);

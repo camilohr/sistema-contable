@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Ban, BookCheck, Eye, Pencil, Plus, Trash2 } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
+import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import ComprobanteForm, { type ComprobanteFormData } from "../components/ComprobanteForm";
 import AdjuntosLista from "../components/AdjuntosLista";
@@ -56,8 +56,7 @@ const estadoTone: Record<string, "mov" | "err" | "terc"> = {
 };
 
 export default function Comprobantes() {
-  const { usuario } = useAuth();
-  const puedeEditar = usuario?.rol === "ADMIN" || usuario?.rol === "CONTADOR";
+  const { puedeEditar } = useEmpresa();
 
   const [comprobantes, setComprobantes] = useState<Comprobante[]>([]);
   const [periodos, setPeriodos] = useState<Periodo[]>([]);
@@ -98,7 +97,7 @@ export default function Comprobantes() {
   }, [cargar, busqueda]);
 
   useEffect(() => {
-    api.get<Periodo[]>("/periodos").then((r) => setPeriodos(r.data)).catch(() => {});
+    api.get<Periodo[]>("/periodos").then((r) => setPeriodos(r.data)).catch(() => setError("No se pudieron cargar los periodos."));
   }, []);
 
   const recargar = () => {

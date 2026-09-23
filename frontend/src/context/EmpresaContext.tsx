@@ -15,6 +15,9 @@ interface EmpresaContextType {
   empresas: Empresa[];
   empresaActiva: Empresa | null;
   cargando: boolean;
+  rol: Rol | null;
+  puedeEditar: boolean;
+  esAdmin: boolean;
   seleccionarEmpresa: (id: string) => void;
 }
 
@@ -62,8 +65,13 @@ export function EmpresaProvider({ children }: { children: ReactNode }) {
     [empresas]
   );
 
+  // F3: fuente única de rol (el de la empresa activa gana sobre el global).
+  const rol = empresaActiva?.rol ?? usuario?.rol ?? null;
+  const puedeEditar = rol === "ADMIN" || rol === "CONTADOR";
+  const esAdmin = rol === "ADMIN";
+
   return (
-    <EmpresaContext.Provider value={{ empresas, empresaActiva, cargando, seleccionarEmpresa }}>
+    <EmpresaContext.Provider value={{ empresas, empresaActiva, cargando, rol, puedeEditar, esAdmin, seleccionarEmpresa }}>
       {children}
     </EmpresaContext.Provider>
   );

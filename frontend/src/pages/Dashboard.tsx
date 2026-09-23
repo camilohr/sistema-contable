@@ -18,9 +18,8 @@ import type { LucideIcon } from "lucide-react";
 import { useEmpresa } from "../context/EmpresaContext";
 
 export default function Dashboard() {
-  const { empresaActiva } = useEmpresa();
+  const { empresaActiva, esAdmin } = useEmpresa();
   const navigate = useNavigate();
-  const esAdmin = empresaActiva?.rol === "ADMIN";
   const base = `/empresa/${empresaActiva?.id ?? ""}`;
 
   const modulos: { nombre: string; ruta: string; icono: LucideIcon }[] = [

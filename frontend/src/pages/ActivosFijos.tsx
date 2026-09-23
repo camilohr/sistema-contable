@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import { cop } from "../lib/formato";
 
@@ -58,8 +58,7 @@ const estadoBadge: Record<string, string> = {
 };
 
 export default function ActivosFijos() {
-  const { usuario } = useAuth();
-  const puedeEditar = usuario?.rol === "ADMIN" || usuario?.rol === "CONTADOR";
+  const { puedeEditar } = useEmpresa();
 
   const [activos, setActivos] = useState<Activo[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -231,7 +230,7 @@ function FormaActivo({ activo, onClose, onGuardado }: { activo?: Activo; onClose
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
-    api.get<Cuenta[]>("/cuentas?soloMovimiento=true").then((r) => setCuentas(r.data)).catch(() => {});
+    api.get<Cuenta[]>("/cuentas?soloMovimiento=true").then((r) => setCuentas(r.data)).catch(() => setError("No se pudieron cargar las cuentas."));
   }, []);
 
   const set = (campo: string, valor: string) => setForm((f) => ({ ...f, [campo]: valor }));
@@ -343,7 +342,7 @@ function FormaDepreciar({ onClose }: { onClose: () => void }) {
   const [mensaje, setMensaje] = useState("");
 
   useEffect(() => {
-    api.get<Periodo[]>("/periodos").then((r) => setPeriodos(r.data.filter((p) => p.estado === "ABIERTO"))).catch(() => {});
+    api.get<Periodo[]>("/periodos").then((r) => setPeriodos(r.data.filter((p) => p.estado === "ABIERTO"))).catch(() => setError("No se pudieron cargar los periodos."));
   }, []);
 
   const ejecutar = async (e: FormEvent) => {
@@ -434,7 +433,7 @@ function FormaBaja({ activo, onClose, onHecho }: { activo: Activo; onClose: () =
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
-    api.get<Periodo[]>("/periodos").then((r) => setPeriodos(r.data.filter((p) => p.estado === "ABIERTO"))).catch(() => {});
+    api.get<Periodo[]>("/periodos").then((r) => setPeriodos(r.data.filter((p) => p.estado === "ABIERTO"))).catch(() => setError("No se pudieron cargar los periodos."));
   }, []);
 
   const set = (campo: string, valor: string) => setForm((f) => ({ ...f, [campo]: valor }));

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import { cop } from "../lib/formato";
 
@@ -51,8 +51,7 @@ interface Cuenta {
 }
 
 export default function CierreAnual() {
-  const { usuario } = useAuth();
-  const esAdmin = usuario?.rol === "ADMIN";
+  const { esAdmin } = useEmpresa();
 
   const [cierres, setCierres] = useState<CierreListado[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -83,7 +82,7 @@ export default function CierreAnual() {
   }, [cargar]);
 
   useEffect(() => {
-    api.get<Cuenta[]>("/cuentas?clase=3&soloMovimiento=true").then((r) => setCuentas(r.data)).catch(() => {});
+    api.get<Cuenta[]>("/cuentas?clase=3&soloMovimiento=true").then((r) => setCuentas(r.data)).catch(() => setError("No se pudieron cargar las cuentas."));
   }, []);
 
   const abrirDetalle = async (anioCierre: number) => {

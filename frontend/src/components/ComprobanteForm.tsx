@@ -116,12 +116,28 @@ export default function ComprobanteForm({ inicial, titulo, onClose, onGuardado }
 
   const cuentaPorId = useMemo(() => new Map(cuentas.map((c) => [c.id, c])), [cuentas]);
 
+  // F7: cada línea debe tener un débito O un crédito y, si la cuenta lo exige, su tercero.
+  const validarLineas = (): string => {
+    for (let i = 0; i < form.asientos.length; i++) {
+      const a = form.asientos[i];
+      const deb = parseFloat(a.debito) || 0;
+      const cred = parseFloat(a.credito) || 0;
+      if (deb <= 0 && cred <= 0) return `La línea ${i + 1} debe tener un débito o un crédito.`;
+      if (deb > 0 && cred > 0) return `La línea ${i + 1} no puede tener débito y crédito a la vez.`;
+      const cuenta = a.cuentaId ? cuentaPorId.get(a.cuentaId) : undefined;
+      if (cuenta?.requiereTercero && !a.terceroId) return `La línea ${i + 1} requiere un tercero.`;
+    }
+    return "";
+  };
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     if (!form.periodoId) return setError("Seleccione el periodo.");
     if (!totales.cuadra) return setError("La partida doble no cuadra: revise los débitos y créditos.");
     if (form.asientos.some((a) => !a.cuentaId)) return setError("Todos los asientos deben tener una cuenta.");
+    const errorLineas = validarLineas();
+    if (errorLineas) return setError(errorLineas);
 
     const asientos = form.asientos.map((a) => ({
       cuentaId: a.cuentaId,

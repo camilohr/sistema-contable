@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { Landmark } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { Button, Field, TextInput } from "../components/ui";
@@ -9,6 +9,7 @@ import styles from "./Login.module.css";
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -20,7 +21,8 @@ export default function Login() {
     setEnviando(true);
     try {
       const u = await login(email, password);
-      navigate(u.debeCambiarPassword ? "/cambiar-password" : "/", { replace: true });
+      const ret = searchParams.get("returnTo");
+      navigate(u.debeCambiarPassword ? "/cambiar-password" : ret || "/", { replace: true });
     } catch (err) {
       const e = err as { response?: { data?: { error?: string } } };
       setError(e.response?.data?.error ?? "Error al iniciar sesión. Verifica la conexión con el servidor.");

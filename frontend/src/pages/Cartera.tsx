@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useEmpresa } from "../context/EmpresaContext";
 import { api } from "../api/client";
 import { cop } from "../lib/formato";
 
@@ -74,8 +74,7 @@ const formaLabel: Record<string, string> = {
 };
 
 export default function Cartera({ tipo }: { tipo: TipoCartera }) {
-  const { usuario } = useAuth();
-  const puedeEditar = usuario?.rol === "ADMIN" || usuario?.rol === "CONTADOR";
+  const { puedeEditar } = useEmpresa();
   const cfg = config[tipo];
 
   const [docs, setDocs] = useState<DocumentoCartera[]>([]);
