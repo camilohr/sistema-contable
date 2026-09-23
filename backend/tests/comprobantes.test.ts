@@ -391,7 +391,7 @@ describe("Creación de comprobantes", () => {
 });
 
 describe("Ciclo de vida del comprobante", () => {
-  it("crea directamente contabilizado", async () => {
+  it("crea siempre en borrador, aunque se envíe estado (C2), y contabiliza después", async () => {
     const res = await request(app)
       .post("/api/comprobantes")
       .set("Authorization", `Bearer ${adminToken}`)
@@ -407,8 +407,13 @@ describe("Ciclo de vida del comprobante", () => {
         ],
       });
     expect(res.status).toBe(201);
-    expect(res.body.estado).toBe("CONTABILIZADO");
+    expect(res.body.estado).toBe("BORRADOR");
     expect(res.body.consecutivo).toBe(1);
+    const contab = await request(app)
+      .post(`/api/comprobantes/${res.body.id}/contabilizar`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(contab.status).toBe(200);
+    expect(contab.body.estado).toBe("CONTABILIZADO");
   });
 
   it("contabiliza un borrador", async () => {
@@ -441,12 +446,12 @@ describe("Ciclo de vida del comprobante", () => {
         fecha: "2026-08-09",
         periodoId,
         concepto: "Doble",
-        estado: "CONTABILIZADO",
         asientos: [
           asiento(cajaId, { debito: 1000 }),
           asiento(ingresosId, { credito: 1000 }),
         ],
       });
+    await request(app).post(`/api/comprobantes/${c.body.id}/contabilizar`).set("Authorization", `Bearer ${adminToken}`);
     const res = await request(app)
       .post(`/api/comprobantes/${c.body.id}/contabilizar`)
       .set("Authorization", `Bearer ${adminToken}`);
@@ -462,12 +467,12 @@ describe("Ciclo de vida del comprobante", () => {
         fecha: "2026-08-10",
         periodoId,
         concepto: "A anular",
-        estado: "CONTABILIZADO",
         asientos: [
           asiento(cajaId, { debito: 400000 }),
           asiento(ingresosId, { credito: 400000 }),
         ],
       });
+    await request(app).post(`/api/comprobantes/${c.body.id}/contabilizar`).set("Authorization", `Bearer ${adminToken}`);
     const res = await request(app)
       .post(`/api/comprobantes/${c.body.id}/anular`)
       .set("Authorization", `Bearer ${adminToken}`);
@@ -506,12 +511,12 @@ describe("Ciclo de vida del comprobante", () => {
         fecha: "2026-08-12",
         periodoId,
         concepto: "Doble anulación",
-        estado: "CONTABILIZADO",
         asientos: [
           asiento(cajaId, { debito: 1000 }),
           asiento(ingresosId, { credito: 1000 }),
         ],
       });
+    await request(app).post(`/api/comprobantes/${c.body.id}/contabilizar`).set("Authorization", `Bearer ${adminToken}`);
     await request(app).post(`/api/comprobantes/${c.body.id}/anular`).set("Authorization", `Bearer ${adminToken}`);
     const res = await request(app).post(`/api/comprobantes/${c.body.id}/anular`).set("Authorization", `Bearer ${adminToken}`);
     expect(res.status).toBe(400);
@@ -556,12 +561,12 @@ describe("Ciclo de vida del comprobante", () => {
         fecha: "2026-08-14",
         periodoId,
         concepto: "Fijo",
-        estado: "CONTABILIZADO",
         asientos: [
           asiento(cajaId, { debito: 1000 }),
           asiento(ingresosId, { credito: 1000 }),
         ],
       });
+    await request(app).post(`/api/comprobantes/${c.body.id}/contabilizar`).set("Authorization", `Bearer ${adminToken}`);
     const res = await request(app)
       .patch(`/api/comprobantes/${c.body.id}`)
       .set("Authorization", `Bearer ${adminToken}`)
@@ -611,12 +616,12 @@ describe("Ciclo de vida del comprobante", () => {
         fecha: "2026-08-17",
         periodoId,
         concepto: "Contabilizado",
-        estado: "CONTABILIZADO",
         asientos: [
           asiento(cajaId, { debito: 1000 }),
           asiento(ingresosId, { credito: 1000 }),
         ],
       });
+    await request(app).post(`/api/comprobantes/${c.body.id}/contabilizar`).set("Authorization", `Bearer ${adminToken}`);
     const res = await request(app).delete(`/api/comprobantes/${c.body.id}`).set("Authorization", `Bearer ${adminToken}`);
     expect(res.status).toBe(400);
   });

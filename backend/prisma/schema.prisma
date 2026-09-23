@@ -456,6 +456,11 @@ model Consecutivo {
   @@id([empresaId, tipo])
 }
 
+model Secuencia {
+  entidad String @id
+  ultimo  Int    @default(0)
+}
+
 model CuentaPorCobrar {
   id               Int          @id @default(autoincrement())
   empresaId        String
@@ -517,6 +522,8 @@ model Recibo {
   tercero    Tercero         @relation(fields: [terceroId], references: [id])
   cxc        CuentaPorCobrar? @relation(fields: [cxcId], references: [id])
   comprobante Comprobante?   @relation(fields: [comprobanteId], references: [id])
+
+  @@unique([numero])
 }
 
 model Pago {
@@ -534,6 +541,8 @@ model Pago {
   tercero    Tercero         @relation(fields: [terceroId], references: [id])
   cxp        CuentaPorPagar? @relation(fields: [cxpId], references: [id])
   comprobante Comprobante?   @relation(fields: [comprobanteId], references: [id])
+
+  @@unique([numero])
 }
 
 model Producto {

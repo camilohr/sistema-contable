@@ -161,7 +161,6 @@ export default function Comprobantes() {
         fecha: d.fecha.slice(0, 10),
         periodoId: d.periodoId,
         concepto: d.concepto,
-        estado: "BORRADOR",
         asientos: (d.asientos ?? []).map((a) => ({
           cuentaId: a.cuentaId,
           terceroId: a.terceroId ?? "",

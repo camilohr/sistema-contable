@@ -36,7 +36,6 @@ export interface ComprobanteFormData {
   fecha: string;
   periodoId: number | "";
   concepto: string;
-  estado: "BORRADOR" | "CONTABILIZADO";
   asientos: AsientoLinea[];
 }
 
@@ -68,7 +67,6 @@ export default function ComprobanteForm({ inicial, titulo, onClose, onGuardado }
       fecha: hoy,
       periodoId: "",
       concepto: "",
-      estado: "BORRADOR",
       asientos: [{ cuentaId: "", terceroId: "", debito: "", credito: "", detalle: "" }],
     }
   );
@@ -141,7 +139,6 @@ export default function ComprobanteForm({ inicial, titulo, onClose, onGuardado }
         periodoId: form.periodoId,
         concepto: form.concepto,
         asientos,
-        ...(inicial ? {} : { estado: form.estado }),
       };
       if (inicial) {
         await api.patch(`/comprobantes/${inicial.id}`, payload);
@@ -187,15 +184,6 @@ export default function ComprobanteForm({ inicial, titulo, onClose, onGuardado }
                   ))}
                 </select>
               </label>
-              {!inicial && (
-                <label>
-                  Estado
-                  <select value={form.estado} onChange={(e) => set("estado", e.target.value)}>
-                    <option value="BORRADOR">Borrador</option>
-                    <option value="CONTABILIZADO">Contabilizado</option>
-                  </select>
-                </label>
-              )}
             </div>
             <label>
               Concepto<span className="req">*</span>

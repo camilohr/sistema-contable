@@ -22,6 +22,7 @@ async function login(): Promise<string> {
 beforeAll(async () => {
   await prisma.recibo.deleteMany({});
   await prisma.pago.deleteMany({});
+  await prisma.secuencia.deleteMany({});
   await prisma.cuentaPorCobrar.deleteMany({});
   await prisma.cuentaPorPagar.deleteMany({});
   await prisma.comprobante.deleteMany({});
@@ -70,6 +71,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await prisma.recibo.deleteMany({});
   await prisma.pago.deleteMany({});
+  await prisma.secuencia.deleteMany({});
   await prisma.cuentaPorCobrar.deleteMany({});
   await prisma.cuentaPorPagar.deleteMany({});
   await prisma.comprobante.deleteMany({});

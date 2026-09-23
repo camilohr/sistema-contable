@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { FormaPago } from "@prisma/client";
+import { asegurarSecuencia, obtenerSiguienteNumeroSecuencia, type EntidadSecuencia } from "../lib/secuencia.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -11,7 +12,7 @@ const crearSchema = z.object({
   numeroDocumento: z.string().min(1),
   fechaEmision: z.string().min(1),
   fechaVencimiento: z.string().min(1),
-  valor: z.number().positive(),
+  valor: z.number().positive().multipleOf(0.01),
 });
 
 const actualizarSchema = z.object({
@@ -23,7 +24,7 @@ const actualizarSchema = z.object({
 });
 
 const abonoSchema = z.object({
-  valor: z.number().positive(),
+  valor: z.number().positive().multipleOf(0.01),
   formaPago: z.nativeEnum(FormaPago).optional(),
   fecha: z.string().min(1).optional(),
   comprobanteId: z.number().int().positive().optional().nullable(),
@@ -241,12 +242,25 @@ function crearControlador(kind: TipoCartera) {
       }
     }
 
-    const consecutivo = (await abonoModelo.count()) + 1;
-    const numero = `${esCxC ? "R" : "P"}-${String(consecutivo).padStart(4, "0")}`;
-    const nuevoSaldo = saldo - data.valor;
+    const entidad: EntidadSecuencia = esCxC ? "RECIBO" : "PAGO";
+    await asegurarSecuencia(prisma, entidad, async () => {
+      const filas = await abonoModelo.findMany({ select: { numero: true } });
+      let max = 0;
+      for (const f of filas as Array<{ numero: string }>) {
+        const n = Number(f.numero.split("-")[1]);
+        if (Number.isFinite(n) && n > max) max = n;
+      }
+      return max;
+    });
 
     const resultado = await prisma.$transaction(async (txn) => {
       const tx = txn as any;
+      const aplicado = await tx[esCxC ? "cuentaPorCobrar" : "cuentaPorPagar"].updateMany({
+        where: { id, empresaId: req.empresaId, saldo: { gte: data.valor } },
+        data: { saldo: { decrement: data.valor } },
+      });
+      if (aplicado.count === 0) return null;
+      const numero = `${esCxC ? "R" : "P"}-${String(await obtenerSiguienteNumeroSecuencia(tx, entidad)).padStart(4, "0")}`;
       const abono = await tx[esCxC ? "recibo" : "pago"].create({
         data: {
           numero,
@@ -258,13 +272,23 @@ function crearControlador(kind: TipoCartera) {
           formaPago: data.formaPago ?? "EFECTIVO",
         },
       });
+      const nuevo = await tx[esCxC ? "cuentaPorCobrar" : "cuentaPorPagar"].findUniqueOrThrow({
+        where: { id },
+        select: { saldo: true },
+      });
+      const nuevoSaldo = num(nuevo.saldo);
       const actualizado = await tx[esCxC ? "cuentaPorCobrar" : "cuentaPorPagar"].update({
         where: { id },
-        data: { saldo: nuevoSaldo, estado: nuevoSaldo === 0 ? "CANCELADA" : "ABONADA" },
+        data: { estado: nuevoSaldo === 0 ? "CANCELADA" : "ABONADA" },
         include: incluir,
       });
       return { abono, actualizado };
     });
+
+    if (!resultado) {
+      res.status(400).json({ error: `El abono (${data.valor}) supera el saldo actual` });
+      return;
+    }
 
     res.status(201).json({ abono: serializarAbono(resultado.abono), documento: serializar(resultado.actualizado) });
   }

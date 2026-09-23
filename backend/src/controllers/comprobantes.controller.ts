@@ -27,7 +27,6 @@ const guardarSchema = z.object({
   periodoId: z.number().int().positive(),
   terceroId: z.string().optional().nullable(),
   concepto: z.string().min(1),
-  estado: z.nativeEnum(EstadoComprobante).optional(),
   asientos: z.array(asientoSchema).min(2, "Un comprobante requiere al menos 2 asientos"),
 });
 
@@ -95,6 +94,52 @@ function serializarComprobante(c: ComprobanteConRel) {
     asientos: asientos ? asientos.map((a) => serializarAsiento(a)) : undefined,
     numAsientos: _count?.asientos,
   };
+}
+
+async function bloquearPeriodo(tx: Prisma.TransactionClient, periodoId: number): Promise<EstadoPeriodo | null> {
+  const filas = await tx.$queryRaw<Array<{ estado: EstadoPeriodo }>>(
+    Prisma.sql`SELECT "estado" FROM "Periodo" WHERE "id" = ${periodoId} FOR UPDATE`,
+  );
+  return filas[0]?.estado ?? null;
+}
+
+async function responderErrorOperacion(
+  res: Response,
+  empresaId: string | undefined,
+  id: number,
+  operacion: "editarlo" | "contabilizarlo" | "anularlo" | "eliminarlo",
+): Promise<void> {
+  const actual = await prisma.comprobante.findFirst({ where: { id, empresaId }, include: { periodo: true } });
+  if (!actual) {
+    res.status(404).json({ error: "Comprobante no encontrado" });
+    return;
+  }
+  if (actual.periodo.estado !== EstadoPeriodo.ABIERTO) {
+    res.status(400).json({ error: "El periodo está cerrado" });
+    return;
+  }
+  if (operacion === "anularlo") {
+    if (actual.estado === EstadoComprobante.ANULADO || actual.usuarioAnuloId) {
+      res.status(400).json({ error: "Este comprobante ya fue anulado" });
+      return;
+    }
+    if (actual.estado !== EstadoComprobante.CONTABILIZADO) {
+      res.status(400).json({ error: "Solo se pueden anular comprobantes contabilizados" });
+      return;
+    }
+    res.status(400).json({ error: "El comprobante cambió de estado; intente de nuevo" });
+    return;
+  }
+  if (actual.estado === EstadoComprobante.BORRADOR) {
+    res.status(400).json({ error: "Operación no permitida en el estado actual; intente de nuevo" });
+    return;
+  }
+  const mensajes: Record<string, string> = {
+    editarlo: "Solo se pueden editar comprobantes en borrador",
+    contabilizarlo: "El comprobante debe estar en borrador para contabilizarse",
+    eliminarlo: "Solo se pueden eliminar comprobantes en borrador",
+  };
+  res.status(400).json({ error: mensajes[operacion] });
 }
 
 async function validarYPreparar(data: z.infer<typeof guardarSchema>, empresaId: string) {
@@ -212,7 +257,7 @@ export async function crear(req: Request, res: Response): Promise<void> {
   }
   const { periodo, fecha, totalDebito, totalCredito } = validado;
   const usuarioId = req.user!.sub;
-  const estado = data.estado ?? EstadoComprobante.BORRADOR;
+  const estado = EstadoComprobante.BORRADOR;
 
   const comprobante = await prisma.$transaction(async (tx) => {
     const consecutivo = await obtenerSiguienteConsecutivo(tx, req.empresaId!, data.tipo);
@@ -257,6 +302,10 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     res.status(404).json({ error: "Comprobante no encontrado" });
     return;
   }
+  if (existe.periodo.estado !== EstadoPeriodo.ABIERTO) {
+    res.status(400).json({ error: "El periodo está cerrado" });
+    return;
+  }
   if (existe.estado !== EstadoComprobante.BORRADOR) {
     res.status(400).json({ error: "Solo se pueden editar comprobantes en borrador" });
     return;
@@ -295,15 +344,28 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
   const { totalDebito, totalCredito } = validado;
 
   const actualizado = await prisma.$transaction(async (tx) => {
-    await tx.asiento.deleteMany({ where: { comprobanteId: id } });
-    const c = await tx.comprobante.update({
-      where: { id },
+    const estadoPeriodo = await bloquearPeriodo(tx, existe.periodoId);
+    if (estadoPeriodo !== EstadoPeriodo.ABIERTO) return null;
+    const cambiado = await tx.comprobante.updateMany({
+      where: {
+        id,
+        empresaId: req.empresaId,
+        estado: EstadoComprobante.BORRADOR,
+        periodo: { estado: EstadoPeriodo.ABIERTO },
+      },
       data: {
         fecha: data.fecha ? new Date(data.fecha) : undefined,
         terceroId: data.terceroId !== undefined ? data.terceroId : undefined,
         concepto: data.concepto,
         totalDebito,
         totalCredito,
+      },
+    });
+    if (cambiado.count === 0) return null;
+    await tx.asiento.deleteMany({ where: { comprobanteId: id } });
+    const c = await tx.comprobante.update({
+      where: { id },
+      data: {
         asientos: {
           create: base.asientos.map((a) => ({
             cuentaId: a.cuentaId,
@@ -318,6 +380,10 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
     });
     return c;
   });
+  if (!actualizado) {
+    await responderErrorOperacion(res, req.empresaId, id, "editarlo");
+    return;
+  }
 
   res.json(serializarComprobante(actualizado));
 }
@@ -329,9 +395,16 @@ export async function contabilizar(req: Request, res: Response): Promise<void> {
     return;
   }
   const id = Number(req.params.id);
-  const existe = await prisma.comprobante.findFirst({ where: { id, empresaId } });
+  const existe = await prisma.comprobante.findFirst({
+    where: { id, empresaId },
+    include: { periodo: true },
+  });
   if (!existe) {
     res.status(404).json({ error: "Comprobante no encontrado" });
+    return;
+  }
+  if (existe.periodo.estado !== EstadoPeriodo.ABIERTO) {
+    res.status(400).json({ error: "El periodo está cerrado" });
     return;
   }
   if (existe.estado !== EstadoComprobante.BORRADOR) {
@@ -339,11 +412,14 @@ export async function contabilizar(req: Request, res: Response): Promise<void> {
     return;
   }
   const actualizado = await prisma.$transaction(async (tx) => {
-    const c = await tx.comprobante.update({
-      where: { id },
+    const estadoPeriodo = await bloquearPeriodo(tx, existe.periodoId);
+    if (estadoPeriodo !== EstadoPeriodo.ABIERTO) return null;
+    const cambiado = await tx.comprobante.updateMany({
+      where: { id, empresaId, estado: EstadoComprobante.BORRADOR, periodo: { estado: EstadoPeriodo.ABIERTO } },
       data: { estado: EstadoComprobante.CONTABILIZADO },
-      include: { periodo: true },
     });
+    if (cambiado.count === 0) return null;
+    const c = await tx.comprobante.findUniqueOrThrow({ where: { id }, include: { periodo: true } });
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
       empresaId,
@@ -355,6 +431,10 @@ export async function contabilizar(req: Request, res: Response): Promise<void> {
     await marcarActividadProceso(tx, empresaId, c.periodo.fechaFin.getFullYear(), TipoActividadProceso.COMPROBANTES);
     return c;
   });
+  if (!actualizado) {
+    await responderErrorOperacion(res, empresaId, id, "contabilizarlo");
+    return;
+  }
   res.json(serializarComprobante(actualizado));
 }
 
@@ -367,9 +447,14 @@ export async function anular(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
   const existe = await prisma.comprobante.findFirst({
     where: { id, empresaId },
+    include: { periodo: true },
   });
   if (!existe) {
     res.status(404).json({ error: "Comprobante no encontrado" });
+    return;
+  }
+  if (existe.periodo.estado !== EstadoPeriodo.ABIERTO) {
+    res.status(400).json({ error: "El periodo está cerrado" });
     return;
   }
   if (existe.estado !== EstadoComprobante.CONTABILIZADO) {
@@ -384,11 +469,20 @@ export async function anular(req: Request, res: Response): Promise<void> {
   // provision-cartera/nómina y cleanup de tests. Se implementa el bloqueo de
   // doble anulación para preparar el cambio (placeholder de marcado).
   const actualizado = await prisma.$transaction(async (tx) => {
-    const c = await tx.comprobante.update({
-      where: { id },
+    const estadoPeriodo = await bloquearPeriodo(tx, existe.periodoId);
+    if (estadoPeriodo !== EstadoPeriodo.ABIERTO) return null;
+    const cambiado = await tx.comprobante.updateMany({
+      where: {
+        id,
+        empresaId,
+        estado: EstadoComprobante.CONTABILIZADO,
+        usuarioAnuloId: null,
+        periodo: { estado: EstadoPeriodo.ABIERTO },
+      },
       data: { estado: EstadoComprobante.ANULADO, usuarioAnuloId: req.user!.sub, fechaAnulacion: new Date() },
-      include: { periodo: true },
     });
+    if (cambiado.count === 0) return null;
+    const c = await tx.comprobante.findUniqueOrThrow({ where: { id }, include: { periodo: true } });
     if (c.concepto.startsWith("Nómina periodo")) {
       await tx.nomina.updateMany({ where: { comprobanteId: id }, data: { estado: EstadoNomina.ANULADO } });
     }
@@ -402,22 +496,38 @@ export async function anular(req: Request, res: Response): Promise<void> {
     });
     return c;
   });
+  if (!actualizado) {
+    await responderErrorOperacion(res, empresaId, id, "anularlo");
+    return;
+  }
   res.json(serializarComprobante(actualizado));
 }
 
 export async function eliminar(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
-  const existe = await prisma.comprobante.findFirst({ where: { id, empresaId: req.empresaId } });
+  const existe = await prisma.comprobante.findFirst({
+    where: { id, empresaId: req.empresaId },
+    include: { periodo: true },
+  });
   if (!existe) {
     res.status(404).json({ error: "Comprobante no encontrado" });
+    return;
+  }
+  if (existe.periodo.estado !== EstadoPeriodo.ABIERTO) {
+    res.status(400).json({ error: "El periodo está cerrado" });
     return;
   }
   if (existe.estado !== EstadoComprobante.BORRADOR) {
     res.status(400).json({ error: "Solo se pueden eliminar comprobantes en borrador" });
     return;
   }
-  await prisma.$transaction(async (tx) => {
-    await tx.comprobante.delete({ where: { id } });
+  const eliminado = await prisma.$transaction(async (tx) => {
+    const estadoPeriodo = await bloquearPeriodo(tx, existe.periodoId);
+    if (estadoPeriodo !== EstadoPeriodo.ABIERTO) return false;
+    const borrado = await tx.comprobante.deleteMany({
+      where: { id, empresaId: req.empresaId, estado: EstadoComprobante.BORRADOR, periodo: { estado: EstadoPeriodo.ABIERTO } },
+    });
+    if (borrado.count === 0) return false;
     await registrarAuditoria(tx, {
       usuarioId: req.user!.sub,
       empresaId: req.empresaId,
@@ -426,6 +536,11 @@ export async function eliminar(req: Request, res: Response): Promise<void> {
       entidadId: id,
       detalle: { consecutivo: existe.consecutivo, tipo: existe.tipo, concepto: existe.concepto },
     });
+    return true;
   });
+  if (!eliminado) {
+    await responderErrorOperacion(res, req.empresaId, id, "eliminarlo");
+    return;
+  }
   res.json({ ok: true });
 }
