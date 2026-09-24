@@ -199,7 +199,7 @@ Del informe de agosto (`docs/auditoria-2026-08.md`), confirmados o persistentes:
 - **S2-04 (medio)** — Tokens sin refresh/revocación. Refuerza **3.2-M1**.
 - **S3-10 (medio)** — Auditoría global `empresaId:null` compartida. Refuerza **3.2-M4**.
 - **S4-03 (bajo)** — Redondeo por cuenta en cierre anual. Refuerza **3.1-M5**.
-- **S5-01 (medio)** — Sin test dedicado de `empleados` y `periodos` (eliminar con dependencias).
+- **S5-01 (medio)** — Sin test dedicado de `empleados` y `periodos` (eliminar con dependencias). — **Cerrado en Fase 6** (ítem 33).
 
 Los hallazgos S2-12, S2-13, S2-18 y los S3 de aislamiento se verificaron corregidos en el código actual y no se re-reportan.
 
@@ -271,6 +271,18 @@ Commit: `2834f9b` (tests de frontend verdes: 3 archivos / 12 tests; `tsc -b`, li
    - **S1-06 / M2 (anulación por contrasiento real):** ver detalle en la entrada M2 abajo; implementado en `edfe5d0` con tests dedicados `backend/tests/contraasiento.test.ts` y backfill `db:backfill-contrasientos`.
    - **C3 (cartera conciliada):** diseño documentado (ver entrada C3); implementación diferida a roadmap F2.
    - **Cierre ítem 26:** backend 606/606 tests, frontend 12/12; `npm run lint` y `npm run build` limpios en ambos.
+
+### Fase 6 — Consistencia de código, documentación y CI (S5-01, S5-04, S5-05, S5-07, S5-10/11, S5-14, S5-20) — CORREGIDA (2026-09-23)
+Commits: `a1b053f` (código y semántica `eliminar`), `21a330f` (manual-usuario), `e25a9ba` (CI/tests). Backend 615/615 e frontend 12/12; `tsc`, typecheck, lint y build limpios; CI con frontend `typecheck` nuevo.
+28. **S5-04** — Guards `Number.isInteger` en `id` para productos (×4), cartera (actualizar/eliminar/abonar) y activos-fijos (actualizar, depreciar→`periodoId` "Periodo inválido", baja, listarDepreciaciones), alineados a los que ya existían en presupuesto/provision/cartera.detalle. Commit `a1b053f`; test en `auditoria-fase6.test.ts` (400 para `id=abc`).
+29. **S5-05** — Zod antes de la existencia en `empleados.actualizar`, `empleados.retirar` (conserva 404 de empleado y 400 "ya retirado" tras el `findFirst`) y `activos-fijos.actualizar`. Commit `a1b053f`.
+30. **S5-07** — Semántica de "eliminar" documentada por módulo (soft-delete / delete duro / baja / retiro / desactivación) en nueva sección §5.1 de `docs/arquitectura.md`. Commit `a1b053f`.
+31. **S5-10** — Los 5 generadores de PDF de `libros-pdf.controller.ts` (diario, mayor, inventarios, balance, resultados) envueltos con helper `generarYResponder` (try/catch → 400 `{error}`), consistente con `indicadoresPdf`/`exportarReporte`. Commit `a1b053f`; test en `auditoria-fase6.test.ts` (400 por PDF con cuenta inexistente).
+32. **S5-11** — Cero `any` en `backend/src` (before: `cartera.controller.ts:6` con `eslint-disable` + `productos.controller.ts:30-32`). `productos` tipado con `ProductoConConteo`/`MovimientoConComprobante`; `cartera` con interfaces `DelegadoCartera`/`DelegadoAbono`/`TxCartera`/`TxAbono` sobre los delegates reales del `$transaction` (los métodos planos rompían el runtime — 6 tests 500 detectaron la regresión y se corrigió a delegates por `txn`). Commit `a1b053f`.
+33. **S5-01** — Test dedicado `backend/tests/empleados.test.ts` (8 tests): retiro de activo → 200 `activo:false`; doble retiro → 400; 404 inexistente; 400 fecha inválida; 400 Zod; `listarLiquidaciones` 404 inexistente, lista vacía y con nómina (periodo + `netoPagar` + estado CONTABILIZADO). Eliminar `periodos` con dependencias ya se cubría (`presupuesto.test.ts:262-294`). Commit `e25a9ba`.
+34. **S5-20** — Script `typecheck` separado en frontend (`tsc -b --noEmit`) y step `npm run typecheck` en el job frontend de `.github/workflows/ci.yml`. Commit `e25a9ba`.
+35. **S5-14** — `docs/manual-usuario.md` reescrito: numeración continua (sin salto §11→§13) y 9 secciones nuevas (Activos fijos, Empleados, Nómina, Parámetros de nómina, Presupuesto, Provisión de cartera, Cierre anual, Indicadores, Procesos y seguimiento), alineadas a rutas y reglas reales. Commit `21a330f`.
+36. **S5-03, S5-06, S5-08/09, S5-13/15/16, S5-19** — ya cerrados en la Fase 5 (ítems 26-27); la Fase 6 los re-verificó sobre el código final.
 
 ---
 

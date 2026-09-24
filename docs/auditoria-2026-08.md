@@ -246,25 +246,33 @@ Bloque prioritario (no cubierto por auditorías anteriores). Se revisó contra `
 ### Cobertura de tests
 - 26 archivos en `backend/tests/*.test.ts` cubren casi todos los controladores (comprobantes, cartera, productos, activos, nómina, presupuesto, procesos, reportes, cierre, conciliación, adjuntos, auditoría, alertas, aislamiento, etc.). Suite actual 536/536.
 - **S5-01 (Medio) — `empleados.controller` y `periodos.controller` sin test dedicado.** Se cubren indirectamente vía `nomina.test.ts:200` y `cierre-anual.test.ts:46`/`comprobantes.test.ts`. Faltan tests negativos de `empleados.retirar`/`listarLiquidaciones` (`empleados.controller.ts:162`) y de `periodos.eliminar` con dependencias (`periodos.controller.ts:108-128`).
+  **Corregido en la Fase 6 (e25a9ba)** — `backend/tests/empleados.test.ts` (8 tests): retiro, doble retiro 400, 404, fecha inválida, Zod, liquidaciones (404/vacía/lista con periodo y `netoPagar`). `periodos.eliminar` con dependencias ya se cubría (`presupuesto.test.ts:262-294`).
 - **S5-02 (Crítico — frontend) — Sin tests de frontend.** No existe `*.test.tsx`, ni `vitest`/`jest`/`@testing-library`/`playwright` en `frontend` (declarado en `AGENTS.md`). 24 pantallas sin cobertura. Recomendación: añadir Vitest + jsdom y tests mínimos de `AuthContext`/`EmpresaContext` y de validación de formularios.
+  **Corregido en la Fase 4 (2834f9b)** — Vitest + jsdom + Testing Library; 12 tests en `AuthContext`/`EmpresaContext`/`ComprobanteForm`; CI del frontend corre test + lint + build.
 
 ### Consistencia entre controladores
 - **S5-03 (Alto) — Manejo de promesas async divergente.** `empresas.routes.ts:13-46` envuelve handlers async con `(req,res,next)=>Ctrl(req,res).catch(next)`; el resto de routers (`terceros`, `productos`, `cartera`, `activos-fijos`, etc.) pasan la función async directamente. En Express 4 una promesa rechazada no capturada no llega al `errorHandler` (posible `unhandledRejection`). Recomendación: unificar envolviendo todos los handlers async (o migrar a `express-async-handler`), o a Express 5.
 - **S5-04 (Medio) — `req.params.id` validación inconsistente.** `terceros` usa `id` UUID string; `productos`, `cartera`, `activos-fijos` usan `Number(req.params.id)` sin `Number.isInteger` (salvo `cartera.detalle:134-137` y `presupuesto:27-31`). ActivosFijos no valida entero (`:154,216,290,384`).
+  **Corregido en la Fase 6 (a1b053f)** — guards `Number.isInteger` en productos (×4), cartera (actualizar/eliminar/abonar) y activos-fijos (actualizar, depreciar `periodoId`, baja, listarDepreciaciones).
 - **S5-05 (Medio) — Orden validar-existencia vs Zod invertido.** `activos-fijos.controller.ts:153-164` y `empleados.controller.ts:124-145` hacen `findFirst` → Zod; `terceros`/`productos`/`periodos` hacen Zod → `findFirst`.
+  **Corregido en la Fase 6 (a1b053f)** — Zod antes de la existencia en `empleados.actualizar`/`retirar` y `activos-fijos.actualizar`.
 - **S5-06 (Medio) — Sin paginación.** Ningún listado pagina (`terceros:69-72`, `productos:48-52`, `cartera:78-82`, `activos-fijos:88-97`); el filtrado por `estado` de cartera se hace **en memoria** (`cartera.controller.ts:83-84`). Riesgo con volúmenes grandes.
 - **S5-07 (Medio) — Semántica de `eliminar` inconsistente.** Terceros = soft-delete (`:146`); Productos = soft/delete según `_count.movimientos` (`:110-116`); Cartera = delete duro (`:211-212`); ActivosFijos no tiene DELETE, usa `baja` (`:289`).
+  **Corregido en la Fase 6 (a1b053f)** — semántica documentada por módulo en §5.1 de `docs/arquitectura.md` (borrador físico solo en comprobantes/extras, delete protegido en cuentas, soft-delete terceros, retiro empleados, híbrido productos, delete duro cartera sin abonos, baja activos fijos, desvinculación usuarios, baja ordenada empresas).
 
 ### Deuda técnica
 - **S5-08 (Medio) — Funciones muy largas (>80 lín.).** `nomina.controller.ts:365` (`liquidar` ~127), `:611` (`provisionar` ~115), `:524` (`contabilizar` ~83); `activos-fijos.controller.ts:189` (`depreciar` ~98), `:289` (`baja` ~92); `conciliacion.controller.ts:114` (`importar` ~105); `cierre-anual.controller.ts:91` (`cerrarAnio` ~170). Recomendación: extraer helpers (`lib/nomina.ts`, `lib/cierre.ts`).
 - **S5-09 (Medio) — Helper `num()` duplicado** en 6+ controladores (`terceros`, `productos`, `cartera`, `activos-fijos`, `comprobantes`, `nomina`, `provision-cartera`). Extraer a `lib/decimal.ts`.
 - **S5-10 (Medio) — Errores sin status HTTP consistente.** `throw new Error(...)` en `nomina.controller.ts:153,155`, `libros-pdf.controller.ts:209`, `exportacion.controller.ts:132,134`. Solo se traducen a 400 donde hay `try/catch` (`nomina:556,657`, `exportacion:186-191`); en el resto se propagan sin status (ligado a S5-03). Los generadores de PDF (salvo `indicadoresPdf`) no envuelven en `try/catch` (`libros-pdf.controller.ts:64-67,97-100,145-148,174-177,202-205`).
+  **Corregido en la Fase 6 (a1b053f)** — los 5 generadores de PDF usan el helper `generarYResponder` (try/catch → 400 `{error}`), consistente con indicadores/exportación.
 - **S5-11 (Bajo) — `any` sin lint que lo controle.** `eslint-disable @typescript-eslint/no-explicit-any` en `cartera.controller.ts:6`; `any` en `productos.controller.ts:30-32`. No hay lint en backend (ver S5-15).
+  **Corregido en la Fase 6 (a1b053f)** — cero `any` en `backend/src`; `productos` tipado con interfaces y `cartera` con `DelegadoCartera`/`TxCartera` sobre los delegates reales del `$transaction`. Lint de backend activo desde la Fase 5 (S5-19).
 - **S5-12 (Informativo) — Sin `TODO/FIXME/HACK`** en `backend/src`. ✓
 
 ### Documentación vs código
 - **S5-13 (Alto) — `docs/arquitectura.md` desactualizado.** `:53` dice `src/server.ts` (real: `src/index.ts`, `package.json:8`/`app.ts:37`). `:60-61` dice `seed/puc.ts` (real: `prisma/seed.ts`; no existe `backend/seed/`). `:37` "Node.js 24" y `:39` "React 18" (real: React `^19.2.8`, CI Node 20, `AGENTS.md` Node 20+). Estructura de carpetas: menciona `src/services/`, `src/utils/`, `frontend/src/hooks/` inexistentes (es `src/lib/`). Recomendación: sincronizar el doc con la estructura real.
 - **S5-14 (Alto) — `docs/manual-usuario.md` política de contraseña distinta.** `:133` "mínimo 8 caracteres"; código `.min(6)` (`auth.controller.ts:70`). Inconsistencia usuario/código. Además, faltan secciones para Procesos, Presupuesto, Provisión de cartera, Cierre anual, Indicadores, Empleados, Nómina, Parámetros de nómina; y un salto §11→§13 (falta §12).
+  **Corregido en la Fase 6 (21a330f)** — política sincronizada (`.min(8)` + regex, ver S2-06) y manual reescrito con numeración continua y las 9 secciones faltantes (hoy §11-§19).
 - **S5-15 (Medio) — `docs/modelo-datos.md` desincronizado.** 12 modelos sin tabulación de campos (Consecutivo, CierreAnual, ParametroProvision, ProvisionCartera, Empleado, Nomina, ProvisionNomina, ParametroNomina, ParametroCuentaNomina, Presupuesto, ReglaAlerta). `§3.16 auditoria` (`modelo-datos.md:254-263`) describe `accion string`/`detalle string`, cuando el schema usa enum `AccionAuditoria` (`schema.prisma:135-176`), `detalle Json?`, `entidad`/`entidadId`/`empresaId?`. `usuarios §3.1` falta `debeCambiarPassword` (`schema.prisma:237`). `activos_fijos §3.13`/`depreciaciones §3.14` faltan cuentas, `valorResidual`, `estado`, `comprobanteId`.
 - **S5-16 (Medio) — `docs/normatividad.md` marcado V1.** `:3,78` se declara "V1" cuando el proyecto es 2.2 (`package.json`). Funcionalmente sigue válido; desactualizado el marco temporal.
 - **S5-17 (Bajo) — `docs/normatividad.md` anulación contrasiento** (ver S1-06).
@@ -274,6 +282,7 @@ Bloque prioritario (no cubierto por auditorías anteriores). Se revisó contra `
 - **S5-18 (Bajo) — Postgres del CI (16) vs `arquitectura.md` (18).** Documentar versión soportada.
 - **S5-19 (Medio) — Sin lint ni typecheck en CI para backend.** No existe script `lint` ni `typecheck` en `backend/package.json:5-16`. Recomendación: añadir `oxlint` (ya en frontend) y `"typecheck": "tsc --noEmit"` y correrlos en CI.
 - **S5-20 (Bajo) — Sin `typecheck` separado en frontend.** `build` ya invoca `tsc -b`; un `typecheck: tsc -b --noEmit` acelera feedback.
+  **Corregido en la Fase 6 (e25a9ba)** — script `typecheck` en `frontend/package.json` y step en CI.
 
 ---
 
@@ -316,3 +325,18 @@ Condiciones recomendadas para operar con datos reales de múltiples clientes **a
 Cumplidos esos puntos —junto con la habilitación de un lint/typecheck de backend y tests mínimos de frontend (S5-19, S5-02)— el sistema puede operar con datos reales de múltiples clientes del contador con un riesgo residual adecuado a un entorno local.
 
 Auditoría de solo lectura. No se modificó ningún archivo del repositorio.
+
+---
+
+## Apéndice — Cierre de la auditoría (2026-09-23)
+
+Las fases de remediación se ejecutaron entre agosto y septiembre de 2026 (detalle por fase en `docs/auditoria-2026-09.md`, §6). Estado final de los **54 hallazgos únicos**:
+
+- **Corregidos:** 50. Incluye a todos los **S5** de la sección 5 y los de las secciones 1-4 marcados `Corregido en <commit>` (ver anotaciones arriba), con verificación por tests (backend **615/615** y frontend **12/12**), `tsc`/typecheck, lint (backend `oxlint` y frontend) y build limpios en ambos.
+- **Diferidos a propósito (con razón) — 4,** todos documentados en `docs/roadmap-v2.0.md`:
+  - **M11 (lockout/MFA por rol)** y **B8 (MFA)** — decisión de UX/seguridad ADMIN; diferidos al roadmap (no bloquean operación LAN).
+  - **B6 / S1-09 TLS por defecto** — no se fuerza HTTPS para no romper la LAN; el servidor ya soporta TLS opcional (`HTTPS_CERT`/`HTTPS_KEY`, ver `docs/despliegue.md` §TLS).
+  - **C3 (cartera conciliada)** — requiere decisión de diseño (autogenerar comprobantes o exigir `comprobanteId` y conciliar); implementación diferida a la Fase 2 del roadmap mientras los abonos son atómicos y auditados (C4 cerrado).
+- **Residuales documentados (2):** S2-18 (JWT 4h en `localStorage` mientras HTTP LAN — migrar a cookie `HttpOnly` al habilitar TLS) y dependencias dev-only (`deepmerge-ts` vía Prisma CLI) que exigirían Prisma 8.
+
+El desglose por sección y fase de remediación está en `docs/auditoria-2026-09.md` (§3.2-3.4, §6 y §7).
