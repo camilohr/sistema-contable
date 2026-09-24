@@ -11,6 +11,7 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: 3000,
+        CORS_ORIGIN: "http://localhost:3000,http://127.0.0.1:3000,http://192.168.18.232:3000",
       },
     },
   ],
