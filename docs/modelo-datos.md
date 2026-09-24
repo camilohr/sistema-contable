@@ -43,6 +43,7 @@ cuentas ──< activos_fijos (cuenta_id)
 comprobantes ──< asientos
 comprobantes ──< recibos
 comprobantes ──< pagos
+comprobantes ───< comprobantes (contrasiento: comprobante_origen_id)
 
 productos ──< inventario_movimientos
 comprobantes ──< inventario_movimientos
@@ -64,6 +65,8 @@ Usuarios del sistema con rol.
 | password_hash | string | bcrypt |
 | rol | enum | `ADMIN`, `CONTADOR`, `AUXILIAR` |
 | activo | bool | permite o bloquea el acceso |
+| debe_cambiar_password | bool | obliga el cambio de contraseña en el primer ingreso |
+| empresa_activa | FK → empresas ? | empresa seleccionada por el usuario (atajo) |
 | createdAt / updatedAt | datetime | |
 
 ### 3.2 `terceros`
@@ -130,6 +133,13 @@ Documentos de soporte de los asientos.
 | usuario_creo | FK → usuarios | |
 | usuario_anulo | FK → usuarios | nullable |
 | fecha_anulacion | datetime | nullable |
+| comprobante_origen | FK → comprobantes ? | `comprobanteOrigenId`; el contrasiento referencia al comprobante anulado |
+
+> Anulación por contrasiento: al anular un comprobante contabilizado se genera un
+> comprobante del mismo tipo con el consecutivo siguiente, misma fecha y periodo, que
+> invierte cada línea (débito ↔ crédito) preservando cuenta, tercero y detalle; queda
+> `CONTABILIZADO` y referencia al original por `comprobanteOrigenId`. Los libros suman
+> `CONTABILIZADO + ANULADO` (el original y su contrasiento se cancelan, efecto neto cero).
 
 ### 3.6 `asientos`
 Líneas del comprobante (partida doble).
@@ -258,14 +268,19 @@ Bitácora de acciones críticas.
 |---|---|---|
 | id | PK | |
 | usuario_id | FK → usuarios | |
-| accion | string | ej. CONTABILIZAR, ANULAR, CERRAR_PERIODO |
-| detalle | string | |
+| empresa_id | FK → empresas ? | opcional; permite filtrar la bitácora por cliente |
+| accion | enum | `AccionAuditoria` (p.ej. `CONTABILIZAR`, `ANULAR`, `CERRAR_PERIODO`, `CREAR_EMPRESA`, `ACTUALIZAR_PROCESO`, …) |
+| entidad | string | tabla afectada, p.ej. `Comprobante` |
+| entidad_id | string | id de la entidad |
+| detalle | Json | metadatos; en `ANULAR` incluye `contrasiento: { id, consecutivo }` |
 | fecha | datetime | |
 
 ## 4. Vistas derivadas (se calculan, no se almacenan)
 
-- **Libro diario:** comprobantes contabilizados ordenados por fecha y consecutivo.
-- **Libro mayor:** agrupación de asientos por cuenta (débitos, créditos, saldo).
+- **Libro diario:** comprobantes contabilizados y anulados (cada anulación con su
+  contrasiento) ordenados por fecha y consecutivo.
+- **Libro mayor:** agrupación de asientos por cuenta (débitos, créditos, saldo); un
+  original anulado y su contrasiento se cancelan (neto cero).
 - **Balance de comprobación:** sumas de débitos/créditos y saldos por cuenta.
 - **Balance general:** saldos de las clases 1 (activo), 2 (pasivo), 3 (patrimonio).
 - **Estado de resultados:** saldos de las clases 4 (ingresos), 5 (gastos), 6 (costo de ventas).

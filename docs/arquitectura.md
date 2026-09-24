@@ -23,7 +23,7 @@ instala software en los equipos clientes.
 │   │   por el backend o Nginx)    ││           │
 │   ├──────────────────────────────┼│           │
 │   │  API REST Express + TS       ││  Prisma   │
-│   │  (puerto 3000)  ────────────►┼├──────────►│  PostgreSQL 18
+│   │  (puerto 3000)  ────────────►┼├──────────►│  PostgreSQL 16+
 │   │  JWT auth · roles · validación││          │  (puerto 5432)
 │   └──────────────────────────────┘│           │
 │                                    └──────────►│
@@ -34,10 +34,10 @@ instala software en los equipos clientes.
 
 | Capa | Tecnología | Justificación |
 |---|---|---|
-| Backend | Node.js 24 + TypeScript + Express | Stack que ya tiene el usuario; tipado seguro |
+| Backend | Node.js 20+ + TypeScript + Express | Stack que ya tiene el usuario; tipado seguro |
 | ORM | Prisma | Migraciones versionadas y consultas tipadas |
-| Frontend | React 18 + TypeScript + Vite | SPA rápida; solo el servidor necesita el build |
-| BD | PostgreSQL 18 | Datos contables transaccionales; concurrencia de red |
+| Frontend | React 19 + TypeScript + Vite | SPA rápida; solo el servidor necesita el build |
+| BD | PostgreSQL 16+ | Datos contables transaccionales; concurrencia de red |
 | Auth | JWT (access token) + bcrypt | Sesión stateless; roles por token |
 | Despliegue | PM2 (proceso Node) | Reinicio automático y logs en Windows |
 | Editor | VS Code | Entorno de desarrollo del usuario |
@@ -48,28 +48,28 @@ instala software en los equipos clientes.
 Default Project/
 ├── backend/
 │   ├── prisma/
-│   │   └── schema.prisma        # Modelo de datos (Fase 1)
+│   │   └── schema.prisma        # Modelo de datos (fuente de verdad)
 │   ├── src/
-│   │   ├── server.ts            # Punto de entrada
+│   │   ├── index.ts             # Punto de entrada (arranque, handlers de proceso)
+│   │   ├── app.ts               # App Express (helmet, CORS, rate-limit, rutas, errores)
 │   │   ├── routes/              # Rutas por módulo (incl. empresas)
 │   │   ├── controllers/         # Lógica por módulo (incl. empresas)
-│   │   ├── services/            # Reglas de negocio contable
 │   │   ├── middleware/          # Auth, roles, requireEmpresa, validación, errores
-│   │   ├── lib/prisma.ts        # Cliente Prisma
-│   │   └── utils/               # Utilidades (consecutivos, números)
-│   ├── seed/
-│   │   └── puc.ts               # Importación del PUC (Fase 2)
-│   ├── tests/                   # Pruebas de fuego por módulo
+│   │   └── lib/                 # Reglas de negocio y utilidades (prisma, decimal,
+│   │                            #  consecutivo, comprobantes, nomina, cierre, ...)
+│   ├── tests/                   # Tests de API (Vitest + supertest)
 │   ├── .env.example
 │   └── package.json
 ├── frontend/
 │   ├── src/
 │   │   ├── pages/               # Vistas por módulo
-│   │   ├── components/          # Componentes reutilizables
+│   │   ├── components/          # Componentes reutilizables (incl. ui/)
 │   │   ├── api/                 # Cliente HTTP (inyecta X-Empresa-Id)
 │   │   ├── context/             # Sesión (JWT) + empresa activa
-│   │   ├── hooks/
-│   │   └── App.tsx
+│   │   ├── lib/                 # Utilidades y formateo
+│   │   ├── test/                # Tests (Vitest + jsdom + Testing Library)
+│   │   ├── App.tsx, main.tsx
+│   │   └── ... 
 │   ├── index.html
 │   └── package.json
 ├── docs/                        # Documentación

@@ -1,7 +1,9 @@
 # Normatividad Contable Aplicada
 
-Sistema contable para contador público independiente en Colombia. Esta versión (V1)
-cubre la contabilidad interna sin integraciones externas.
+Sistema contable para contador público independiente en Colombia. Esta versión (V2)
+cubre la contabilidad interna sin integraciones externas. V2 añade la anulación real
+por contrasiento (S1-06): los comprobantes contabilizados no se excluyen de los libros
+al anularse, sino que quedan junto a su reversión, manteniendo el libro completo.
 
 ## 1. Marco normativo incluido
 
@@ -50,6 +52,25 @@ Disponible (11) / Caja (1105) / Caja general (110505).
   **inmutabilidad** de los asientos contabilizados (no se editan ni borran; solo se
   anulan con contrasiento), cumpliendo el principio de no alteración de los libros.
 
+**Anulación por contrasiento (S1-06).** Los asientos contabilizados no se modifican ni
+se eliminan (Código de Comercio, libros sin enmendaduras; Decreto 2649/1993, art. 127).
+La anulación de un comprobante contabilizado:
+
+1. Marca el original como `ANULADO`, registrando el usuario y la fecha de anulación.
+2. Genera un **contrasiento**: comprobante del mismo tipo, con el consecutivo siguiente
+   de esa serie, misma fecha y periodo, que invierte cada línea (cada débito por su
+   crédito y viceversa) **preservando cuenta, tercero y detalle**; queda `CONTABILIZADO`
+   y referencia al original por `comprobanteOrigenId`.
+3. Los libros y estados financieros incluyen el original anulado y su contrasiento
+   (efecto neto cero), conservando la trazabilidad íntegra.
+4. Quedan bloqueadas la doble anulación, la anulación de borradores, la anulación en
+   periodos cerrados y la anulación de un contrasiento.
+
+Los comprobantes `ANULADO` generados antes de la adopción de este mecanismo (anulación
+por exclusión) quedan respaldados por su contrasiento mediante el script
+`db:backfill-contrasientos` (`backend/scripts/backfill-contrasientos.ts`), de modo que
+ningún saldo histórico quede sin reversión.
+
 ## 2. Principios contables implementados en el sistema
 
 | Principio | Cómo lo garantiza el sistema |
@@ -58,7 +79,7 @@ Disponible (11) / Caja (1105) / Caja general (110505).
 | Registro por su valor original | Importes `DECIMAL(15,2)`, sin redondeos de punto flotante |
 | Período | Asientos solo en periodos abiertos; cierre que bloquea cambios |
 | Causación | Registro por comprobantes fechados |
-| Conservación / no alteración | Asientos contabilizados inmutables; anulación por contrasiento |
+| Conservación / no alteración | Asientos contabilizados inmutables; anulación por contrasiento (ver §1.5) |
 | Asociación | Cuentas de ingresos/gastos marcadas `afecta_resultado` |
 | Revelación plena | Estados financieros derivados directamente de los libros |
 
