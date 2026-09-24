@@ -6,21 +6,22 @@ Sistema contable local para contadores. Guía de uso por módulo.
 
 1. Abra el navegador y vaya a `http://<IP-del-servidor>:3000` (o `http://localhost:3000` si usa la máquina del servidor).
 2. Ingrese con su correo y contraseña.
-3. El sistema muestra el **Dashboard** con los módulos disponibles.
+3. El sistema abre la empresa seleccionada en su **Resumen del proceso**; desde el menú
+   lateral accede a los módulos del ciclo contable.
 
 ### Roles
 
 | Rol | Permisos |
 |---|---|
-| **Administrador (ADMIN)** | Todo: editar catálogo, terceros, periodos, comprobantes, cartera, inventario y gestionar usuarios |
-| **Contador (CONTADOR)** | Editar catálogo, terceros, periodos, comprobantes, cartera e inventario |
+| **Administrador (ADMIN)** | Todo: editar catálogo, terceros, periodos, comprobantes, cartera, inventario, nómina, procesos y gestionar usuarios |
+| **Contador (CONTADOR)** | Editar catálogo, terceros, periodos, comprobantes, cartera, inventario, nómina y procesos |
 | **Auxiliar (AUXILIAR)** | Solo consulta (ver comprobantes, reportes y estados) |
 
 Los botones de creación/edición solo aparecen si su rol lo permite.
 
 Los permisos de contador y auxiliar se asignan **por cliente (empresa)**: un usuario
 puede tener roles distintos en empresas distintas, y solo ve las empresas a las que
-está asignado. El **Administrador** gestiona todos los clientes y usuarios; ver §13.
+está asignado. El **Administrador** gestiona todos los clientes y usuarios; ver §21.
 
 ## 2. Catálogo de cuentas (PUC)
 
@@ -138,12 +139,97 @@ Cada **comprobante** y cada **empresa** admite **soportes adjuntos** (facturas, 
 - Un producto con movimientos **no se elimina**: se desactiva conservando el kardex.
 - La lista muestra stock, costo promedio y valor del inventario.
 
-## 11. Cambiar contraseña
+## 11. Activos fijos
+
+- **Nuevo activo**: nombre, cuentas contables (activo — grupo 15, depreciación acumulada — grupo 159, gasto — 516/526), valor, vida útil en meses, valor residual y fecha de adquisición. Las cuentas deben existir, estar activas y ser de movimiento.
+- La lista es **paginada** y se puede filtrar por estado: **Activo**, **Depreciado totalmente** y **Dado de baja**; muestra el total y el valor en libros (valor − depreciación acumulada).
+- **Depreciar periodo**: seleccione el periodo abierto y el sistema calcula la depreciación por **línea recta** (base = valor − valor residual, cuota mensual = base ÷ vida útil). Genera un comprobante **diario en borrador**; un segundo revisor debe **contabilizarlo**. Si la depreciación acumulada llega a la base, el activo pasa a *Depreciado totalmente*.
+- **Recalcular**: si la depreciación del periodo está en borrador, se revierte y se recalcula; si ya está **contabilizada**, primero debe **anular** el comprobante.
+- **Dar de baja**: indica periodo abierto, fecha y concepto. El sistema muestra el valor en libros a retirar y genera el comprobante **contabilizado** (débito a la depreciación acumulada y al gasto por valor en libros, crédito a la cuenta del activo). El activo pasa a *Dado de baja*; no se puede dar de baja dos veces.
+- **Historial**: por activo, tabla de depreciaciones con acumulado y su comprobante.
+- **Editar**: solo permite cambiar el nombre del activo.
+
+## 12. Empleados
+
+Los empleados se toman de los **terceros** con documento de identidad tipo **CC**.
+
+- **Nuevo empleado**: selecciona la persona (solo terceros CC no registrados como empleado), cargo, salario base, fecha de ingreso, ajuste al IBC, % de ARL y si lleva auxilio de transporte manual.
+- **Editar**: cargo, salario, IBC, ARL y auxilio manual.
+- **Retirar**: indica la fecha de retiro; el empleado **deja de incluirse en las liquidaciones de nómina** pero conserva su historial.
+- **Historial de liquidaciones**: desde el listado, ver todas las nóminas en que participó cada empleado.
+- Filtro *Solo activos* para ocultar los retirados.
+
+## 13. Nómina
+
+Proceso en **dos pasos**: se liquida, se revisa y luego se **contabiliza** (la contabilización y la provisión generan comprobante que otro usuario aprueba).
+
+1. **Liquidación de periodo** (solo periodo **abierto**): pulse *Liquidar* y ajuste por empleado — días (por defecto 30), horas extras, comisiones, bonificaciones, otros devengados, retefuente, libranzas, embargos y otros descuentos.
+   - El sistema calcula: sueldo por días trabajados, IBC (con tope en salarios mínimos), auxilio de transporte, aportes de salud y pensión del empleado, solidaridad pensional (cuando aplica) y el **neto a pagar**.
+   - Los aportes patronales (salud, pensión, ARL, caja de compensación, y en su caso ICBF/SENA según el número de empleados) se suman al costo del periodo.
+2. **Contabilizar**: genera el comprobante **diario contabilizado** con asientos agregados por concepto, según el mapeo de cuentas de los parámetros de nómina (§14).
+3. **Provisionar prestaciones**: calcula cesantías, intereses a las cesantías, prima y vacaciones sobre la nómina **contabilizada** y deja el comprobante en **borrador**; un segundo revisor lo **contabiliza**.
+4. **Consultar**: en *Consultar nómina y provisión por periodo* se ven las líneas de liquidación, la provisión con su asiento y el estado de cada comprobante.
+
+> Si reliquida un periodo cuya nómina ya está **contabilizada**, el sistema lo rechaza: primero debe **anular** el comprobante. Una línea de liquidación **anulada** obliga a reliquidar.
+
+## 14. Parámetros de nómina
+
+- **Parámetros por año**: montos y porcentajes legales — SMMLV, auxilio de transporte, tope del auxilio y del IBC en salarios mínimos, % de salud y pensión (empleado y empleador), % ARL, % caja de compensación, % ICBF, % SENA, número de empleados para pago de parafiscales, umbral de solidaridad pensional y % anual de intereses a las cesantías.
+  - Si la empresa no tiene parámetros propios para el año, se usan los **globales**.
+- **Mapeo de cuentas contables (PUC)**: asigna la cuenta de débito/crédito a cada concepto de nómina (sueldo, extras, aportes, neto por pagar, provisión, etc.). Las cuentas deben existir, estar activas y permitir movimiento.
+- El campo ARL admite un porcentaje diferente por empleado (ver §12).
+
+## 15. Presupuesto
+
+- **Cargar presupuesto por periodo**: seleccione el periodo y agregue partidas buscando la cuenta por código o nombre (resultados limitados) con su **valor presupuestado**. Al **guardar**, el sistema reemplaza el presupuesto completo del periodo (una lista vacía lo borra).
+- **Ejecución presupuestal**: para un periodo, muestra **presupuestado vs. ejecutado** (saldos de comprobantes contabilizados y anulados), la variación y el **% de ejecución**, con el detalle por cuenta.
+- Al guardar el presupuesto se marca automáticamente la actividad *Presupuesto* del proceso contable del año (§19).
+
+## 16. Provisión de cartera (deterioro)
+
+- **Parámetros (días de mora)**: rangos de `días desde`/`días hasta`/`porcentaje` de provisión. No pueden solaparse ni duplicarse; solo el último rango puede quedar sin límite superior. Se guardan por empresa (o se usan los globales).
+- **Calcular provisión**: seleccione el periodo **abierto**. El sistema toma las cuentas por cobrar con saldo y mora, calcula `saldo × %`, la compara contra el saldo acumulado de la cuenta **1399** (provisión) y genera si hace falta un comprobante **diario en borrador** que **débita 5199** (gasto) y acredita 1399 (o la reversión si la provisión requerida es menor). Un segundo revisor lo **contabiliza**.
+- Si la provisión requerida ya está cubierta (incremento = 0), no genera comprobante.
+- **Recalcular**: si el comprobante de provisión del periodo está en borrador se revierte y recalcula; si está **contabilizado**, debe **anularlo** primero (un comprobante anulado queda como pista).
+- Las cuentas 1399 y 5199 deben existir (propias de la empresa o del catálogo PUC), estar activas y permitir movimiento.
+
+## 17. Cierre anual
+
+Operación **solo del Administrador**, se ejecuta **una vez por año** (sobre el año que se indica) y requiere que **todos los periodos** de ese año estén **cerrados**.
+
+1. Elija el **año a cerrar** y la **cuenta de utilidades** (clase 3); por defecto usa `3605 - Utilidad del ejercicio`.
+2. El sistema cancela las cuentas de resultado (clases 4, 5, 6 y 7) con saldo y lleva la diferencia contra la cuenta de utilidades (o de pérdida del ejercicio).
+3. El comprobante de cierre se crea como **diario contabilizado** en el último periodo del año.
+4. Al cerrar, el **proceso contable** del año pasa a estado **CERRADO** (§19) y la actividad de cierre se marca automáticamente.
+
+En *Cierre anual* encontrará el listado de **años cerrados** (con su comprobante y consecutivo) y podrá **ver el asiento** de cada cierre.
+
+## 18. Indicadores
+
+- **Indicadores del periodo**: elija el periodo y *Calcular* para ver seis razones con su fórmula y los **datos base** (activos y pasivos corrientes y no corrientes, patrimonio, inventario, cartera, ingresos, ventas, costo de ventas, gastos y utilidad neta).
+  - **Razón corriente** y **prueba ácida** (liquidez), **endeudamiento**, **margen neto**, **rotación de cartera** y **rotación de inventario**. Si un denominador es cero, la razón se muestra vacía.
+- **Comparativo entre periodos**: seleccione *desde*/*hasta* y vea las razones de ambos periodos con su **variación %**, el **análisis vertical** (participación de cada cuenta sobre su sección del balance/estado de resultados) y el **análisis horizontal** (variación por cuenta).
+- **Exportar**: los indicadores se descargan en **PDF, CSV o XLSX** desde la misma página.
+- Los cálculos usan solo comprobantes **contabilizados** y **anulados** del periodo.
+
+## 19. Procesos y seguimiento
+
+Organiza el ciclo contable anual de cada cliente con un **checklist** y notas de seguimiento.
+
+- **Crear proceso**: un proceso por empresa y año (si existe, el sistema lo rechaza). Al crearlo se genera la plantilla de **7 actividades**: comprobantes, conciliación, nómina, provisión de cartera, presupuesto, cierre de periodo y cierre de año.
+- **Avance y semáforo**: cada proceso muestra su barra de avance (actividades completadas / total) y un semáforo en el listado. Cada actividad puede **completarse o desmarcarse** y tiene fechas esperada y real.
+- **Estados**: sin iniciar, en proceso, pendiente, al día o cerrado (el cierre anual pone el proceso en **CERRADO**).
+- **Notas**: agregue notas de seguimiento con autor y fecha.
+- **Integración automática**: cuando otro módulo ejecuta su operación (presupuesto, nómina, provisión de cartera, cierre de año, conciliación), la actividad correspondiente se **marca sola** y la marca se revierte si la operación se revierte.
+- **Resumen y cartera de clientes**: la página *Resumen* de cada empresa muestra su proceso y el semáforo de la cartera de todos sus clientes.
+- **Eliminar**: solo el Administrador, con confirmación.
+
+## 20. Cambiar contraseña
 
 En *Cambiar contraseña* ingrese la actual y la nueva. La nueva contraseña debe
 tener **mínimo 8 caracteres**, e incluir **letras y al menos un número**.
 
-## 13. Usuarios y clientes (solo Administrador)
+## 21. Usuarios y clientes (solo Administrador)
 
 ### Usuarios
 
@@ -177,11 +263,13 @@ número de usuarios, periodos, procesos y adjuntos de cada uno.
   cerrarlos primero.
 - **Descargar paquete**: empaqueta los informes del año en curso del cliente.
 
-## 14. Buenas prácticas
+## 22. Buenas prácticas
 
 - Registre los movimientos **dentro de su periodo** (la fecha del comprobante debe estar entre inicio y fin del periodo abierto).
 - Contabilice siempre con soporte documental (factura, recibo, egreso) y **adjúntelo** al comprobante.
 - Haga la **conciliación bancaria** de cada mes y apruebe solo cuando la diferencia esté explicada.
 - Revise el **balance de comprobación** antes de cerrar el periodo.
 - Al final del periodo: genere reportes (use el **paquete ZIP** para entregar "todo" al cliente), **cierre el periodo** y cree el siguiente.
+- Registre **nómina, provisión de cartera y depreciación** a tiempo y contabilice sus comprobantes en borrador lo antes posible (un segundo revisor los aprueba).
+- Use **Procesos** para no perder actividades pendientes de cada cliente (§19).
 - Realice **respaldos frecuentes** (ver *Manual de operación*).
