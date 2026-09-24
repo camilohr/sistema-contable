@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { TipoMovimientoInventario } from "@prisma/client";
+import { TipoMovimientoInventario, type Producto, type InventarioMovimiento } from "@prisma/client";
 import { num } from "../lib/decimal.js";
 import { parsearPaginacion, respuestaPaginada, type Paginacion } from "../lib/paginacion.js";
 
@@ -27,9 +27,12 @@ const movimientoSchema = z.object({
   comprobanteId: z.number().int().positive().optional().nullable(),
 });
 
-const serializarProducto = (p: any) => ({ ...p, costoPromedio: num(p.costoPromedio), cantidadActual: num(p.cantidadActual) });
+type ProductoConConteo = Producto & { _count?: { movimientos: number } };
+type MovimientoConComprobante = InventarioMovimiento & { comprobante?: { id: number; tipo: string; consecutivo: number; concepto: string } | null };
 
-const serializarMovimiento = (m: any) => ({ ...m, cantidad: num(m.cantidad), costoUnitario: num(m.costoUnitario) });
+const serializarProducto = (p: ProductoConConteo) => ({ ...p, costoPromedio: num(p.costoPromedio), cantidadActual: num(p.cantidadActual) });
+
+const serializarMovimiento = (m: MovimientoConComprobante) => ({ ...m, cantidad: num(m.cantidad), costoUnitario: num(m.costoUnitario) });
 
 export async function listarProductos(req: Request, res: Response): Promise<void> {
   const busqueda = req.query.busqueda ? String(req.query.busqueda).trim() : undefined;
@@ -96,6 +99,10 @@ export async function crearProducto(req: Request, res: Response): Promise<void> 
 
 export async function actualizarProducto(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "Id inválido" });
+    return;
+  }
   const parsed = actualizarSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
@@ -114,6 +121,10 @@ export async function actualizarProducto(req: Request, res: Response): Promise<v
 
 export async function eliminarProducto(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "Id inválido" });
+    return;
+  }
   const existe = await prisma.producto.findFirst({
     where: { id, empresaId: req.empresaId },
     include: { _count: { select: { movimientos: true } } },
@@ -133,6 +144,10 @@ export async function eliminarProducto(req: Request, res: Response): Promise<voi
 
 export async function listarMovimientos(req: Request, res: Response): Promise<void> {
   const productoId = Number(req.params.id);
+  if (!Number.isInteger(productoId)) {
+    res.status(400).json({ error: "Id inválido" });
+    return;
+  }
   const producto = await prisma.producto.findFirst({ where: { id: productoId, empresaId: req.empresaId } });
   if (!producto) {
     res.status(404).json({ error: "Producto no encontrado" });
@@ -153,6 +168,10 @@ export async function crearMovimiento(req: Request, res: Response): Promise<void
     return;
   }
   const productoId = Number(req.params.id);
+  if (!Number.isInteger(productoId)) {
+    res.status(400).json({ error: "Id inválido" });
+    return;
+  }
   const parsed = movimientoSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });

@@ -159,14 +159,18 @@ export async function crear(req: Request, res: Response): Promise<void> {
 
 export async function actualizar(req: Request, res: Response): Promise<void> {
   const id = Number(req.params.id);
-  const existe = await prisma.activoFijo.findFirst({ where: { id, empresaId: req.empresaId } });
-  if (!existe) {
-    res.status(404).json({ error: "Activo no encontrado" });
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "Id inválido" });
     return;
   }
   const parsed = actualizarSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
+    return;
+  }
+  const existe = await prisma.activoFijo.findFirst({ where: { id, empresaId: req.empresaId } });
+  if (!existe) {
+    res.status(404).json({ error: "Activo no encontrado" });
     return;
   }
   const activo = await prisma.$transaction(async (tx) => {
@@ -194,10 +198,15 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
 }
 
 export async function depreciar(req: Request, res: Response): Promise<void> {
+  const periodoId = Number(req.params.periodoId);
+  if (!Number.isInteger(periodoId)) {
+    res.status(400).json({ error: "Periodo inválido" });
+    return;
+  }
   const r = await depreciarOrquestado({
     empresaId: req.empresaId!,
     usuarioId: req.user!.sub,
-    periodoId: Number(req.params.periodoId),
+    periodoId,
   });
   res.status(r.status).json(r.body);
 }
@@ -279,10 +288,15 @@ export async function contabilizar(req: Request, res: Response): Promise<void> {
 }
 
 export async function baja(req: Request, res: Response): Promise<void> {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "Id inválido" });
+    return;
+  }
   const r = await bajaOrquestado({
     empresaId: req.empresaId!,
     usuarioId: req.user!.sub,
-    id: Number(req.params.id),
+    id,
     body: req.body,
   });
   res.status(r.status).json(r.body);
@@ -290,6 +304,10 @@ export async function baja(req: Request, res: Response): Promise<void> {
 
 export async function listarDepreciaciones(req: Request, res: Response): Promise<void> {
   const activoId = Number(req.params.id);
+  if (!Number.isInteger(activoId)) {
+    res.status(400).json({ error: "Id inválido" });
+    return;
+  }
   const activo = await prisma.activoFijo.findFirst({ where: { id: activoId, empresaId: req.empresaId } });
   if (!activo) {
     res.status(404).json({ error: "Activo no encontrado" });

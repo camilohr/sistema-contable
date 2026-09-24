@@ -98,6 +98,28 @@ rol global del usuario con su rol en esa empresa.
 - **Periodos:** los asientos solo se registran en periodos abiertos; el cierre de
   periodo impide modificar movimientos anteriores.
 
+## 5.1 Semántica de "eliminar" por módulo
+
+Cada módulo define qué significa eliminar y lo aplica de forma consistente en toda su
+superficie (`controllers/` + `lib/`):
+
+| Módulo | Semántica | Mecanismo |
+|---|---|---|
+| Comprobantes | Solo borrador | `delete` físico solo si `estado === BORRADOR`; un contabilizado solo se anula con **contrasiento** (se conserva el original) |
+| Cuentas | Delete protegido | `delete` físico solo si no tiene movimientos ni hijas; el PUC nacional (`empresaId: null`) no se borra (403) |
+| Terceros | Soft-delete | `activo = false`; el registro y su historia (cartera, comprobantes) se conservan |
+| Empleados | Retiro | `fechaRetiro` + `activo = false` (no existe `DELETE`) |
+| Productos | Híbrido | `delete` físico si no tiene movimientos de inventario; si tiene, `desactivado = true` |
+| Cartera (CxC/CxP) | Delete duro | `delete` físico solo si no tiene abonos; con abonos devuelve 400 |
+| Activos fijos | Baja | No hay `DELETE`; se usa `baja` (estado `DADO_DE_BAJA`) con comprobante contable |
+| Usuarios (por empresa) | Retiro | `DELETE /api/usuarios/:id` desvincula de la empresa; no borra el usuario global ni su auditoría |
+| Empresas | Baja ordenada | No hay `DELETE`; `paquete-final` exporta informes y después `estado = false` |
+
+La regla transversal: **ningún borrado destruye evidencia contable** — los registros con
+impacto en libros (comprobantes, cuentas con movimientos, cartera con abonos) se
+conservan o se anulan por contrasiento; los datos maestros (terceros, empleados,
+activos fijos) usan baja/desactivación documentable.
+
 ## 6. Seguridad
 
 - Contraseñas con bcrypt (sal + hash).

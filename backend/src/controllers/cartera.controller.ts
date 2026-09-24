@@ -1,12 +1,55 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { FormaPago, EstadoCartera } from "@prisma/client";
+import { FormaPago, EstadoCartera, type Prisma } from "@prisma/client";
 import { asegurarSecuencia, obtenerSiguienteNumeroSecuencia, type EntidadSecuencia } from "../lib/secuencia.js";
 import { num } from "../lib/decimal.js";
 import { parsearPaginacion, respuestaPaginada, type Paginacion } from "../lib/paginacion.js";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+interface AbonoCartera {
+  id: number;
+  numero: string;
+  fecha: Date;
+  valor: Prisma.Decimal;
+}
+
+interface DocCartera {
+  id: number;
+  numeroDocumento: string;
+  terceroId: string;
+  empresaId: string;
+  saldo: Prisma.Decimal;
+  valor: Prisma.Decimal;
+  estado: string;
+  fechaEmision: Date;
+  fechaVencimiento: Date;
+  recibos?: AbonoCartera[] | undefined;
+  pagos?: AbonoCartera[] | undefined;
+  _count?: Record<string, number> | undefined;
+}
+
+interface DelegadoCartera {
+  count(args: { where: Record<string, unknown> }): Promise<number>;
+  findMany(args: { where: Record<string, unknown>; include?: unknown; orderBy?: unknown; skip?: number; take?: number }): Promise<DocCartera[]>;
+  findFirst(args: { where: Record<string, unknown>; include?: unknown }): Promise<DocCartera | null>;
+  create(args: { data: Record<string, unknown>; include?: unknown }): Promise<DocCartera>;
+  update(args: { where: { id: number }; data: Record<string, unknown>; include?: unknown }): Promise<DocCartera>;
+  delete(args: { where: { id: number } }): Promise<DocCartera>;
+}
+
+interface DelegadoAbono {
+  findMany(args: { select: { numero: true } }): Promise<Array<{ numero: string }>>;
+}
+
+interface TxCartera {
+  updateMany(args: { where: { id: number; empresaId: string; saldo: { gte: number } }; data: { saldo: { decrement: number } } }): Promise<{ count: number }>;
+  findUniqueOrThrow(args: { where: { id: number }; select: { saldo: true } }): Promise<{ saldo: Prisma.Decimal }>;
+  update(args: { where: { id: number }; data: { estado: string }; include: unknown }): Promise<DocCartera>;
+}
+
+interface TxAbono {
+  create(args: { data: Record<string, unknown> }): Promise<AbonoCartera>;
+}
 
 const crearSchema = z.object({
   terceroId: z.string().min(1),
@@ -50,8 +93,8 @@ type TipoCartera = "cxc" | "cxp";
 
 function crearControlador(kind: TipoCartera) {
   const esCxC = kind === "cxc";
-  const modelo: any = esCxC ? prisma.cuentaPorCobrar : prisma.cuentaPorPagar;
-  const abonoModelo: any = esCxC ? prisma.recibo : prisma.pago;
+  const modelo = (esCxC ? prisma.cuentaPorCobrar : prisma.cuentaPorPagar) as unknown as DelegadoCartera;
+  const abonoModelo = (esCxC ? prisma.recibo : prisma.pago) as unknown as DelegadoAbono;
   const abonoCampo = esCxC ? "cxcId" : "cxpId";
   const abonoRel = esCxC ? "recibos" : "pagos";
 
@@ -61,9 +104,9 @@ function crearControlador(kind: TipoCartera) {
     [abonoRel]: { orderBy: { fecha: "asc" as const } },
   };
 
-  const serializarAbono = (a: any) => ({ ...a, valor: num(a.valor) });
+  const serializarAbono = (a: AbonoCartera) => ({ ...a, valor: num(a.valor) });
 
-  const serializar = (doc: any) => {
+  const serializar = (doc: DocCartera) => {
     const abonos = doc[abonoRel];
     return { ...doc, estado: estadoEfectivo(doc), valor: num(doc.valor), saldo: num(doc.saldo), [abonoRel]: abonos ? abonos.map(serializarAbono) : abonos };
   };
@@ -165,6 +208,10 @@ function crearControlador(kind: TipoCartera) {
 
   async function actualizar(req: Request, res: Response): Promise<void> {
     const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: "Id inválido" });
+      return;
+    }
     const parsed = actualizarSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
@@ -224,6 +271,10 @@ function crearControlador(kind: TipoCartera) {
 
   async function eliminar(req: Request, res: Response): Promise<void> {
     const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: "Id inválido" });
+      return;
+    }
     const existe = await modelo.findFirst({
       where: { id, empresaId: req.empresaId },
       include: { _count: { select: { [abonoRel]: true } } },
@@ -232,7 +283,7 @@ function crearControlador(kind: TipoCartera) {
       res.status(404).json({ error: "Documento no encontrado" });
       return;
     }
-    if (existe._count[abonoRel] > 0) {
+    if ((existe._count?.[abonoRel] ?? 0) > 0) {
       res.status(400).json({ error: "No se puede eliminar: el documento tiene abonos registrados" });
       return;
     }
@@ -242,6 +293,10 @@ function crearControlador(kind: TipoCartera) {
 
   async function abonar(req: Request, res: Response): Promise<void> {
     const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: "Id inválido" });
+      return;
+    }
     const parsed = abonoSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
@@ -273,7 +328,7 @@ function crearControlador(kind: TipoCartera) {
     await asegurarSecuencia(prisma, entidad, async () => {
       const filas = await abonoModelo.findMany({ select: { numero: true } });
       let max = 0;
-      for (const f of filas as Array<{ numero: string }>) {
+      for (const f of filas) {
         const n = Number(f.numero.split("-")[1]);
         if (Number.isFinite(n) && n > max) max = n;
       }
@@ -281,14 +336,15 @@ function crearControlador(kind: TipoCartera) {
     });
 
     const resultado = await prisma.$transaction(async (txn) => {
-      const tx = txn as any;
-      const aplicado = await tx[esCxC ? "cuentaPorCobrar" : "cuentaPorPagar"].updateMany({
-        where: { id, empresaId: req.empresaId, saldo: { gte: data.valor } },
+      const modeloTx = (esCxC ? txn.cuentaPorCobrar : txn.cuentaPorPagar) as unknown as TxCartera;
+      const abonoTx = (esCxC ? txn.recibo : txn.pago) as unknown as TxAbono;
+      const aplicado = await modeloTx.updateMany({
+        where: { id, empresaId: req.empresaId!, saldo: { gte: data.valor } },
         data: { saldo: { decrement: data.valor } },
       });
       if (aplicado.count === 0) return null;
-      const numero = `${esCxC ? "R" : "P"}-${String(await obtenerSiguienteNumeroSecuencia(tx, entidad)).padStart(4, "0")}`;
-      const abono = await tx[esCxC ? "recibo" : "pago"].create({
+      const numero = `${esCxC ? "R" : "P"}-${String(await obtenerSiguienteNumeroSecuencia(txn, entidad)).padStart(4, "0")}`;
+      const abono = await abonoTx.create({
         data: {
           numero,
           fecha: data.fecha ? new Date(data.fecha) : new Date(),
@@ -299,12 +355,12 @@ function crearControlador(kind: TipoCartera) {
           formaPago: data.formaPago ?? "EFECTIVO",
         },
       });
-      const nuevo = await tx[esCxC ? "cuentaPorCobrar" : "cuentaPorPagar"].findUniqueOrThrow({
+      const nuevo = await modeloTx.findUniqueOrThrow({
         where: { id },
         select: { saldo: true },
       });
       const nuevoSaldo = num(nuevo.saldo);
-      const actualizado = await tx[esCxC ? "cuentaPorCobrar" : "cuentaPorPagar"].update({
+      const actualizado = await modeloTx.update({
         where: { id },
         data: { estado: nuevoSaldo === 0 ? "CANCELADA" : "ABONADA" },
         include: incluir,

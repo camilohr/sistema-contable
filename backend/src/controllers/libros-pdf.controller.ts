@@ -30,6 +30,14 @@ function responderPdf(res: Response, buffer: Buffer, nombreArchivo: string): voi
   res.send(buffer);
 }
 
+async function generarYResponder(res: Response, generador: Promise<Buffer>, nombreArchivo: string): Promise<void> {
+  try {
+    responderPdf(res, await generador, nombreArchivo);
+  } catch (err) {
+    res.status(400).json({ error: (err as Error).message });
+  }
+}
+
 export async function generarPdfLibroDiario(empresa: DatosEmpresa, req: Request): Promise<Buffer> {
   const [datos, periodo] = await Promise.all([datosLibroDiario(whereFiltros(req)), textoPeriodo(req)]);
 
@@ -68,7 +76,7 @@ export async function libroDiarioPdf(req: Request, res: Response): Promise<void>
     return;
   }
   const empresa = await obtenerEmpresa(empresaId);
-  responderPdf(res, await generarPdfLibroDiario(empresa, req), "libro-diario.pdf");
+  await generarYResponder(res, generarPdfLibroDiario(empresa, req), "libro-diario.pdf");
 }
 
 export async function generarPdfLibroMayor(empresa: DatosEmpresa, req: Request): Promise<Buffer> {
@@ -106,7 +114,7 @@ export async function libroMayorPdf(req: Request, res: Response): Promise<void> 
     return;
   }
   const empresa = await obtenerEmpresa(empresaId);
-  responderPdf(res, await generarPdfLibroMayor(empresa, req), "libro-mayor.pdf");
+  await generarYResponder(res, generarPdfLibroMayor(empresa, req), "libro-mayor.pdf");
 }
 
 function filasBalance(grupos: { grupo: string; nombre: string; cuentas: { codigo: string; nombre: string; saldo: number }[]; total: number }[]): Fila[] {
@@ -159,7 +167,7 @@ export async function libroInventariosPdf(req: Request, res: Response): Promise<
     return;
   }
   const empresa = await obtenerEmpresa(empresaId);
-  responderPdf(res, await generarPdfLibroInventarios(empresa, req), "libro-inventarios.pdf");
+  await generarYResponder(res, generarPdfLibroInventarios(empresa, req), "libro-inventarios.pdf");
 }
 
 export async function generarPdfBalanceGeneral(empresa: DatosEmpresa, req: Request): Promise<Buffer> {
@@ -193,7 +201,7 @@ export async function balanceGeneralPdf(req: Request, res: Response): Promise<vo
     return;
   }
   const empresa = await obtenerEmpresa(empresaId);
-  responderPdf(res, await generarPdfBalanceGeneral(empresa, req), "balance-general.pdf");
+  await generarYResponder(res, generarPdfBalanceGeneral(empresa, req), "balance-general.pdf");
 }
 
 export async function generarPdfEstadoResultados(empresa: DatosEmpresa, req: Request): Promise<Buffer> {
@@ -230,7 +238,7 @@ export async function estadoResultadosPdf(req: Request, res: Response): Promise<
     return;
   }
   const empresa = await obtenerEmpresa(empresaId);
-  responderPdf(res, await generarPdfEstadoResultados(empresa, req), "estado-resultados.pdf");
+  await generarYResponder(res, generarPdfEstadoResultados(empresa, req), "estado-resultados.pdf");
 }
 
 export async function generarPdfIndicadores(empresa: DatosEmpresa, periodoId: number, empresaId: string): Promise<Buffer> {

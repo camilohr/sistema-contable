@@ -120,14 +120,14 @@ export async function crear(req: Request, res: Response): Promise<void> {
 
 export async function actualizar(req: Request, res: Response): Promise<void> {
   const id = String(req.params.id);
-  const existe = await prisma.empleado.findFirst({ where: { id, tercero: { empresaId: req.empresaId } } });
-  if (!existe) {
-    res.status(404).json({ error: "Empleado no encontrado" });
-    return;
-  }
   const parsed = actualizarSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
+    return;
+  }
+  const existe = await prisma.empleado.findFirst({ where: { id, tercero: { empresaId: req.empresaId } } });
+  if (!existe) {
+    res.status(404).json({ error: "Empleado no encontrado" });
     return;
   }
   const data = parsed.data;
@@ -158,6 +158,11 @@ export async function actualizar(req: Request, res: Response): Promise<void> {
 
 export async function retirar(req: Request, res: Response): Promise<void> {
   const id = String(req.params.id);
+  const parsed = retiroSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
+    return;
+  }
   const empleado = await prisma.empleado.findFirst({ where: { id, tercero: { empresaId: req.empresaId } } });
   if (!empleado) {
     res.status(404).json({ error: "Empleado no encontrado" });
@@ -165,11 +170,6 @@ export async function retirar(req: Request, res: Response): Promise<void> {
   }
   if (!empleado.activo) {
     res.status(400).json({ error: "El empleado ya está retirado" });
-    return;
-  }
-  const parsed = retiroSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "Datos inválidos", detalle: parsed.error.flatten() });
     return;
   }
   const fecha = new Date(parsed.data.fechaRetiro);
